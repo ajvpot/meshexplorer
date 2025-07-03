@@ -11,4 +11,4 @@ export const clickhouse = new ClickHouse({
   basicAuth: { username: user, password },
   isUseGzip: false,
   format: 'json',
-}); 
+});

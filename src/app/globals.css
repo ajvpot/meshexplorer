@@ -120,3 +120,57 @@
     @apply bg-background text-foreground;
   }
 }
+
+.custom-node-marker {
+  width: 16px;
+  height: 16px;
+  background: #2563eb; /* blue-600 */
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0,0,0,0.2);
+  display: block;
+  position: relative;
+  z-index: 2;
+}
+
+.custom-node-marker--green {
+  background: #22c55e; /* green-500 */
+}
+.custom-node-marker--blue {
+  background: #2563eb; /* blue-600 */
+}
+
+.custom-node-marker--top {
+  z-index: 1002 !important;
+  position: relative;
+}
+
+.map-spinner {
+  width: 28px;
+  height: 28px;
+  border: 4px solid #e5e7eb; /* gray-200 */
+  border-top: 4px solid #2563eb; /* blue-600 */
+  border-radius: 50%;
+  animation: map-spin 1s linear infinite;
+}
+@keyframes map-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.custom-node-label {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #222;
+  background: rgba(255,255,255,0.85);
+  padding: 0 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+  z-index: 1;
+}

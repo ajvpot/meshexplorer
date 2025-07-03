@@ -27,6 +27,20 @@ function formatLocalTime(utcString: string): string {
   return utcDate.toLocaleString();
 }
 
+function ChatMessageItem({ msg }: { msg: ChatMessage }) {
+  // Placeholder for decryption logic
+  // const decryptedMessage = decryptMessage(msg.encrypted_message);
+  return (
+    <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
+      <div className="text-xs text-gray-400 flex items-center gap-2">
+        {formatLocalTime(msg.ingest_timestamp)} <span className="text-xs text-blue-600 dark:text-blue-400 font-mono">{msg.channel_hash}</span>
+      </div>
+      <div className="font-mono break-all whitespace-pre-wrap">{formatHex(msg.encrypted_message)}</div>
+      <div className="text-xs text-gray-300">from: {msg.origin}</div>
+    </div>
+  );
+}
+
 export default function ChatBox() {
   const [minimized, setMinimized] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -100,13 +114,7 @@ export default function ChatBox() {
               <div className="text-gray-400 text-center mt-8">No chat messages found.</div>
             )}
             {messages.map((msg, i) => (
-              <div key={msg.ingest_timestamp + msg.origin + i} className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
-                <div className="text-xs text-gray-400 flex items-center gap-2">
-                  {formatLocalTime(msg.ingest_timestamp)} <span className="text-xs text-blue-600 dark:text-blue-400 font-mono">{msg.channel_hash}</span>
-                </div>
-                <div className="font-mono break-all whitespace-pre-wrap">{formatHex(msg.encrypted_message)}</div>
-                <div className="text-xs text-gray-300">from: {msg.origin}</div>
-              </div>
+              <ChatMessageItem key={msg.ingest_timestamp + msg.origin + i} msg={msg} />
             ))}
             {hasMore && (
               <button

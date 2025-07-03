@@ -1,14 +1,20 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
+import { getChannelIdFromKey } from "../lib/meshcore";
 
 // Config shape
 type NodeType = "meshcore" | "meshtastic";
+export type MeshcoreKey = {
+  channelName: string;
+  privateKey: string;
+};
 export type Config = {
   nodeTypes: NodeType[]; // which node types to show
   lastSeen: number | null; // seconds, or null for forever
   tileLayer: string; // add tileLayer selection
   clustering?: boolean; // add clustering toggle
   showNodeNames?: boolean; // add show node names toggle
+  meshcoreKeys?: MeshcoreKey[]; // meshcore private keys
 };
 
 const TILE_LAYERS = [
@@ -23,6 +29,7 @@ const DEFAULT_CONFIG: Config = {
   tileLayer: "openstreetmap", // default
   clustering: true, // default to clustering enabled
   showNodeNames: true, // default to show node names
+  meshcoreKeys: [], // default empty
 };
 
 const LAST_SEEN_OPTIONS = [
@@ -36,11 +43,17 @@ const LAST_SEEN_OPTIONS = [
   { value: null, label: "Forever (all time)" },
 ];
 
+const PUBLIC_MESHCORE_KEY = {
+  channelName: "Public",
+  privateKey: "izOH6cXN6mrJ5e26oRXNcg==",
+};
+
 const ConfigContext = createContext<any>(null);
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [open, setOpen] = useState(false);
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
   const configButtonRef = useRef<HTMLElement | null>(null);
   const firstRender = useRef(true);
 
@@ -70,7 +83,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   return (
     <ConfigContext.Provider value={{ config, setConfig, openConfig, configButtonRef }}>
       {children}
-      {open && <ConfigPopover config={config} setConfig={setConfig} onClose={closeConfig} anchorRef={configButtonRef} />}
+      {open && <ConfigPopover config={config} setConfig={setConfig} onClose={closeConfig} anchorRef={configButtonRef} onOpenKeyModal={() => setKeyModalOpen(true)} />}
+      {keyModalOpen && (
+        <MeshcoreKeyModal
+          config={config}
+          setConfig={setConfig}
+          onClose={() => setKeyModalOpen(false)}
+        />
+      )}
     </ConfigContext.Provider>
   );
 }
@@ -79,7 +99,7 @@ export function useConfig() {
   return useContext(ConfigContext);
 }
 
-function ConfigPopover({ config, setConfig, onClose, anchorRef }: { config: Config, setConfig: (c: Config) => void, onClose: () => void, anchorRef: React.RefObject<HTMLElement | null> }) {
+function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }: { config: Config, setConfig: (c: Config) => void, onClose: () => void, anchorRef: React.RefObject<HTMLElement | null>, onOpenKeyModal: () => void }) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Click outside to close
@@ -193,6 +213,134 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef }: { config: Conf
           />
           <span>Show node names</span>
         </label>
+      </div>
+      <div className="mb-2">
+        <button
+          className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
+          onClick={onOpenKeyModal}
+        >
+          Manage Meshcore Private Keys
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function validateMeshcoreKey(base64Key: string): string | null {
+  if (!base64Key) return null;
+  try {
+    const bytes = Buffer.from(base64Key, 'base64');
+    if (bytes.length !== 16) {
+      return 'Key must decode to exactly 16 bytes.';
+    }
+  } catch {
+    return 'Invalid base64 encoding.';
+  }
+  return null;
+}
+
+function MeshcoreKeyModal({ config, setConfig, onClose }: { config: Config, setConfig: (c: Config) => void, onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-lg p-6 min-w-[350px] max-w-[90vw] max-h-[60vh] overflow-auto border border-gray-200 dark:border-neutral-700 relative">
+        <button
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+          onClick={onClose}
+          aria-label="Close key modal"
+        >
+          <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+        <h2 className="text-lg font-semibold mb-4">Meshcore Private Keys</h2>
+        <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+          These keys will be used to decrypt messages. <b>Your keys are never shared with the server</b>, so your messages remain secure.
+        </p>
+        <div className="flex flex-col gap-1 mb-2 p-2 border rounded bg-gray-100 dark:bg-neutral-700 opacity-80">
+          <div className="flex items-center gap-2">
+            <input
+              className="flex-1 p-1 border rounded bg-gray-200 dark:bg-neutral-800 cursor-not-allowed"
+              type="text"
+              value={PUBLIC_MESHCORE_KEY.channelName}
+              disabled
+              readOnly
+            />
+            <span className="text-xs text-gray-500">ID: <span className="font-mono">{getChannelIdFromKey(PUBLIC_MESHCORE_KEY.privateKey)}</span></span>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              className="flex-1 p-1 border rounded font-mono bg-gray-200 dark:bg-neutral-800 cursor-not-allowed"
+              type="text"
+              value={PUBLIC_MESHCORE_KEY.privateKey}
+              disabled
+              readOnly
+            />
+            <button
+              className="text-gray-400 px-2 py-1 cursor-not-allowed"
+              disabled
+              aria-label="Remove key"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+        {(config.meshcoreKeys || []).map((key, idx) => {
+          const keyError = validateMeshcoreKey(key.privateKey);
+          return (
+            <div key={idx} className="flex flex-col gap-1 mb-2 p-2 border rounded bg-gray-50 dark:bg-neutral-800">
+              <div className="flex items-center gap-2">
+                <input
+                  className="flex-1 p-1 border rounded"
+                  type="text"
+                  placeholder="Channel Name"
+                  value={key.channelName}
+                  onChange={e => {
+                    const updated = [...(config.meshcoreKeys || [])];
+                    updated[idx] = { ...updated[idx], channelName: e.target.value };
+                    setConfig({ ...config, meshcoreKeys: updated });
+                  }}
+                />
+                <span className="text-xs text-gray-500">ID: <span className="font-mono">{getChannelIdFromKey(key.privateKey)}</span></span>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  className={`flex-1 p-1 border rounded font-mono ${keyError ? 'border-red-500' : ''}`}
+                  type="text"
+                  placeholder="Base64 Private Key"
+                  value={key.privateKey}
+                  onChange={e => {
+                    const updated = [...(config.meshcoreKeys || [])];
+                    updated[idx] = { ...updated[idx], privateKey: e.target.value };
+                    setConfig({ ...config, meshcoreKeys: updated });
+                  }}
+                />
+                <button
+                  className="text-red-500 hover:text-red-700 px-2 py-1"
+                  onClick={() => {
+                    const updated = [...(config.meshcoreKeys || [])];
+                    updated.splice(idx, 1);
+                    setConfig({ ...config, meshcoreKeys: updated });
+                  }}
+                  aria-label="Remove key"
+                >
+                  Remove
+                </button>
+              </div>
+              {keyError && (
+                <div className="text-xs text-red-500 mt-1">{keyError}</div>
+              )}
+            </div>
+          );
+        })}
+        <button
+          className="mt-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+          onClick={() => {
+            setConfig({
+              ...config,
+              meshcoreKeys: [...(config.meshcoreKeys || []), { channelName: '', privateKey: '' }],
+            });
+          }}
+        >
+          Add Meshcore Key
+        </button>
       </div>
     </div>
   );

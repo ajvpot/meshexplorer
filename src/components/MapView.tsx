@@ -16,7 +16,7 @@ const DEFAULT = {
 };
 
 type NodePosition = {
-  from_node_id: string;
+  node_id: string;
   latitude: number;
   longitude: number;
   altitude?: number;
@@ -56,10 +56,14 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
         });
         const marker = L.marker([node.latitude, node.longitude], { icon });
         (marker as any).options.nodeData = node;
-        let popupHtml = `<div><div><b>ID:</b> ${node.from_node_id}</div><div><b>Lat:</b> ${node.latitude}</div><div><b>Lng:</b> ${node.longitude}</div>`;
-        if (node.altitude !== undefined) popupHtml += `<div><b>Alt:</b> ${node.altitude}</div>`;
-        if (node.last_seen) popupHtml += `<div><b>Last seen:</b> ${node.last_seen}</div>`;
-        if (node.type) popupHtml += `<div><b>Type:</b> ${node.type}</div>`;
+        let popupHtml = `<div>`;
+        popupHtml += `<div><b>ID:</b> ${node.node_id}</div>`;
+        popupHtml += `<div><b>Short Name:</b> ${node.short_name ?? "-"}</div>`;
+        popupHtml += `<div><b>Type:</b> ${node.type ?? "-"}</div>`;
+        popupHtml += `<div><b>Lat:</b> ${node.latitude}</div>`;
+        popupHtml += `<div><b>Lng:</b> ${node.longitude}</div>`;
+        popupHtml += `<div><b>Alt:</b> ${node.altitude !== undefined ? node.altitude : "-"}</div>`;
+        popupHtml += `<div><b>Last seen:</b> ${node.last_seen ?? "-"}</div>`;
         popupHtml += `</div>`;
         marker.bindPopup(popupHtml);
         marker.addTo(map);
@@ -155,10 +159,14 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
         });
         const marker = L.marker([node.latitude, node.longitude], { icon });
         (marker as any).options.nodeData = node;
-        let popupHtml = `<div><div><b>ID:</b> ${node.from_node_id}</div><div><b>Lat:</b> ${node.latitude}</div><div><b>Lng:</b> ${node.longitude}</div>`;
-        if (node.altitude !== undefined) popupHtml += `<div><b>Alt:</b> ${node.altitude}</div>`;
-        if (node.last_seen) popupHtml += `<div><b>Last seen:</b> ${node.last_seen}</div>`;
-        if (node.type) popupHtml += `<div><b>Type:</b> ${node.type}</div>`;
+        let popupHtml = `<div>`;
+        popupHtml += `<div><b>ID:</b> ${node.node_id}</div>`;
+        popupHtml += `<div><b>Short Name:</b> ${node.short_name ?? "-"}</div>`;
+        popupHtml += `<div><b>Type:</b> ${node.type ?? "-"}</div>`;
+        popupHtml += `<div><b>Lat:</b> ${node.latitude}</div>`;
+        popupHtml += `<div><b>Lng:</b> ${node.longitude}</div>`;
+        popupHtml += `<div><b>Alt:</b> ${node.altitude !== undefined ? node.altitude : "-"}</div>`;
+        popupHtml += `<div><b>Last seen:</b> ${node.last_seen ?? "-"}</div>`;
         popupHtml += `</div>`;
         marker.bindPopup(popupHtml);
         markers.addLayer(marker);
@@ -177,6 +185,7 @@ export default function MapView() {
   const [nodePositions, setNodePositions] = useState<NodePosition[]>([]);
   const [bounds, setBounds] = useState<[[number, number], [number, number]] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lastResultCount, setLastResultCount] = useState<number>(0);
   const fetchController = useRef<AbortController | null>(null);
   const lastRequestedBounds = useRef<[[number, number], [number, number]] | null>(null);
   const { config } = useConfig ? useConfig() : { config: undefined };
@@ -231,7 +240,10 @@ export default function MapView() {
     fetch(url, { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) setNodePositions(data);
+        if (Array.isArray(data)) {
+          setNodePositions(data);
+          setLastResultCount(data.length);
+        }
         if (fetchController.current === controller) setLoading(false);
       })
       .catch((err) => {
@@ -255,7 +267,7 @@ export default function MapView() {
     useMapEvents({
       moveend: (e) => {
         const b = e.target.getBounds();
-        const buffer = 0.2; // 20% buffer
+        const buffer = 0.05; // 5% buffer
         const latDiff = b.getNorthEast().lat - b.getSouthWest().lat;
         const lngDiff = b.getNorthEast().lng - b.getSouthWest().lng;
         const newBounds: [[number, number], [number, number]] = [
@@ -268,13 +280,18 @@ export default function MapView() {
             b.getNorthEast().lng + lngDiff * buffer,
           ],
         ];
-        if (!lastRequestedBounds.current || !isBoundsInside(newBounds, lastRequestedBounds.current)) {
+        // Only always refetch if we have too many nodes depending on clustering setting.
+        if (
+          (lastResultCount > (config?.clustering ? 5000: 1000)) ||
+          !lastRequestedBounds.current ||
+          !isBoundsInside(newBounds, lastRequestedBounds.current)
+        ) {
           setBounds(newBounds);
         }
       },
       zoomend: (e) => {
         const b = e.target.getBounds();
-        const buffer = 0.2; // 20% buffer
+        const buffer = 0.05; // 5% buffer
         const latDiff = b.getNorthEast().lat - b.getSouthWest().lat;
         const lngDiff = b.getNorthEast().lng - b.getSouthWest().lng;
         const newBounds: [[number, number], [number, number]] = [
@@ -287,7 +304,12 @@ export default function MapView() {
             b.getNorthEast().lng + lngDiff * buffer,
           ],
         ];
-        if (!lastRequestedBounds.current || !isBoundsInside(newBounds, lastRequestedBounds.current)) {
+        // Only always refetch if clustering is disabled and lastResultCount > 1000
+        if (
+          (config?.clustering === false && lastResultCount > 1000) ||
+          !lastRequestedBounds.current ||
+          !isBoundsInside(newBounds, lastRequestedBounds.current)
+        ) {
           setBounds(newBounds);
         }
       },

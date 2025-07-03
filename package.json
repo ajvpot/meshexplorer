@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.11.2",
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
     "@types/leaflet": "^1.9.19",

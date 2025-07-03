@@ -44,3 +44,27 @@ export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTyp
       type: string;
     }>;
 } 
+
+export async function getLatestChatMessages({ limit = 20, before }: { limit?: number, before?: string } = {}) {
+  let where = [];
+  const params: Record<string, any> = { limit };
+  if (before) {
+    where.push('ingest_timestamp < {before:DateTime64}');
+    params.before = before;
+  }
+  const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+  const query = `SELECT ingest_timestamp, origin, mesh_timestamp, packet, path_len, path, channel_hash, mac, hex(encrypted_message) AS encrypted_message FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
+  const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
+  const rows = await resultSet.json();
+  return rows as Array<{
+    ingest_timestamp: string;
+    origin: string;
+    mesh_timestamp: string;
+    packet: string;
+    path_len: number;
+    path: string;
+    channel_hash: string;
+    mac: string;
+    encrypted_message: string;
+  }>;
+} 

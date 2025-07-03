@@ -9,7 +9,7 @@ interface HeaderProps {
 }
 
 export default function Header({ configButtonRef }: HeaderProps) {
-  const { openConfig } = useConfig();
+  const { openConfig, configButtonRef: contextButtonRef } = useConfig();
   return (
     <header className="w-full flex items-center justify-between px-6 py-3 bg-white dark:bg-neutral-900 shadow z-20">
       <nav className="flex gap-6 items-center">
@@ -18,7 +18,7 @@ export default function Header({ configButtonRef }: HeaderProps) {
         <Link href="/docs">Docs</Link>
       </nav>
       <button
-        ref={configButtonRef}
+        ref={configButtonRef || contextButtonRef}
         onClick={openConfig}
         className="flex items-center gap-2 px-3 py-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
         aria-label="Open configuration menu"

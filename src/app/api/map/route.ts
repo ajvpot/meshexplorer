@@ -8,7 +8,9 @@ export async function GET(req: Request) {
     const maxLat = searchParams.get("maxLat");
     const minLng = searchParams.get("minLng");
     const maxLng = searchParams.get("maxLng");
-    const positions = await getNodePositions({ minLat, maxLat, minLng, maxLng });
+    const nodeTypes = searchParams.getAll("nodeTypes");
+    const lastSeen = searchParams.get("lastSeen");
+    const positions = await getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen });
     return NextResponse.json(positions);
   } catch (error) {
     return NextResponse.json({ error: "Failed to fetch node positions" }, { status: 500 });

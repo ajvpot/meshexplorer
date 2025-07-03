@@ -8,6 +8,7 @@ import 'leaflet.markercluster/dist/leaflet.markercluster.js';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useConfig } from "./ConfigContext";
+import moment from "moment";
 
 const DEFAULT = {
   lat: 47.6062, // Seattle
@@ -23,6 +24,7 @@ type NodePosition = {
   last_seen?: string;
   type?: string;
   short_name?: string;
+  name?: string | null;
 };
 
 type ClusteredMarkersProps = { nodes: NodePosition[] };
@@ -47,7 +49,7 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
             : node.type === "meshcore"
             ? "custom-node-marker custom-node-marker--blue custom-node-marker--top"
             : "custom-node-marker";
-        const label = node.short_name ? `<div class='custom-node-label'>${node.short_name}</div>` : '';
+        const label = (config?.showNodeNames !== false && node.short_name) ? `<div class='custom-node-label'>${node.short_name}</div>` : '';
         const icon = L.divIcon({
           className: 'custom-node-marker-container',
           iconSize: [16, 32],
@@ -58,12 +60,20 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
         (marker as any).options.nodeData = node;
         let popupHtml = `<div>`;
         popupHtml += `<div><b>ID:</b> ${node.node_id}</div>`;
+        popupHtml += `<div><b>Full Name:</b> ${node.name ?? "-"}</div>`;
         popupHtml += `<div><b>Short Name:</b> ${node.short_name ?? "-"}</div>`;
         popupHtml += `<div><b>Type:</b> ${node.type ?? "-"}</div>`;
         popupHtml += `<div><b>Lat:</b> ${node.latitude}</div>`;
         popupHtml += `<div><b>Lng:</b> ${node.longitude}</div>`;
         popupHtml += `<div><b>Alt:</b> ${node.altitude !== undefined ? node.altitude : "-"}</div>`;
-        popupHtml += `<div><b>Last seen:</b> ${node.last_seen ?? "-"}</div>`;
+        if (node.last_seen) {
+          // Parse as UTC, display UTC, and show local relative time
+          const utcTime = moment.utc(node.last_seen);
+          const localAgo = utcTime.local().fromNow();
+          popupHtml += `<div><b>Last seen:</b> ${utcTime.format('YYYY-MM-DD HH:mm:ss')} <span style='color: #888;'>(UTC)</span><br/><span style='color: #888;'>${localAgo}</span></div>`;
+        } else {
+          popupHtml += `<div><b>Last seen:</b> -</div>`;
+        }
         popupHtml += `</div>`;
         marker.bindPopup(popupHtml);
         marker.addTo(map);
@@ -150,7 +160,7 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
             : node.type === "meshcore"
             ? "custom-node-marker custom-node-marker--blue custom-node-marker--top"
             : "custom-node-marker";
-        const label = node.short_name ? `<div class='custom-node-label'>${node.short_name}</div>` : '';
+        const label = (config?.showNodeNames !== false && node.short_name) ? `<div class='custom-node-label'>${node.short_name}</div>` : '';
         const icon = L.divIcon({
           className: 'custom-node-marker-container',
           iconSize: [16, 32],
@@ -161,12 +171,20 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
         (marker as any).options.nodeData = node;
         let popupHtml = `<div>`;
         popupHtml += `<div><b>ID:</b> ${node.node_id}</div>`;
+        popupHtml += `<div><b>Full Name:</b> ${node.name ?? "-"}</div>`;
         popupHtml += `<div><b>Short Name:</b> ${node.short_name ?? "-"}</div>`;
         popupHtml += `<div><b>Type:</b> ${node.type ?? "-"}</div>`;
         popupHtml += `<div><b>Lat:</b> ${node.latitude}</div>`;
         popupHtml += `<div><b>Lng:</b> ${node.longitude}</div>`;
         popupHtml += `<div><b>Alt:</b> ${node.altitude !== undefined ? node.altitude : "-"}</div>`;
-        popupHtml += `<div><b>Last seen:</b> ${node.last_seen ?? "-"}</div>`;
+        if (node.last_seen) {
+          // Parse as UTC, display UTC, and show local relative time
+          const utcTime = moment.utc(node.last_seen);
+          const localAgo = utcTime.local().fromNow();
+          popupHtml += `<div><b>Last seen:</b> ${utcTime.format('YYYY-MM-DD HH:mm:ss')} <span style='color: #888;'>(UTC)</span><br/><span style='color: #888;'>${localAgo}</span></div>`;
+        } else {
+          popupHtml += `<div><b>Last seen:</b> -</div>`;
+        }
         popupHtml += `</div>`;
         marker.bindPopup(popupHtml);
         markers.addLayer(marker);
@@ -177,7 +195,7 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
         map.removeLayer(markers);
       };
     }
-  }, [map, nodes, config?.clustering]);
+  }, [map, nodes, config?.clustering, config?.showNodeNames]);
   return null;
 }
 
@@ -267,7 +285,7 @@ export default function MapView() {
     useMapEvents({
       moveend: (e) => {
         const b = e.target.getBounds();
-        const buffer = 0.05; // 5% buffer
+        const buffer = 0.2; // 20% buffer
         const latDiff = b.getNorthEast().lat - b.getSouthWest().lat;
         const lngDiff = b.getNorthEast().lng - b.getSouthWest().lng;
         const newBounds: [[number, number], [number, number]] = [
@@ -291,7 +309,7 @@ export default function MapView() {
       },
       zoomend: (e) => {
         const b = e.target.getBounds();
-        const buffer = 0.05; // 5% buffer
+        const buffer = 0.2; // 20% buffer
         const latDiff = b.getNorthEast().lat - b.getSouthWest().lat;
         const lngDiff = b.getNorthEast().lng - b.getSouthWest().lng;
         const newBounds: [[number, number], [number, number]] = [

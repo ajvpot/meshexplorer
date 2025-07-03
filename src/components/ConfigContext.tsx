@@ -8,6 +8,7 @@ export type Config = {
   lastSeen: number | null; // seconds, or null for forever
   tileLayer: string; // add tileLayer selection
   clustering?: boolean; // add clustering toggle
+  showNodeNames?: boolean; // add show node names toggle
 };
 
 const TILE_LAYERS = [
@@ -18,9 +19,10 @@ const TILE_LAYERS = [
 
 const DEFAULT_CONFIG: Config = {
   nodeTypes: ["meshcore", "meshtastic"],
-  lastSeen: 86400, // 24h in seconds
+  lastSeen: null, // forever by default
   tileLayer: "openstreetmap", // default
   clustering: true, // default to clustering enabled
+  showNodeNames: true, // default to show node names
 };
 
 const LAST_SEEN_OPTIONS = [
@@ -180,6 +182,16 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef }: { config: Conf
             onChange={e => setConfig({ ...config, clustering: e.target.checked })}
           />
           <span>Enable marker clustering</span>
+        </label>
+      </div>
+      <div className="mb-2">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={config.showNodeNames !== false}
+            onChange={e => setConfig({ ...config, showNodeNames: e.target.checked })}
+          />
+          <span>Show node names</span>
         </label>
       </div>
     </div>

@@ -367,11 +367,55 @@ export default function MapView() {
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      {loading && (
-        <div style={{ position: "absolute", top: 16, right: 16, zIndex: 1000 }}>
-          <div className="map-spinner" />
-        </div>
-      )}
+      {/* Only Refresh Button Row */}
+      <div style={{ position: "absolute", top: 16, right: 16, zIndex: 1000, display: 'flex', alignItems: 'center' }}>
+        <button
+          onClick={() => bounds && fetchNodes(bounds)}
+          disabled={loading || !bounds}
+          style={{
+            background: "#fff",
+            color: "#2563eb",
+            border: "none",
+            borderRadius: "50%",
+            width: 40,
+            height: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
+            opacity: loading ? 0.7 : 1,
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "background 0.2s, opacity 0.2s",
+            fontSize: 22,
+            padding: 0,
+          }}
+          aria-label="Refresh map nodes"
+          title="Refresh map nodes"
+        >
+          {/* Refresh Icon (SVG) */}
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={loading ? { animation: 'spin 1s linear infinite' } : {}}
+          >
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l4.36 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+      </div>
+      {/* Add keyframes for spin animation */}
+      <style>{`
+        @keyframes spin {
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
       <MapContainer
         center={[DEFAULT.lat, DEFAULT.lng]}
         zoom={DEFAULT.zoom}

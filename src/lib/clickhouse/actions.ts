@@ -45,12 +45,16 @@ export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTyp
     }>;
 } 
 
-export async function getLatestChatMessages({ limit = 20, before }: { limit?: number, before?: string } = {}) {
+export async function getLatestChatMessages({ limit = 20, before, channelId }: { limit?: number, before?: string, channelId?: string } = {}) {
   let where = [];
   const params: Record<string, any> = { limit };
   if (before) {
     where.push('ingest_timestamp < {before:DateTime64}');
     params.before = before;
+  }
+  if (channelId) {
+    where.push('channel_hash = {channelId:String}');
+    params.channelId = channelId;
   }
   const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
   const query = `SELECT ingest_timestamp, origin, mesh_timestamp, packet, path_len, path, channel_hash, mac, hex(encrypted_message) AS encrypted_message FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;

@@ -1,6 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { useConfig } from "./ConfigContext";
+import { decryptMeshcoreGroupMessage } from "../lib/meshcore_decrypt";
+import { getChannelIdFromKey } from "../lib/meshcore";
 
 interface ChatMessage {
   ingest_timestamp: string;
@@ -28,25 +31,88 @@ function formatLocalTime(utcString: string): string {
 }
 
 function ChatMessageItem({ msg }: { msg: ChatMessage }) {
-  // Placeholder for decryption logic
-  // const decryptedMessage = decryptMessage(msg.encrypted_message);
+  const { config } = useConfig();
+  const knownKeys = [
+    ...(config?.meshcoreKeys?.map((k: any) => k.privateKey) || []),
+    "izOH6cXN6mrJ5e26oRXNcg==", // Always include public key
+  ];
+  const [parsed, setParsed] = useState<any | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await decryptMeshcoreGroupMessage({
+          encrypted_message: msg.encrypted_message,
+          mac: msg.mac,
+          channel_hash: msg.channel_hash,
+          knownKeys,
+          parse: true,
+        });
+        if (!cancelled) {
+          setParsed(result);
+          if (result === null) {
+            console.warn("Meshcore message could not be parsed", { msg });
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setParsed(null);
+          console.error("Error during Meshcore decryption/parsing", { msg, err });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [msg.encrypted_message, msg.mac, msg.channel_hash, knownKeys.join(",")]);
+
+  if (parsed) {
+    return (
+      <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
+        <div className="text-xs text-gray-400 flex items-center gap-2">
+          {formatLocalTime(new Date(parsed.timestamp * 1000).toISOString())}
+          <span className="text-xs text-gray-500">type: {parsed.msgType}</span>
+        </div>
+        <div className="break-all whitespace-pre-wrap">
+          <span className="font-bold text-blue-800 dark:text-blue-300">{parsed.sender}</span>
+          {parsed.sender && ": "}
+          <span>{parsed.text}</span>
+        </div>
+        <div className="text-xs text-gray-300">Relayed by: {msg.origin}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
       <div className="text-xs text-gray-400 flex items-center gap-2">
-        {formatLocalTime(msg.ingest_timestamp)} <span className="text-xs text-blue-600 dark:text-blue-400 font-mono">{msg.channel_hash}</span>
+        {formatLocalTime(msg.ingest_timestamp)}
       </div>
-      <div className="font-mono break-all whitespace-pre-wrap">{formatHex(msg.encrypted_message)}</div>
-      <div className="text-xs text-gray-300">from: {msg.origin}</div>
+      <div className="font-mono break-all whitespace-pre-wrap">
+        {formatHex(msg.encrypted_message)}
+      </div>
+      <div className="text-xs text-gray-300">Relayed by: {msg.origin}</div>
     </div>
   );
 }
 
 export default function ChatBox() {
+  const { config } = useConfig();
+  const meshcoreKeys = [
+    { channelName: "Public", privateKey: "izOH6cXN6mrJ5e26oRXNcg==" },
+    ...(config?.meshcoreKeys || [])
+  ];
+  const [selectedTab, setSelectedTab] = useState(0);
   const [minimized, setMinimized] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [lastBefore, setLastBefore] = useState<string | undefined>(undefined);
+
+  const selectedKey = meshcoreKeys[selectedTab];
+  const channelId = getChannelIdFromKey(selectedKey.privateKey).toUpperCase();
+
+  // Only show tabs if more than one channel (public + at least one custom key)
+  const showTabs = meshcoreKeys.length > 1;
 
   useEffect(() => {
     if (!minimized) {
@@ -56,12 +122,12 @@ export default function ChatBox() {
       fetchMessages(undefined, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minimized]);
+  }, [minimized, selectedTab]);
 
   const fetchMessages = async (before?: string, replace = false) => {
     setLoading(true);
     try {
-      let url = `/api/chat?limit=${PAGE_SIZE}`;
+      let url = `/api/chat?limit=${PAGE_SIZE}&channel_id=${channelId}`;
       if (before) url += `&before=${encodeURIComponent(before)}`;
       const res = await fetch(url);
       const data = await res.json();
@@ -108,25 +174,44 @@ export default function ChatBox() {
         </button>
       </div>
       {!minimized && (
-        <div className="flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 flex flex-col-reverse">
-          <div className="flex flex-col-reverse gap-2">
-            {messages.length === 0 && !loading && (
-              <div className="text-gray-400 text-center mt-8">No chat messages found.</div>
-            )}
-            {messages.map((msg, i) => (
-              <ChatMessageItem key={msg.ingest_timestamp + msg.origin + i} msg={msg} />
-            ))}
-            {hasMore && (
-              <button
-                className="w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 mt-2"
-                onClick={handleLoadMore}
-                disabled={loading}
-              >
-                {loading ? "Loading..." : "Load more"}
-              </button>
-            )}
+        <>
+          {showTabs && (
+            <div className="flex gap-1 mb-2 border-b border-gray-200 dark:border-neutral-800">
+              {meshcoreKeys.map((key, idx) => (
+                <button
+                  key={key.privateKey + idx}
+                  className={`px-2 py-1 text-xs rounded-t font-mono ${
+                    idx === selectedTab
+                      ? "bg-gray-100 dark:bg-neutral-800 text-blue-700 dark:text-blue-400 border-b-2 border-blue-500"
+                      : "bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800"
+                  }`}
+                  onClick={() => setSelectedTab(idx)}
+                >
+                  {key.channelName || getChannelIdFromKey(key.privateKey).toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 flex flex-col-reverse">
+            <div className="flex flex-col-reverse gap-2">
+              {messages.length === 0 && !loading && (
+                <div className="text-gray-400 text-center mt-8">No chat messages found.</div>
+              )}
+              {messages.map((msg, i) => (
+                <ChatMessageItem key={msg.ingest_timestamp + msg.origin + i} msg={msg} />
+              ))}
+              {hasMore && (
+                <button
+                  className="w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 mt-2"
+                  onClick={handleLoadMore}
+                  disabled={loading}
+                >
+                  {loading ? "Loading..." : "Load more"}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

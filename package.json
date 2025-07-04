@@ -13,6 +13,7 @@
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
     "@types/leaflet": "^1.9.19",
+    "aes-js": "^3.1.2",
     "class-variance-authority": "^0.7.1",
     "clickhouse": "^2.6.0",
     "clsx": "^2.1.1",
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/aes-js": "^3.1.4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

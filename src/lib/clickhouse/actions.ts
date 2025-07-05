@@ -45,12 +45,16 @@ export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTyp
     }>;
 } 
 
-export async function getLatestChatMessages({ limit = 20, before, channelId }: { limit?: number, before?: string, channelId?: string } = {}) {
+export async function getLatestChatMessages({ limit = 20, before, after, channelId }: { limit?: number, before?: string, after?: string, channelId?: string } = {}) {
   let where = [];
   const params: Record<string, any> = { limit };
   if (before) {
     where.push('ingest_timestamp < {before:DateTime64}');
     params.before = before;
+  }
+  if (after) {
+    where.push('ingest_timestamp > {after:DateTime64}');
+    params.after = after;
   }
   if (channelId) {
     where.push('channel_hash = {channelId:String}');

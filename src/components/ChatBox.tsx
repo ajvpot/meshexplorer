@@ -4,18 +4,7 @@ import { MinusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useConfig } from "./ConfigContext";
 import { decryptMeshcoreGroupMessage } from "../lib/meshcore_decrypt";
 import { getChannelIdFromKey } from "../lib/meshcore";
-
-interface ChatMessage {
-  ingest_timestamp: string;
-  origin: string;
-  mesh_timestamp: string;
-  packet: string;
-  path_len: number;
-  path: string;
-  channel_hash: string;
-  mac: string;
-  encrypted_message: string;
-}
+import ChatMessageItem, { ChatMessage } from "./ChatMessageItem";
 
 const PAGE_SIZE = 20;
 
@@ -28,71 +17,6 @@ function formatLocalTime(utcString: string): string {
   // Parse as UTC and display in local time
   const utcDate = new Date(utcString + (utcString.endsWith('Z') ? '' : 'Z'));
   return utcDate.toLocaleString();
-}
-
-function ChatMessageItem({ msg }: { msg: ChatMessage }) {
-  const { config } = useConfig();
-  const knownKeys = [
-    ...(config?.meshcoreKeys?.map((k: any) => k.privateKey) || []),
-    "izOH6cXN6mrJ5e26oRXNcg==", // Always include public key
-  ];
-  const [parsed, setParsed] = useState<any | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const result = await decryptMeshcoreGroupMessage({
-          encrypted_message: msg.encrypted_message,
-          mac: msg.mac,
-          channel_hash: msg.channel_hash,
-          knownKeys,
-          parse: true,
-        });
-        if (!cancelled) {
-          setParsed(result);
-          if (result === null) {
-            console.warn("Meshcore message could not be parsed", { msg });
-          }
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setParsed(null);
-          console.error("Error during Meshcore decryption/parsing", { msg, err });
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [msg.encrypted_message, msg.mac, msg.channel_hash, knownKeys.join(",")]);
-
-  if (parsed) {
-    return (
-      <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
-        <div className="text-xs text-gray-400 flex items-center gap-2">
-          {formatLocalTime(new Date(parsed.timestamp * 1000).toISOString())}
-          <span className="text-xs text-gray-500">type: {parsed.msgType}</span>
-        </div>
-        <div className="break-all whitespace-pre-wrap">
-          <span className="font-bold text-blue-800 dark:text-blue-300">{parsed.sender}</span>
-          {parsed.sender && ": "}
-          <span>{parsed.text}</span>
-        </div>
-        <div className="text-xs text-gray-300">Relayed by: {msg.origin}</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
-      <div className="text-xs text-gray-400 flex items-center gap-2">
-        {formatLocalTime(msg.ingest_timestamp)}
-      </div>
-      <div className="font-mono break-all whitespace-pre-wrap">
-        {formatHex(msg.encrypted_message)}
-      </div>
-      <div className="text-xs text-gray-300">Relayed by: {msg.origin}</div>
-    </div>
-  );
 }
 
 export default function ChatBox() {

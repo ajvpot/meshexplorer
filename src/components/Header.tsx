@@ -15,6 +15,7 @@ export default function Header({ configButtonRef }: HeaderProps) {
       <nav className="flex gap-6 items-center">
         <Link href="/" className="font-bold text-lg">MeshExplorer</Link>
         <Link href="/messages">Messages</Link>
+        <Link href="/stats">Stats</Link>
       </nav>
       <button
         ref={configButtonRef || contextButtonRef}

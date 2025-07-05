@@ -84,11 +84,11 @@ export default function ChatBox() {
       }`}
     >
       <div className="flex items-center justify-between" style={{ minHeight: '2rem' }}>
-        <span className="font-semibold text-gray-800 dark:text-gray-100">Chat</span>
+        <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
         <button
           className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800"
           onClick={() => setMinimized((m) => !m)}
-          aria-label={minimized ? "Maximize chat" : "Minimize chat"}
+          aria-label={minimized ? "Maximize MeshCore Chat" : "Minimize MeshCore Chat"}
         >
           {minimized ? (
             <PlusIcon className="h-5 w-5" />

@@ -110,7 +110,7 @@ export default function MessagesPage() {
     <div className="max-w-2xl mx-auto py-8 px-4" style={{ position: 'relative' }}>
       {/* Header row with title and refresh button */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">All Messages</h1>
+        <h1 className="text-2xl font-bold">MeshCore Messages</h1>
         <RefreshButton
           onClick={() => fetchMessages(undefined, true)}
           loading={loading}

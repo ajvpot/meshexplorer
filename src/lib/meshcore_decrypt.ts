@@ -17,6 +17,28 @@ function base64ToBytes(b64: string): Uint8Array {
   return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
 }
 
+// Add a helper to decode base64 or hex
+function decodeKeyString(key: string): Uint8Array {
+  // Try base64 first
+  try {
+    const b = Uint8Array.from(atob(key), c => c.charCodeAt(0));
+    if (b.length === 16) return b;
+  } catch {}
+  // Try hex (with or without 0x)
+  let hex = key.trim();
+  if (hex.startsWith('0x')) hex = hex.slice(2);
+  if (/^[0-9a-fA-F]{32}$/.test(hex)) {
+    try {
+      const b = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        b[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+      }
+      if (b.length === 16) return b;
+    } catch {}
+  }
+  throw new Error('Invalid key format: must be 16 bytes, base64 or hex');
+}
+
 // Helper: HMAC-SHA256, returns Uint8Array
 async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
   if (window.crypto?.subtle) {
@@ -89,7 +111,7 @@ export async function decryptMeshcoreGroupMessage({
   for (const base64Key of knownKeys) {
     let keyBytes: Uint8Array;
     try {
-      keyBytes = base64ToBytes(base64Key);
+      keyBytes = decodeKeyString(base64Key);
     } catch (e) {
       console.warn("Skipping invalid base64 meshcore key:", base64Key, e);
       failures.push({ key: base64Key, reason: `base64 decode error: ${e}` });

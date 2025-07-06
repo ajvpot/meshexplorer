@@ -226,15 +226,31 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
   );
 }
 
-function validateMeshcoreKey(base64Key: string): string | null {
-  if (!base64Key) return null;
+// Add a helper to decode base64 or hex
+function decodeKeyString(key: string): Buffer | null {
+  if (!key) return null;
+  // Try base64 first
   try {
-    const bytes = Buffer.from(base64Key, 'base64');
-    if (bytes.length !== 16) {
-      return 'Key must decode to exactly 16 bytes.';
-    }
-  } catch {
-    return 'Invalid base64 encoding.';
+    const b = Buffer.from(key, 'base64');
+    if (b.length === 16) return b;
+  } catch {}
+  // Try hex (with or without 0x)
+  let hex = key.trim();
+  if (hex.startsWith('0x')) hex = hex.slice(2);
+  if (/^[0-9a-fA-F]{32}$/.test(hex)) {
+    try {
+      const b = Buffer.from(hex, 'hex');
+      if (b.length === 16) return b;
+    } catch {}
+  }
+  return null;
+}
+
+function validateMeshcoreKey(key: string): string | null {
+  if (!key) return null;
+  const decoded = decodeKeyString(key);
+  if (!decoded) {
+    return 'Key must be 16 bytes, in base64 or hex (32 hex digits)';
   }
   return null;
 }
@@ -263,7 +279,17 @@ function MeshcoreKeyModal({ config, setConfig, onClose }: { config: Config, setC
               disabled
               readOnly
             />
-            <span className="text-xs text-gray-500">ID: <span className="font-mono">{getChannelIdFromKey(PUBLIC_MESHCORE_KEY.privateKey)}</span></span>
+            {/* Only show ID if valid */}
+            {(() => {
+              try {
+                const id = getChannelIdFromKey(PUBLIC_MESHCORE_KEY.privateKey);
+                return (
+                  <span className="text-xs text-gray-500">ID: <span className="font-mono">{id}</span></span>
+                );
+              } catch {
+                return null;
+              }
+            })()}
           </div>
           <div className="flex items-center gap-2 mt-1">
             <input
@@ -298,13 +324,23 @@ function MeshcoreKeyModal({ config, setConfig, onClose }: { config: Config, setC
                     setConfig({ ...config, meshcoreKeys: updated });
                   }}
                 />
-                <span className="text-xs text-gray-500">ID: <span className="font-mono">{getChannelIdFromKey(key.privateKey)}</span></span>
+                {/* Only show ID if valid */}
+                {(() => {
+                  try {
+                    const id = getChannelIdFromKey(key.privateKey);
+                    return (
+                      <span className="text-xs text-gray-500">ID: <span className="font-mono">{id}</span></span>
+                    );
+                  } catch {
+                    return null;
+                  }
+                })()}
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <input
                   className={`flex-1 p-1 border rounded font-mono ${keyError ? 'border-red-500' : ''}`}
                   type="text"
-                  placeholder="Base64 Private Key"
+                  placeholder="Base64 or Hex Private Key"
                   value={key.privateKey}
                   onChange={e => {
                     const updated = [...(config.meshcoreKeys || [])];

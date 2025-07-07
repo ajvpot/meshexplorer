@@ -5,7 +5,7 @@ import { decryptMeshcoreGroupMessage } from "../lib/meshcore_decrypt";
 
 export interface ChatMessage {
   ingest_timestamp: string;
-  origin: string;
+  origins: string[];
   mesh_timestamp: string;
   packet: string;
   path_len: number;
@@ -71,7 +71,7 @@ export default function ChatMessageItem({ msg, showErrorRow, showChannelId }: { 
           {parsed.sender && ": "}
           <span>{parsed.text}</span>
         </div>
-        <div className="text-xs text-gray-300">Relayed by: {msg.origin}</div>
+        <div className="text-xs text-gray-300">Relayed by: {msg.origins && msg.origins.length > 0 ? msg.origins.map(o => o.slice(0, 6)).join(", ") : "-"}</div>
       </div>
     );
   }
@@ -86,7 +86,7 @@ export default function ChatMessageItem({ msg, showErrorRow, showChannelId }: { 
             <span className="text-xs text-purple-600 dark:text-purple-300 ml-2">channel: {msg.channel_hash}</span>
           )}
         </div>
-        <div className="text-xs text-gray-300">Relayed by: {msg.origin}</div>
+        <div className="text-xs text-gray-300">Relayed by: {msg.origins && msg.origins.length > 0 ? msg.origins.map(o => o.slice(0, 6)).join(", ") : "-"}</div>
       </div>
     );
 }else{
@@ -103,7 +103,7 @@ export default function ChatMessageItem({ msg, showErrorRow, showChannelId }: { 
         )}
       </div>
       <div className="w-full h-5 bg-gray-200 dark:bg-neutral-800 rounded animate-pulse my-2" />
-      <div className="text-xs text-gray-300">Relayed by: {msg.origin}</div>
+      <div className="text-xs text-gray-300">Relayed by: {msg.origins && msg.origins.length > 0 ? msg.origins.map(o => o.slice(0, 6)).join(", ") : "-"}</div>
     </div>
   );
 } 

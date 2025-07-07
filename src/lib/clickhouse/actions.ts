@@ -2,6 +2,7 @@
 import { clickhouse } from "./clickhouse";
 
 export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen }: { minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], lastSeen?: string | null } = {}) {
+  try {
     let where = [
       "latitude IS NOT NULL",
       "longitude IS NOT NULL"
@@ -43,36 +44,45 @@ export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTyp
       last_seen: string;
       type: string;
     }>;
+  } catch (error) {
+    console.error('ClickHouse error in getNodePositions:', error);
+    throw error;
+  }
 } 
 
 export async function getLatestChatMessages({ limit = 20, before, after, channelId }: { limit?: number, before?: string, after?: string, channelId?: string } = {}) {
-  let where = [];
-  const params: Record<string, any> = { limit };
-  if (before) {
-    where.push('ingest_timestamp < {before:DateTime64}');
-    params.before = before;
+  try {
+    let where = [];
+    const params: Record<string, any> = { limit };
+    if (before) {
+      where.push('ingest_timestamp < {before:DateTime64}');
+      params.before = before;
+    }
+    if (after) {
+      where.push('ingest_timestamp > {after:DateTime64}');
+      params.after = after;
+    }
+    if (channelId) {
+      where.push('channel_hash = {channelId:String}');
+      params.channelId = channelId;
+    }
+    const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+    const query = `SELECT ingest_timestamp, origins, mesh_timestamp, packet, path_len, path, channel_hash, mac, hex(encrypted_message) AS encrypted_message FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
+    const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
+    const rows = await resultSet.json();
+    return rows as Array<{
+      ingest_timestamp: string;
+      origins: string[];
+      mesh_timestamp: string;
+      packet: string;
+      path_len: number;
+      path: string;
+      channel_hash: string;
+      mac: string;
+      encrypted_message: string;
+    }>;
+  } catch (error) {
+    console.error('ClickHouse error in getLatestChatMessages:', error);
+    throw error;
   }
-  if (after) {
-    where.push('ingest_timestamp > {after:DateTime64}');
-    params.after = after;
-  }
-  if (channelId) {
-    where.push('channel_hash = {channelId:String}');
-    params.channelId = channelId;
-  }
-  const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-  const query = `SELECT ingest_timestamp, origin, mesh_timestamp, packet, path_len, path, channel_hash, mac, hex(encrypted_message) AS encrypted_message FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
-  const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
-  const rows = await resultSet.json();
-  return rows as Array<{
-    ingest_timestamp: string;
-    origin: string;
-    mesh_timestamp: string;
-    packet: string;
-    path_len: number;
-    path: string;
-    channel_hash: string;
-    mac: string;
-    encrypted_message: string;
-  }>;
 } 

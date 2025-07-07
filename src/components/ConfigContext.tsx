@@ -15,6 +15,7 @@ export type Config = {
   clustering?: boolean; // add clustering toggle
   showNodeNames?: boolean; // add show node names toggle
   meshcoreKeys?: MeshcoreKey[]; // meshcore private keys
+  showMeshcoreCoverageOverlay?: boolean; // meshcore overlay toggle
 };
 
 const TILE_LAYERS = [
@@ -30,6 +31,7 @@ const DEFAULT_CONFIG: Config = {
   clustering: true, // default to clustering enabled
   showNodeNames: true, // default to show node names
   meshcoreKeys: [], // default empty
+  showMeshcoreCoverageOverlay: false, // meshcore overlay default
 };
 
 const LAST_SEEN_OPTIONS = [
@@ -212,6 +214,16 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
             onChange={e => setConfig({ ...config, showNodeNames: e.target.checked })}
           />
           <span>Show node names</span>
+        </label>
+      </div>
+      <div className="mb-2">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={config.showMeshcoreCoverageOverlay === true}
+            onChange={e => setConfig({ ...config, showMeshcoreCoverageOverlay: e.target.checked })}
+          />
+          <span>Show meshcore coverage overlay</span>
         </label>
       </div>
       <div className="mb-2">

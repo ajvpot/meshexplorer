@@ -65,8 +65,8 @@ export default function MessagesPage() {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           // Only prepend messages that are not already present
-          const existingKeys = new Set(messages.map((m) => m.ingest_timestamp + m.origin));
-          const newMessages = data.filter((msg: any) => !existingKeys.has(msg.ingest_timestamp + msg.origin));
+          const existingKeys = new Set(messages.map((m) => m.ingest_timestamp + (m.origins?.join(',') ?? '')));
+          const newMessages = data.filter((msg: any) => !existingKeys.has(msg.ingest_timestamp + (msg.origins?.join(',') ?? '')));
           if (newMessages.length > 0) {
             setMessages((prev) => [...newMessages, ...prev]);
           }
@@ -131,7 +131,7 @@ export default function MessagesPage() {
           <div className="text-gray-400 text-center py-8">No chat messages found.</div>
         )}
         {messages.map((msg, i) => (
-          <ChatMessageItem key={msg.ingest_timestamp + msg.origin + i} msg={msg} showErrorRow showChannelId={true} />
+          <ChatMessageItem key={msg.ingest_timestamp + (msg.origins?.join(',') ?? '') + i} msg={msg} showErrorRow showChannelId={true} />
         ))}
         {loading && (
           <div className="text-center py-4 text-gray-400">Loading...</div>

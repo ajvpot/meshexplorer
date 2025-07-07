@@ -122,7 +122,7 @@ export default function ChatBox() {
                 <div className="text-gray-400 text-center mt-8">No chat messages found.</div>
               )}
               {messages.map((msg, i) => (
-                <ChatMessageItem key={msg.ingest_timestamp + msg.origin + i} msg={msg} />
+                <ChatMessageItem key={msg.ingest_timestamp + (msg.origins?.join(',') ?? '') + i} msg={msg} />
               ))}
               {hasMore && (
                 <button

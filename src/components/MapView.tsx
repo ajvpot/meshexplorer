@@ -401,7 +401,7 @@ export default function MapView() {
           <TileLayer
             url="https://tiles.w0z.is/tiles/{z}/{x}/{y}.png"
             attribution="Meshcore Coverage &copy; <a href='https://w0z.is/'>w0z.is</a>"
-            minZoom={1}
+            minZoom={8}
             maxZoom={22}
             minNativeZoom={11}
             maxNativeZoom={11}

@@ -28,7 +28,7 @@ export default function MapWithChat({ nodePositions }: MapWithChatProps) {
       <div className="flex-1 relative">
         <MapView />
         <div className="absolute bottom-6 right-6 z-30">
-          <ChatBox />
+          <ChatBox showAllMessagesTab={false} expanded={false} className="w-80 h-96" />
         </div>
       </div>
     </div>

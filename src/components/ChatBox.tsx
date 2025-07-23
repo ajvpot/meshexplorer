@@ -19,24 +19,42 @@ function formatLocalTime(utcString: string): string {
   return utcDate.toLocaleString();
 }
 
-export default function ChatBox() {
+interface ChatBoxProps {
+  showAllMessagesTab?: boolean;
+  className?: string;
+  expanded?: boolean; // New prop to control expanded behavior
+}
+
+interface TabItem {
+  channelName: string;
+  privateKey: string;
+  isAllMessages?: boolean;
+}
+
+export default function ChatBox({ showAllMessagesTab = false, className = "", expanded = false }: ChatBoxProps) {
   const { config } = useConfig();
-  const meshcoreKeys = [
+  const meshcoreKeys: TabItem[] = [
     { channelName: "Public", privateKey: "izOH6cXN6mrJ5e26oRXNcg==" },
     ...(config?.meshcoreKeys || [])
   ];
+  
+  // Add "All Messages" tab if requested
+  const allTabs: TabItem[] = showAllMessagesTab 
+    ? [{ channelName: "All Messages", privateKey: "", isAllMessages: true }, ...meshcoreKeys]
+    : meshcoreKeys;
+    
   const [selectedTab, setSelectedTab] = useState(0);
-  const [minimized, setMinimized] = useState(true);
+  const [minimized, setMinimized] = useState(!expanded);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [lastBefore, setLastBefore] = useState<string | undefined>(undefined);
 
-  const selectedKey = meshcoreKeys[selectedTab];
-  const channelId = getChannelIdFromKey(selectedKey.privateKey).toUpperCase();
+  const selectedKey = allTabs[selectedTab];
+  const channelId = selectedKey.isAllMessages ? undefined : getChannelIdFromKey(selectedKey.privateKey).toUpperCase();
 
-  // Only show tabs if more than one channel (public + at least one custom key)
-  const showTabs = meshcoreKeys.length > 1;
+  // Only show tabs if more than one channel (or if we have all messages tab)
+  const showTabs = allTabs.length > 1;
 
   useEffect(() => {
     if (!minimized) {
@@ -45,13 +63,13 @@ export default function ChatBox() {
       setLastBefore(undefined);
       fetchMessages(undefined, true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minimized, selectedTab]);
 
   const fetchMessages = async (before?: string, replace = false) => {
     setLoading(true);
     try {
-      let url = `/api/chat?limit=${PAGE_SIZE}&channel_id=${channelId}`;
+      let url = `/api/chat?limit=${PAGE_SIZE}`;
+      if (channelId) url += `&channel_id=${channelId}`;
       if (before) url += `&before=${encodeURIComponent(before)}`;
       const res = await fetch(url);
       const data = await res.json();
@@ -79,29 +97,34 @@ export default function ChatBox() {
 
   return (
     <div
-      className={`w-80 bg-white dark:bg-neutral-900 rounded-lg shadow-lg flex flex-col ${
-        minimized ? "min-h-[2.5rem] px-4 py-2" : "h-96 px-4 py-4"
+      className={`bg-white dark:bg-neutral-900 rounded-lg shadow-lg flex flex-col ${
+        expanded 
+          ? className 
+          : `w-80 ${minimized ? "min-h-[2.5rem] px-4 py-2" : "h-96 px-4 py-4"} ${className}`
       }`}
     >
-      <div className="flex items-center justify-between" style={{ minHeight: '2rem' }}>
+      <div className={`flex items-center justify-between ${expanded ? "px-4 py-2 border-b border-gray-200 dark:border-neutral-800" : ""}`} style={expanded ? {} : { minHeight: '2rem' }}>
         <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
-        <button
-          className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800"
-          onClick={() => setMinimized((m) => !m)}
-          aria-label={minimized ? "Maximize MeshCore Chat" : "Minimize MeshCore Chat"}
-        >
-          {minimized ? (
-            <PlusIcon className="h-5 w-5" />
-          ) : (
-            <MinusIcon className="h-5 w-5" />
-          )}
-        </button>
+        {!expanded && (
+          <button
+            className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800"
+            onClick={() => setMinimized((m) => !m)}
+            aria-label={minimized ? "Maximize MeshCore Chat" : "Minimize MeshCore Chat"}
+          >
+            {minimized ? (
+              <PlusIcon className="h-5 w-5" />
+            ) : (
+              <MinusIcon className="h-5 w-5" />
+            )}
+          </button>
+        )}
       </div>
-      {!minimized && (
+      
+      {(!minimized || expanded) && (
         <>
           {showTabs && (
-            <div className="flex gap-1 mb-2 border-b border-gray-200 dark:border-neutral-800">
-              {meshcoreKeys.map((key, idx) => (
+            <div className={`flex gap-1 border-b border-gray-200 dark:border-neutral-800 ${expanded ? "px-4 py-2" : "mb-2"}`}>
+              {allTabs.map((key, idx) => (
                 <button
                   key={key.privateKey + idx}
                   className={`px-2 py-1 text-xs rounded-t font-mono ${
@@ -116,17 +139,23 @@ export default function ChatBox() {
               ))}
             </div>
           )}
-          <div className="flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 flex flex-col-reverse">
-            <div className="flex flex-col-reverse gap-2">
+          
+          <div className={`flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 ${expanded ? "" : "flex flex-col-reverse"}`}>
+            <div className={`${expanded ? "flex flex-col gap-2 p-4" : "flex flex-col-reverse gap-2"}`}>
               {messages.length === 0 && !loading && (
-                <div className="text-gray-400 text-center mt-8">No chat messages found.</div>
+                <div className={`text-gray-400 text-center ${expanded ? "py-8" : "mt-8"}`}>No chat messages found.</div>
               )}
               {messages.map((msg, i) => (
-                <ChatMessageItem key={msg.ingest_timestamp + (msg.origins?.join(',') ?? '') + i} msg={msg} />
+                <ChatMessageItem 
+                  key={msg.ingest_timestamp + (msg.origins?.join(',') ?? '') + i} 
+                  msg={msg} 
+                  showErrorRow={selectedKey.isAllMessages}
+                  showChannelId={selectedKey.isAllMessages}
+                />
               ))}
               {hasMore && (
                 <button
-                  className="w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 mt-2"
+                  className={`w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 ${expanded ? "" : "mt-2"}`}
                   onClick={handleLoadMore}
                   disabled={loading}
                 >

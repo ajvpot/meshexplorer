@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useConfig } from "./ConfigContext";
-import { decryptMeshcoreGroupMessage } from "../lib/meshcore_decrypt";
+import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
 import { getChannelIdFromKey } from "../lib/meshcore";
 import ChatMessageItem, { ChatMessage } from "./ChatMessageItem";
 

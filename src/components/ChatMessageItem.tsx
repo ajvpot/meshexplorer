@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useConfig } from "./ConfigContext";
-import { decryptMeshcoreGroupMessage } from "../lib/meshcore_decrypt";
+import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
 
 export interface ChatMessage {
   ingest_timestamp: string;

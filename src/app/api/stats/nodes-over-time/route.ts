@@ -5,12 +5,12 @@ export async function GET() {
   try {
     const query = `
       WITH days AS (
-        SELECT arrayJoin(range(0, 30)) AS offset, toDate(subtractDays(today(), 29 - offset)) AS day
+        SELECT arrayJoin(range(0, 7)) AS offset, toDate(subtractDays(today(), 6 - offset)) AS day
       ),
       all_nodes AS (
         SELECT toDate(ingest_timestamp) AS day, public_key, latitude, longitude
         FROM meshcore_adverts
-        WHERE ingest_timestamp >= subtractDays(today(), 30)
+        WHERE ingest_timestamp >= subtractDays(today(), 7)
       ),
       node_days AS (
         SELECT public_key, min(day) AS first_seen, any(latitude) AS latitude, any(longitude) AS longitude

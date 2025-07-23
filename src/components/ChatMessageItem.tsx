@@ -36,20 +36,27 @@ export default function ChatMessageItem({ msg, showErrorRow, showChannelId }: { 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const result = await decryptMeshcoreGroupMessage({
-        encrypted_message: msg.encrypted_message,
-        mac: msg.mac,
-        channel_hash: msg.channel_hash,
-        knownKeys,
-        parse: true,
-      });
-      if (!cancelled) {
-        if (result === null) {
+      try {
+        const result = await decryptMeshcoreGroupMessage({
+          encrypted_message: msg.encrypted_message,
+          mac: msg.mac,
+          channel_hash: msg.channel_hash,
+          knownKeys,
+          parse: true,
+        });
+        if (!cancelled) {
+          if (result === null) {
+            setParsed(null);
+            setError("Could not decrypt message with any known key.");
+          } else {
+            setParsed(result);
+            setError(null);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
           setParsed(null);
-          setError("Could not decrypt message with any known key.");
-        } else {
-          setParsed(result);
-          setError(null);
+          setError(err instanceof Error ? err.message : "Decryption error occurred.");
         }
       }
     })();

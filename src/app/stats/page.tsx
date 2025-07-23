@@ -27,6 +27,14 @@ export default function StatsPage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <h1 className="text-2xl font-bold mb-6">MeshCore Network Stats</h1>
+      
+      <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <p className="text-sm text-blue-800 dark:text-blue-200">
+          <strong>Note:</strong> The "Nodes Heard Over Time" data shows activity from the past 7 days. 
+          This provides a focused view of recent network activity while maintaining good performance.
+        </p>
+      </div>
+      
       {loading ? (
         <div>Loading...</div>
       ) : (

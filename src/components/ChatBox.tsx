@@ -108,17 +108,17 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       <div className={`flex items-center justify-between ${startExpanded ? "px-4 py-2 border-b border-gray-200 dark:border-neutral-800" : ""}`} style={startExpanded ? {} : { minHeight: minimized ? '2rem' : '2rem' }}>
         <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
         {!startExpanded && (
-          <button
-            className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800"
-            onClick={() => setMinimized((m) => !m)}
-            aria-label={minimized ? "Maximize MeshCore Chat" : "Minimize MeshCore Chat"}
-          >
-            {minimized ? (
-              <PlusIcon className="h-5 w-5" />
-            ) : (
-              <MinusIcon className="h-5 w-5" />
-            )}
-          </button>
+        <button
+          className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800"
+          onClick={() => setMinimized((m) => !m)}
+          aria-label={minimized ? "Maximize MeshCore Chat" : "Minimize MeshCore Chat"}
+        >
+          {minimized ? (
+            <PlusIcon className="h-5 w-5" />
+          ) : (
+            <MinusIcon className="h-5 w-5" />
+          )}
+        </button>
         )}
       </div>
       

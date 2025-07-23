@@ -22,7 +22,7 @@ function formatLocalTime(utcString: string): string {
 interface ChatBoxProps {
   showAllMessagesTab?: boolean;
   className?: string;
-  expanded?: boolean; // New prop to control expanded behavior
+  startExpanded?: boolean; // New prop to control initial expanded state
 }
 
 interface TabItem {
@@ -31,7 +31,7 @@ interface TabItem {
   isAllMessages?: boolean;
 }
 
-export default function ChatBox({ showAllMessagesTab = false, className = "", expanded = false }: ChatBoxProps) {
+export default function ChatBox({ showAllMessagesTab = false, className = "", startExpanded = false }: ChatBoxProps) {
   const { config } = useConfig();
   const meshcoreKeys: TabItem[] = [
     { channelName: "Public", privateKey: "izOH6cXN6mrJ5e26oRXNcg==" },
@@ -44,7 +44,7 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", ex
     : meshcoreKeys;
     
   const [selectedTab, setSelectedTab] = useState(0);
-  const [minimized, setMinimized] = useState(!expanded);
+  const [minimized, setMinimized] = useState(!startExpanded); // Use startExpanded as default for minimized state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -98,14 +98,14 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", ex
   return (
     <div
       className={`bg-white dark:bg-neutral-900 rounded-lg shadow-lg flex flex-col ${
-        expanded 
+        startExpanded 
           ? className 
           : `w-80 ${minimized ? "min-h-[2.5rem] px-4 py-2" : "h-96 px-4 py-4"} ${className}`
       }`}
     >
-      <div className={`flex items-center justify-between ${expanded ? "px-4 py-2 border-b border-gray-200 dark:border-neutral-800" : ""}`} style={expanded ? {} : { minHeight: '2rem' }}>
+      <div className={`flex items-center justify-between ${startExpanded ? "px-4 py-2 border-b border-gray-200 dark:border-neutral-800" : ""}`} style={startExpanded ? {} : { minHeight: '2rem' }}>
         <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
-        {!expanded && (
+        {!startExpanded && (
           <button
             className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800"
             onClick={() => setMinimized((m) => !m)}
@@ -120,10 +120,10 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", ex
         )}
       </div>
       
-      {(!minimized || expanded) && (
+      {(!minimized || startExpanded) && (
         <>
           {showTabs && (
-            <div className={`flex gap-1 border-b border-gray-200 dark:border-neutral-800 ${expanded ? "px-4 py-2" : "mb-2"}`}>
+            <div className={`flex gap-1 border-b border-gray-200 dark:border-neutral-800 ${startExpanded ? "px-4 py-2" : "mb-2"}`}>
               {allTabs.map((key, idx) => (
                 <button
                   key={key.privateKey + idx}
@@ -140,10 +140,10 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", ex
             </div>
           )}
           
-          <div className={`flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 ${expanded ? "" : "flex flex-col-reverse"}`}>
-            <div className={`${expanded ? "flex flex-col gap-2 p-4" : "flex flex-col-reverse gap-2"}`}>
+          <div className={`flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 ${startExpanded ? "" : "flex flex-col-reverse"}`}>
+            <div className={`${startExpanded ? "flex flex-col gap-2 p-4" : "flex flex-col-reverse gap-2"}`}>
               {messages.length === 0 && !loading && (
-                <div className={`text-gray-400 text-center ${expanded ? "py-8" : "mt-8"}`}>No chat messages found.</div>
+                <div className={`text-gray-400 text-center ${startExpanded ? "py-8" : "mt-8"}`}>No chat messages found.</div>
               )}
               {messages.map((msg, i) => (
                 <ChatMessageItem 
@@ -155,7 +155,7 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", ex
               ))}
               {hasMore && (
                 <button
-                  className={`w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 ${expanded ? "" : "mt-2"}`}
+                  className={`w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 ${startExpanded ? "" : "mt-2"}`}
                   onClick={handleLoadMore}
                   disabled={loading}
                 >

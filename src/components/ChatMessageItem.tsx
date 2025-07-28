@@ -7,12 +7,12 @@ export interface ChatMessage {
   ingest_timestamp: string;
   origins: string[];
   mesh_timestamp: string;
-  packet: string;
   path_len: number;
-  path: string;
   channel_hash: string;
   mac: string;
   encrypted_message: string;
+  message_count: number;
+  origin_path_array: Array<[string, string]>; // Array of [origin, path] tuples
 }
 
 function formatHex(hex: string): string {
@@ -64,14 +64,14 @@ export default function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessag
     return () => { cancelled = true; };
   }, [msg.encrypted_message, msg.mac, msg.channel_hash, knownKeys.join(",")]);
 
-  const origins = msg.origins && msg.origins.length > 0 ? msg.origins : [];
-  const originsCount = origins.length;
+  const originPathArray = msg.origin_path_array && msg.origin_path_array.length > 0 ? msg.origin_path_array : [];
+  const originsCount = originPathArray.length;
 
   const OriginsBox = () => (
-    <div className="text-xs text-gray-300">
+    <div className="text-xs text-gray-600 dark:text-gray-300">
       <button
         onClick={() => setOriginsExpanded(!originsExpanded)}
-        className="flex items-center gap-1 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+        className="flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
       >
         <span>Heard {originsCount > 0 ? `${originsCount} repeat${originsCount !== 1 ? 's' : ''}` : '0 repeats'}</span>
         <svg
@@ -84,12 +84,19 @@ export default function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessag
         </svg>
       </button>
       {originsExpanded && originsCount > 0 && (
-        <div className="mt-1 p-2 bg-gray-100 dark:bg-neutral-700 rounded text-xs break-all">
-          {origins.map((origin, index) => (
-            <div key={index} className="font-mono">
-              {origin}
-            </div>
-          ))}
+        <div className="mt-1 p-2 bg-gray-100 dark:bg-neutral-700 rounded text-xs break-all text-gray-800 dark:text-gray-200">
+          {originPathArray.map(([origin, path], index) => {
+            // Parse path into 2-character slices
+            const pathSlices = path.match(/.{1,2}/g) || [];
+            const formattedPath = pathSlices.join(' ');
+            
+            return (
+              <div key={index} className="flex items-center gap-2">
+                <span>{origin}</span>
+                <span className="font-mono">{formattedPath}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

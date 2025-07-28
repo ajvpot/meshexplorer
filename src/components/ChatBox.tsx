@@ -174,20 +174,22 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       {(!minimized) && (
         <>
           {showTabs && (
-            <div className={`flex gap-1 border-b border-gray-200 dark:border-neutral-800 ${startExpanded ? "px-4 py-2" : "mb-2"}`}>
-              {allTabs.map((key, idx) => (
-                <button
-                  key={key.privateKey + idx}
-                  className={`px-2 py-1 text-xs rounded-t font-mono ${
-                    idx === selectedTab
-                      ? "bg-gray-100 dark:bg-neutral-800 text-blue-700 dark:text-blue-400 border-b-2 border-blue-500"
-                      : "bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800"
-                  }`}
-                  onClick={() => setSelectedTab(idx)}
-                >
-                  {key.channelName || getChannelIdFromKey(key.privateKey).toUpperCase()}
-                </button>
-              ))}
+            <div className={`border-b border-gray-200 dark:border-neutral-800 ${startExpanded ? "px-4 py-2" : "mb-2"}`}>
+              <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+                {allTabs.map((key, idx) => (
+                  <button
+                    key={key.privateKey + idx}
+                    className={`px-2 py-1 text-xs rounded-t font-mono whitespace-nowrap flex-shrink-0 ${
+                      idx === selectedTab
+                        ? "bg-gray-100 dark:bg-neutral-800 text-blue-700 dark:text-blue-400 border-b-2 border-blue-500"
+                        : "bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800"
+                    }`}
+                    onClick={() => setSelectedTab(idx)}
+                  >
+                    {key.channelName || getChannelIdFromKey(key.privateKey).toUpperCase()}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           

@@ -67,14 +67,12 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
       params.channelId = channelId;
     }
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-    const query = `SELECT ingest_timestamp, origins, mesh_timestamp, path_len, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_array FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
+    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_array FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
     const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
     const rows = await resultSet.json();
     return rows as Array<{
       ingest_timestamp: string;
-      origins: string[];
       mesh_timestamp: string;
-      path_len: number;
       channel_hash: string;
       mac: string;
       encrypted_message: string;

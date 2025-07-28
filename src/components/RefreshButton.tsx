@@ -19,8 +19,8 @@ export default function RefreshButton({
   small = false,
   disabled = false,
 }: RefreshButtonProps) {
-  const size = small ? 32 : 40;
-  const iconSize = small ? 18 : 22;
+  const size = small ? 24 : 40;
+  const iconSize = small ? 14 : 22;
   return (
     <>
       <button

@@ -66,25 +66,55 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
     }
   }, [minimized, selectedTab]);
 
-  const fetchMessages = async (before?: string, replace = false) => {
+  // Auto-refresh effect
+  useEffect(() => {
+    if (!minimized) {
+      const interval = setInterval(() => {
+        // Auto-refresh should only fetch newer messages, not replace all
+        fetchMessages(undefined, false, true);
+      }, 5000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [minimized, channelId]);
+
+  const fetchMessages = async (before?: string, replace = false, fetchNewer = false) => {
     setLoading(true);
     try {
       let url = `/api/chat?limit=${PAGE_SIZE}`;
       if (channelId) url += `&channel_id=${channelId}`;
-      if (before) url += `&before=${encodeURIComponent(before)}`;
+      
+      if (fetchNewer) {
+        // Fetch newer messages using the most recent message timestamp
+        const mostRecentTimestamp = messages.length > 0 ? messages[0].ingest_timestamp : undefined;
+        if (mostRecentTimestamp) url += `&after=${encodeURIComponent(mostRecentTimestamp)}`;
+      } else if (before) {
+        // Fetch older messages using before parameter
+        url += `&before=${encodeURIComponent(before)}`;
+      }
+      
       const res = await fetch(url);
       const data = await res.json();
       if (Array.isArray(data)) {
-        setMessages((prev) => replace ? data : [...prev, ...data]);
-        setHasMore(data.length === PAGE_SIZE);
-        if (data.length > 0) {
-          setLastBefore(data[data.length - 1].ingest_timestamp);
+        if (fetchNewer && data.length > 0) {
+          // Add newer messages to the beginning (most recent first)
+          setMessages((prev) => [...data, ...prev]);
+        } else {
+          setMessages((prev) => replace ? data : [...prev, ...data]);
+          setHasMore(data.length === PAGE_SIZE);
+          if (data.length > 0) {
+            setLastBefore(data[data.length - 1].ingest_timestamp);
+          }
         }
       } else {
         setHasMore(false);
       }
-    } catch {
+    } catch (error) {
       setHasMore(false);
+      if (fetchNewer) {
+        // Silently fail for auto-refresh
+        console.error('Auto-refresh failed:', error);
+      }
     } finally {
       setLoading(false);
     }

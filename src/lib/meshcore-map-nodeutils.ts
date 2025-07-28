@@ -19,7 +19,7 @@ export function getColourForName(name: string, saturation: number = 60, lightnes
 }
 
 export function getNameIconLabel(name: string): string {
-	if (typeof name !== 'string' || name.length === 0) {
+	if (name.length === 0) {
 		return ''
 	}
 

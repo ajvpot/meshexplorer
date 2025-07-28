@@ -87,7 +87,10 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       if (fetchNewer) {
         // Fetch newer messages using the most recent message timestamp
         const mostRecentTimestamp = messages.length > 0 ? messages[0].ingest_timestamp : undefined;
-        if (mostRecentTimestamp) url += `&after=${encodeURIComponent(mostRecentTimestamp)}`;
+        if (mostRecentTimestamp) {
+          // Ensure we use the exact UTC timestamp format for the API
+          url += `&after=${encodeURIComponent(mostRecentTimestamp)}`;
+        }
       } else if (before) {
         // Fetch older messages using before parameter
         url += `&before=${encodeURIComponent(before)}`;
@@ -97,8 +100,14 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       const data = await res.json();
       if (Array.isArray(data)) {
         if (fetchNewer && data.length > 0) {
-          // Add newer messages to the beginning (most recent first)
-          setMessages((prev) => [...data, ...prev]);
+          // Filter out any duplicate messages by ingest_timestamp to prevent duplicates
+          const existingTimestamps = new Set(messages.map(msg => msg.ingest_timestamp));
+          const newMessages = data.filter(msg => !existingTimestamps.has(msg.ingest_timestamp));
+          
+          if (newMessages.length > 0) {
+            // Add newer messages to the beginning (most recent first)
+            setMessages((prev) => [...newMessages, ...prev]);
+          }
         } else {
           setMessages((prev) => replace ? data : [...prev, ...data]);
           setHasMore(data.length === PAGE_SIZE);

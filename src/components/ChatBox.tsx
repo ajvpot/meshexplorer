@@ -5,6 +5,7 @@ import { useConfig } from "./ConfigContext";
 import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
 import { getChannelIdFromKey } from "../lib/meshcore";
 import ChatMessageItem, { ChatMessage } from "./ChatMessageItem";
+import RefreshButton from "./RefreshButton";
 
 const PAGE_SIZE = 20;
 
@@ -95,6 +96,13 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
     }
   };
 
+  const handleRefresh = () => {
+    setMessages([]);
+    setHasMore(true);
+    setLastBefore(undefined);
+    fetchMessages(undefined, true);
+  };
+
   return (
     <div
       className={`bg-white dark:bg-neutral-900 rounded-lg shadow-lg flex flex-col ${
@@ -107,22 +115,33 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
     >
       <div className={`flex items-center justify-between ${startExpanded ? "px-4 py-2 border-b border-gray-200 dark:border-neutral-800" : ""}`} style={startExpanded ? {} : { minHeight: minimized ? '2rem' : '2rem' }}>
         <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
-        {!startExpanded && (
-        <button
-          className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800"
-          onClick={() => setMinimized((m) => !m)}
-          aria-label={minimized ? "Maximize MeshCore Chat" : "Minimize MeshCore Chat"}
-        >
-          {minimized ? (
-            <PlusIcon className="h-5 w-5" />
-          ) : (
-            <MinusIcon className="h-5 w-5" />
+        <div className="flex items-center gap-2">
+          {(!minimized) && (
+            <RefreshButton
+              onClick={handleRefresh}
+              loading={loading}
+              small={true}
+              title="Refresh chat messages"
+              ariaLabel="Refresh chat messages"
+            />
           )}
-        </button>
-        )}
+          {!startExpanded && (
+            <button
+              className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800"
+              onClick={() => setMinimized((m) => !m)}
+              aria-label={minimized ? "Maximize MeshCore Chat" : "Minimize MeshCore Chat"}
+            >
+              {minimized ? (
+                <PlusIcon className="h-5 w-5" />
+              ) : (
+                <MinusIcon className="h-5 w-5" />
+              )}
+            </button>
+          )}
+        </div>
       </div>
       
-      {(!minimized || startExpanded) && (
+      {(!minimized) && (
         <>
           {showTabs && (
             <div className={`flex gap-1 border-b border-gray-200 dark:border-neutral-800 ${startExpanded ? "px-4 py-2" : "mb-2"}`}>
@@ -152,7 +171,6 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
                   key={msg.ingest_timestamp + (msg.origins?.join(',') ?? '') + i} 
                   msg={msg} 
                   showErrorRow={selectedKey.isAllMessages}
-                  showChannelId={selectedKey.isAllMessages}
                 />
               ))}
               {hasMore && (

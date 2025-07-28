@@ -24,7 +24,7 @@ function formatLocalTime(utcString: string): string {
   return utcDate.toLocaleString();
 }
 
-export default function ChatMessageItem({ msg, showErrorRow, showChannelId }: { msg: ChatMessage, showErrorRow?: boolean, showChannelId?: boolean }) {
+export default function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow?: boolean }) {
   const { config } = useConfig();
   const knownKeys = [
     ...(config?.meshcoreKeys?.map((k: any) => k.privateKey) || []),
@@ -32,6 +32,7 @@ export default function ChatMessageItem({ msg, showErrorRow, showChannelId }: { 
   ];
   const [parsed, setParsed] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [originsExpanded, setOriginsExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,22 +64,51 @@ export default function ChatMessageItem({ msg, showErrorRow, showChannelId }: { 
     return () => { cancelled = true; };
   }, [msg.encrypted_message, msg.mac, msg.channel_hash, knownKeys.join(",")]);
 
+  const origins = msg.origins && msg.origins.length > 0 ? msg.origins : [];
+  const originsCount = origins.length;
+
+  const OriginsBox = () => (
+    <div className="text-xs text-gray-300">
+      <button
+        onClick={() => setOriginsExpanded(!originsExpanded)}
+        className="flex items-center gap-1 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+      >
+        <span>Heard {originsCount > 0 ? `${originsCount} repeat${originsCount !== 1 ? 's' : ''}` : '0 repeats'}</span>
+        <svg
+          className={`w-3 h-3 transition-transform ${originsExpanded ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {originsExpanded && originsCount > 0 && (
+        <div className="mt-1 p-2 bg-gray-100 dark:bg-neutral-700 rounded text-xs break-all">
+          {origins.map((origin, index) => (
+            <div key={index} className="font-mono">
+              {origin}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   if (parsed) {
     return (
       <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
         <div className="text-xs text-gray-400 flex items-center gap-2">
           {formatLocalTime(new Date(parsed.timestamp * 1000).toISOString())}
           <span className="text-xs text-gray-500">type: {parsed.msgType}</span>
-          {showChannelId && (
-            <span className="text-xs text-purple-600 dark:text-purple-300 ml-2">channel: {msg.channel_hash}</span>
-          )}
+          <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
         </div>
         <div className="break-all whitespace-pre-wrap">
           <span className="font-bold text-blue-800 dark:text-blue-300">{parsed.sender}</span>
           {parsed.sender && ": "}
           <span>{parsed.text}</span>
         </div>
-        <div className="text-xs text-gray-300">Relayed by: {msg.origins && msg.origins.length > 0 ? msg.origins.map(o => o.slice(0, 6)).join(", ") : "-"}</div>
+        <OriginsBox />
       </div>
     );
   }
@@ -89,11 +119,9 @@ export default function ChatMessageItem({ msg, showErrorRow, showChannelId }: { 
       <div className="border-b border-red-200 dark:border-red-800 pb-2 mb-2 bg-red-50 dark:bg-red-900/30">
         <div className="text-xs text-red-600 dark:text-red-300 flex items-center gap-2">
           Error: {error}
-          {showChannelId && (
-            <span className="text-xs text-purple-600 dark:text-purple-300 ml-2">channel: {msg.channel_hash}</span>
-          )}
+          <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
         </div>
-        <div className="text-xs text-gray-300">Relayed by: {msg.origins && msg.origins.length > 0 ? msg.origins.map(o => o.slice(0, 6)).join(", ") : "-"}</div>
+        <OriginsBox />
       </div>
     );
 }else{
@@ -103,14 +131,12 @@ export default function ChatMessageItem({ msg, showErrorRow, showChannelId }: { 
 
   return (
     <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
-      <div className="text-xs text-gray-400 flex items-center gap-2">
-        {formatLocalTime(msg.ingest_timestamp)}
-        {showChannelId && (
-          <span className="text-xs text-purple-600 dark:text-purple-300 ml-2">channel: {msg.channel_hash}</span>
-        )}
-      </div>
+              <div className="text-xs text-gray-400 flex items-center gap-2">
+          {formatLocalTime(msg.ingest_timestamp)}
+          <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
+        </div>
       <div className="w-full h-5 bg-gray-200 dark:bg-neutral-800 rounded animate-pulse my-2" />
-      <div className="text-xs text-gray-300">Relayed by: {msg.origins && msg.origins.length > 0 ? msg.origins.map(o => o.slice(0, 6)).join(", ") : "-"}</div>
+      <OriginsBox />
     </div>
   );
 } 

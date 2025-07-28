@@ -8,10 +8,12 @@ export default function MessagesPage() {
   const { config } = useConfig();
 
   return (
-    <div className="max-w-none mx-auto py-8 px-4">
+    <div className="w-full h-full flex flex-col">
       {/* ChatBox component with all messages tab enabled and expanded behavior */}
-      <div className="flex justify-center">
-        <ChatBox showAllMessagesTab={true} startExpanded={true} className="w-[100vw] md:w-[80vw] min-h-[600px]" />
+      <div className="flex-1 flex justify-center items-start p-4">
+        <div className="w-full max-w-6xl h-full">
+          <ChatBox showAllMessagesTab={true} startExpanded={true} className="w-full h-full" />
+        </div>
       </div>
     </div>
   );

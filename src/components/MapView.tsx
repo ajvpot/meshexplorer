@@ -8,8 +8,8 @@ import 'leaflet.markercluster/dist/leaflet.markercluster.js';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useConfig } from "./ConfigContext";
-import moment from "moment";
 import RefreshButton from "@/components/RefreshButton";
+import { renderNodeMarker, renderClusterMarker, renderPopupContent } from "./MapIcons";
 
 const DEFAULT = {
   lat: 47.6062, // Seattle
@@ -44,39 +44,15 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
       // Add markers individually
       const markerLayers: any[] = [];
       nodes.forEach((node: NodePosition) => {
-        const markerClass =
-          node.type === "meshtastic"
-            ? "custom-node-marker custom-node-marker--green"
-            : node.type === "meshcore"
-            ? "custom-node-marker custom-node-marker--blue custom-node-marker--top"
-            : "custom-node-marker";
-        const label = (config?.showNodeNames !== false && node.short_name) ? `<div class='custom-node-label'>${node.short_name}</div>` : '';
         const icon = L.divIcon({
           className: 'custom-node-marker-container',
           iconSize: [16, 32],
           iconAnchor: [8, 8],
-          html: `${label}<div class='${markerClass}'></div>`,
+          html: renderNodeMarker(node, config?.showNodeNames !== false),
         });
         const marker = L.marker([node.latitude, node.longitude], { icon });
         (marker as any).options.nodeData = node;
-        let popupHtml = `<div>`;
-        popupHtml += `<div><b>ID:</b> ${node.node_id}</div>`;
-        popupHtml += `<div><b>Full Name:</b> ${node.name ?? "-"}</div>`;
-        popupHtml += `<div><b>Short Name:</b> ${node.short_name ?? "-"}</div>`;
-        popupHtml += `<div><b>Type:</b> ${node.type ?? "-"}</div>`;
-        popupHtml += `<div><b>Lat:</b> ${node.latitude}</div>`;
-        popupHtml += `<div><b>Lng:</b> ${node.longitude}</div>`;
-        popupHtml += `<div><b>Alt:</b> ${node.altitude !== undefined ? node.altitude : "-"}</div>`;
-        if (node.last_seen) {
-          // Parse as UTC, display UTC, and show local relative time
-          const utcTime = moment.utc(node.last_seen);
-          const localAgo = utcTime.local().fromNow();
-          popupHtml += `<div><b>Last seen:</b> ${utcTime.format('YYYY-MM-DD HH:mm:ss')} <span style='color: #888;'>(UTC)</span><br/><span style='color: #888;'>${localAgo}</span></div>`;
-        } else {
-          popupHtml += `<div><b>Last seen:</b> -</div>`;
-        }
-        popupHtml += `</div>`;
-        marker.bindPopup(popupHtml);
+        marker.bindPopup(renderPopupContent(node));
         marker.addTo(map);
         markerLayers.push(marker);
       });
@@ -89,62 +65,8 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
       // Clustered mode (existing logic)
       const iconCreateFunction = (cluster: any) => {
         const children = cluster.getAllChildMarkers();
-        let meshtasticCount = 0;
-        let meshcoreCount = 0;
-        children.forEach((marker: any) => {
-          const node = marker.options && marker.options.nodeData;
-          if (node?.type === 'meshtastic') meshtasticCount++;
-          else if (node?.type === 'meshcore') meshcoreCount++;
-        });
-        const total = meshtasticCount + meshcoreCount;
-        const percentMeshcore = total ? meshcoreCount / total : 0;
-        const percentMeshtastic = total ? meshtasticCount / total : 0;
-        // Pie chart SVG
-        const r = 18;
-        const c = 2 * Math.PI * r;
-        const meshcoreArc = percentMeshcore * c;
-        const meshtasticArc = percentMeshtastic * c;
         return L.divIcon({
-          html: `
-            <div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: transparent;">
-              <svg width="40" height="40" viewBox="0 0 40 40" style="border-radius: 50%; background: transparent;">
-                <circle
-                  r="18"
-                  cx="20"
-                  cy="20"
-                  fill="#fff"
-                  stroke="#fff"
-                  stroke-width="4"
-                  opacity="0.7"
-                />
-                <circle
-                  r="18"
-                  cx="20"
-                  cy="20"
-                  fill="transparent"
-                  stroke="#2563eb"
-                  stroke-width="36"
-                  stroke-dasharray="${meshcoreArc} ${c - meshcoreArc}"
-                  stroke-dashoffset="0"
-                  transform="rotate(-90 20 20)"
-                  opacity="0.7"
-                />
-                <circle
-                  r="18"
-                  cx="20"
-                  cy="20"
-                  fill="transparent"
-                  stroke="#22c55e"
-                  stroke-width="36"
-                  stroke-dasharray="${meshtasticArc} ${c - meshtasticArc}"
-                  stroke-dashoffset="-${meshcoreArc}"
-                  transform="rotate(-90 20 20)"
-                  opacity="0.7"
-                />
-              </svg>
-              <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #111; font-weight: bold; font-size: 15px; line-height: 1; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff; background: none; opacity: 1; z-index: 200; pointer-events: none;">${total}</span>
-            </div>
-          `,
+          html: renderClusterMarker(children),
           className: 'custom-cluster-icon',
           iconSize: [40, 40],
           iconAnchor: [20, 20],
@@ -155,39 +77,15 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
         maxClusterRadius: 40,
       });
       nodes.forEach((node: NodePosition) => {
-        const markerClass =
-          node.type === "meshtastic"
-            ? "custom-node-marker custom-node-marker--green"
-            : node.type === "meshcore"
-            ? "custom-node-marker custom-node-marker--blue custom-node-marker--top"
-            : "custom-node-marker";
-        const label = (config?.showNodeNames !== false && node.short_name) ? `<div class='custom-node-label'>${node.short_name}</div>` : '';
         const icon = L.divIcon({
           className: 'custom-node-marker-container',
           iconSize: [16, 32],
           iconAnchor: [8, 8],
-          html: `${label}<div class='${markerClass}'></div>`,
+          html: renderNodeMarker(node, config?.showNodeNames !== false),
         });
         const marker = L.marker([node.latitude, node.longitude], { icon });
         (marker as any).options.nodeData = node;
-        let popupHtml = `<div>`;
-        popupHtml += `<div><b>ID:</b> ${node.node_id}</div>`;
-        popupHtml += `<div><b>Full Name:</b> ${node.name ?? "-"}</div>`;
-        popupHtml += `<div><b>Short Name:</b> ${node.short_name ?? "-"}</div>`;
-        popupHtml += `<div><b>Type:</b> ${node.type ?? "-"}</div>`;
-        popupHtml += `<div><b>Lat:</b> ${node.latitude}</div>`;
-        popupHtml += `<div><b>Lng:</b> ${node.longitude}</div>`;
-        popupHtml += `<div><b>Alt:</b> ${node.altitude !== undefined ? node.altitude : "-"}</div>`;
-        if (node.last_seen) {
-          // Parse as UTC, display UTC, and show local relative time
-          const utcTime = moment.utc(node.last_seen);
-          const localAgo = utcTime.local().fromNow();
-          popupHtml += `<div><b>Last seen:</b> ${utcTime.format('YYYY-MM-DD HH:mm:ss')} <span style='color: #888;'>(UTC)</span><br/><span style='color: #888;'>${localAgo}</span></div>`;
-        } else {
-          popupHtml += `<div><b>Last seen:</b> -</div>`;
-        }
-        popupHtml += `</div>`;
-        marker.bindPopup(popupHtml);
+        marker.bindPopup(renderPopupContent(node));
         markers.addLayer(marker);
       });
       markers._isClusterLayer = true;

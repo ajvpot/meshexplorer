@@ -9,7 +9,8 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useConfig } from "./ConfigContext";
 import RefreshButton from "@/components/RefreshButton";
-import { renderNodeMarker, renderClusterMarker, renderPopupContent } from "./MapIcons";
+import { NodeMarker, ClusterMarker, PopupContent } from "./MapIcons";
+import { renderToString } from "react-dom/server";
 
 const DEFAULT = {
   lat: 47.6062, // Seattle
@@ -48,11 +49,11 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
           className: 'custom-node-marker-container',
           iconSize: [16, 32],
           iconAnchor: [8, 8],
-          html: renderNodeMarker(node, config?.showNodeNames !== false),
+          html: renderToString(<NodeMarker node={node} showNodeNames={config?.showNodeNames !== false} />),
         });
         const marker = L.marker([node.latitude, node.longitude], { icon });
         (marker as any).options.nodeData = node;
-        marker.bindPopup(renderPopupContent(node));
+        marker.bindPopup(renderToString(<PopupContent node={node} />));
         marker.addTo(map);
         markerLayers.push(marker);
       });
@@ -66,7 +67,7 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
       const iconCreateFunction = (cluster: any) => {
         const children = cluster.getAllChildMarkers();
         return L.divIcon({
-          html: renderClusterMarker(children),
+          html: renderToString(<ClusterMarker>{children}</ClusterMarker>),
           className: 'custom-cluster-icon',
           iconSize: [40, 40],
           iconAnchor: [20, 20],
@@ -81,11 +82,11 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
           className: 'custom-node-marker-container',
           iconSize: [16, 32],
           iconAnchor: [8, 8],
-          html: renderNodeMarker(node, config?.showNodeNames !== false),
+          html: renderToString(<NodeMarker node={node} showNodeNames={config?.showNodeNames !== false} />),
         });
         const marker = L.marker([node.latitude, node.longitude], { icon });
         (marker as any).options.nodeData = node;
-        marker.bindPopup(renderPopupContent(node));
+        marker.bindPopup(renderToString(<PopupContent node={node} />));
         markers.addLayer(marker);
       });
       markers._isClusterLayer = true;

@@ -1,5 +1,4 @@
 import React from 'react';
-import { renderToString } from 'react-dom/server';
 import moment from "moment";
 
 type NodePosition = {
@@ -164,21 +163,4 @@ export function PopupContent({ node }: PopupContentProps) {
   );
 }
 
-// Utility functions to render components to HTML strings
-export function renderNodeMarker(node: NodePosition, showNodeNames: boolean = true): string {
-  return renderToString(
-    <NodeMarker node={node} showNodeNames={showNodeNames} />
-  );
-}
-
-export function renderClusterMarker(children: any[]): string {
-  return renderToString(
-    <ClusterMarker>{children}</ClusterMarker>
-  );
-}
-
-export function renderPopupContent(node: NodePosition): string {
-  return renderToString(
-    <PopupContent node={node} />
-  );
-} 
+ 

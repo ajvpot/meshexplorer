@@ -1,6 +1,7 @@
 import React from 'react';
 import moment from "moment";
 import { formatPublicKey } from '../lib/meshcore';
+import { getNameIconLabel } from '../lib/meshcore-map-nodeutils';
 
 type NodePosition = {
   node_id: string;
@@ -40,7 +41,9 @@ export function NodeMarker({ node, showNodeNames = true }: NodeMarkerProps) {
   return (
     <div className="custom-node-marker-container">
       {showNodeNames && node.short_name && (
-        <div className="custom-node-label">{node.short_name}</div>
+        <div className="custom-node-label">
+          {node.type === "meshcore" ? getNameIconLabel(node.name || node.short_name) : node.short_name}
+        </div>
       )}
       <div className={getMarkerClass()}></div>
     </div>
@@ -147,7 +150,7 @@ export function PopupContent({ node }: PopupContentProps) {
     <div>
       <div><b>ID:</b> {node.type === "meshcore" ? formatPublicKey(node.node_id) : node.node_id}</div>
       <div><b>Full Name:</b> {node.name ?? "-"}</div>
-      <div><b>Short Name:</b> {node.short_name ?? "-"}</div>
+      <div><b>Short Name:</b> {node.type === "meshcore" && node.short_name ? getNameIconLabel(node.name || node.short_name) : (node.short_name ?? "-")}</div>
       <div><b>Type:</b> {node.type ?? "-"}</div>
       <div><b>Lat:</b> {node.latitude}</div>
       <div><b>Lng:</b> {node.longitude}</div>

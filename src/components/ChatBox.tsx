@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useConfig } from "./ConfigContext";
 import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
@@ -51,12 +51,66 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [lastBefore, setLastBefore] = useState<string | undefined>(undefined);
+  const messagesRef = useRef<ChatMessage[]>([]);
 
   const selectedKey = allTabs[selectedTab];
   const channelId = selectedKey.isAllMessages ? undefined : getChannelIdFromKey(selectedKey.privateKey).toUpperCase();
 
   // Only show tabs if more than one channel (or if we have all messages tab)
   const showTabs = allTabs.length > 1;
+
+  // Update ref when messages change
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  const fetchMessages = useCallback(async (before?: string, replace = false, fetchNewer = false) => {
+    setLoading(true);
+    try {
+      let url = `/api/chat?limit=${PAGE_SIZE}`;
+      if (channelId) url += `&channel_id=${channelId}`;
+      
+      if (fetchNewer) {
+        // Fetch newer messages using the most recent message timestamp
+        const mostRecentTimestamp = messagesRef.current.length > 0 ? messagesRef.current[0].ingest_timestamp : undefined;
+        if (mostRecentTimestamp) {
+          // Ensure we use the exact UTC timestamp format for the API
+          url += `&after=${encodeURIComponent(mostRecentTimestamp)}`;
+        }
+      } else if (before) {
+        // Fetch older messages using before parameter
+        url += `&before=${encodeURIComponent(before)}`;
+      }
+      
+      const res = await fetch(buildApiUrl(url));
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        if (fetchNewer && data.length > 0) {
+          // Add newer messages to the beginning (most recent first)
+          setMessages((prev) => [...data, ...prev]);
+        } else {
+          setMessages((prev) => replace ? data : [...prev, ...data]);
+          setHasMore(data.length === PAGE_SIZE);
+          if (data.length > 0) {
+            setLastBefore(data[data.length - 1].ingest_timestamp);
+          }
+        }
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      // Only set hasMore to false if we don't have a lastBefore value (can't load more)
+      if (!lastBefore) {
+        setHasMore(false);
+      }
+      if (fetchNewer) {
+        // Silently fail for auto-refresh
+        console.error('Auto-refresh failed:', error);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [channelId]);
 
   useEffect(() => {
     if (!minimized) {
@@ -78,57 +132,6 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       return () => clearInterval(interval);
     }
   }, [minimized, channelId]);
-
-  const fetchMessages = async (before?: string, replace = false, fetchNewer = false) => {
-    setLoading(true);
-    try {
-      let url = `/api/chat?limit=${PAGE_SIZE}`;
-      if (channelId) url += `&channel_id=${channelId}`;
-      
-      if (fetchNewer) {
-        // Fetch newer messages using the most recent message timestamp
-        const mostRecentTimestamp = messages.length > 0 ? messages[0].ingest_timestamp : undefined;
-        if (mostRecentTimestamp) {
-          // Ensure we use the exact UTC timestamp format for the API
-          url += `&after=${encodeURIComponent(mostRecentTimestamp)}`;
-        }
-      } else if (before) {
-        // Fetch older messages using before parameter
-        url += `&before=${encodeURIComponent(before)}`;
-      }
-      
-      const res = await fetch(buildApiUrl(url));
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        if (fetchNewer && data.length > 0) {
-          // Filter out any duplicate messages by ingest_timestamp to prevent duplicates
-          const existingTimestamps = new Set(messages.map(msg => msg.ingest_timestamp));
-          const newMessages = data.filter(msg => !existingTimestamps.has(msg.ingest_timestamp));
-          
-          if (newMessages.length > 0) {
-            // Add newer messages to the beginning (most recent first)
-            setMessages((prev) => [...newMessages, ...prev]);
-          }
-        } else {
-          setMessages((prev) => replace ? data : [...prev, ...data]);
-          setHasMore(data.length === PAGE_SIZE);
-          if (data.length > 0) {
-            setLastBefore(data[data.length - 1].ingest_timestamp);
-          }
-        }
-      } else {
-        setHasMore(false);
-      }
-    } catch (error) {
-      setHasMore(false);
-      if (fetchNewer) {
-        // Silently fail for auto-refresh
-        console.error('Auto-refresh failed:', error);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLoadMore = () => {
     if (lastBefore) {

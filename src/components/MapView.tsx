@@ -1,7 +1,7 @@
 "use client";
 import { MapContainer, TileLayer, useMapEvents, Marker, Popup, MapContainerProps, useMap } from "react-leaflet";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import 'leaflet/dist/leaflet.css';
 import L from "leaflet";
 import 'leaflet.markercluster/dist/leaflet.markercluster.js';
@@ -33,7 +33,8 @@ type NodePosition = {
 type ClusteredMarkersProps = { nodes: NodePosition[] };
 function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
   const map = useMap();
-  const { config } = useConfig ? useConfig() : { config: undefined };
+  const configResult = useConfig();
+  const config = configResult?.config;
   useEffect(() => {
     if (!map) return;
     // Remove any previous layers
@@ -107,7 +108,8 @@ export default function MapView() {
   const [lastResultCount, setLastResultCount] = useState<number>(0);
   const fetchController = useRef<AbortController | null>(null);
   const lastRequestedBounds = useRef<[[number, number], [number, number]] | null>(null);
-  const { config } = useConfig ? useConfig() : { config: undefined };
+  const configResult = useConfig();
+  const config = configResult?.config;
 
   type TileLayerKey = 'openstreetmap' | 'opentopomap' | 'esri';
   const tileLayerOptions: Record<TileLayerKey, { url: string; attribution: string; maxZoom: number; subdomains?: string[] }> = {
@@ -129,7 +131,7 @@ export default function MapView() {
   };
   const selectedTileLayer = tileLayerOptions[(config?.tileLayer as TileLayerKey) || 'openstreetmap'];
 
-  function fetchNodes(bounds?: [[number, number], [number, number]]) {
+  const fetchNodes = useCallback((bounds?: [[number, number], [number, number]]) => {
     if (fetchController.current) {
       fetchController.current.abort();
     }
@@ -169,7 +171,7 @@ export default function MapView() {
         if (err.name !== "AbortError") setNodePositions([]);
         if (fetchController.current === controller) setLoading(false);
       });
-  }
+  }, [config?.nodeTypes, config?.lastSeen]);
 
   function isBoundsInside(inner: [[number, number], [number, number]], outer: [[number, number], [number, number]]) {
     // inner: [[minLat, minLng], [maxLat, maxLng]]
@@ -264,7 +266,7 @@ export default function MapView() {
     return () => {
       fetchController.current?.abort();
     };
-  }, [bounds, config?.nodeTypes, config?.lastSeen]);
+  }, [bounds, config?.nodeTypes, config?.lastSeen, fetchNodes]);
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>

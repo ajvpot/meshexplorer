@@ -31,74 +31,135 @@ type NodePosition = {
 };
 
 type ClusteredMarkersProps = { nodes: NodePosition[] };
-function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
+
+// Individual marker component
+function IndividualMarker({ node, showNodeNames }: { node: NodePosition; showNodeNames: boolean }) {
   const map = useMap();
-  const configResult = useConfig();
-  const config = configResult?.config;
+  const markerRef = useRef<L.Marker | null>(null);
+
   useEffect(() => {
     if (!map) return;
-    // Remove any previous layers
-    map.eachLayer((layer: any) => {
-      if (layer && layer._isClusterLayer) {
-        map.removeLayer(layer);
-      }
+
+    const icon = L.divIcon({
+      className: 'custom-node-marker-container',
+      iconSize: [16, 32],
+      iconAnchor: [8, 8],
+      html: renderToString(<NodeMarker node={node} showNodeNames={showNodeNames} />),
     });
-    if (config?.clustering === false) {
-      // Add markers individually
-      const markerLayers: any[] = [];
-      nodes.forEach((node: NodePosition) => {
-        const icon = L.divIcon({
-          className: 'custom-node-marker-container',
-          iconSize: [16, 32],
-          iconAnchor: [8, 8],
-          html: renderToString(<NodeMarker node={node} showNodeNames={config?.showNodeNames !== false} />),
-        });
-        const marker = L.marker([node.latitude, node.longitude], { icon });
-        (marker as any).options.nodeData = node;
-        marker.bindPopup(renderToString(<PopupContent node={node} />));
-        marker.addTo(map);
-        markerLayers.push(marker);
+
+    const marker = L.marker([node.latitude, node.longitude], { icon });
+    (marker as any).options.nodeData = node;
+    marker.bindPopup(renderToString(<PopupContent node={node} />));
+    marker.addTo(map);
+    markerRef.current = marker;
+
+    return () => {
+      if (markerRef.current && map.hasLayer(markerRef.current)) {
+        map.removeLayer(markerRef.current);
+      }
+    };
+  }, [map, node.latitude, node.longitude, node.node_id, showNodeNames]);
+
+  // Update marker when node data changes
+  useEffect(() => {
+    if (markerRef.current) {
+      const currentPos = markerRef.current.getLatLng();
+      if (currentPos.lat !== node.latitude || currentPos.lng !== node.longitude) {
+        markerRef.current.setLatLng([node.latitude, node.longitude]);
+      }
+      
+      // Update icon and popup
+      const icon = L.divIcon({
+        className: 'custom-node-marker-container',
+        iconSize: [16, 32],
+        iconAnchor: [8, 8],
+        html: renderToString(<NodeMarker node={node} showNodeNames={showNodeNames} />),
       });
-      // Mark for cleanup
-      markerLayers.forEach(layer => { layer._isClusterLayer = true; });
-      return () => {
-        markerLayers.forEach(layer => map.removeLayer(layer));
-      };
-    } else {
-      // Clustered mode (existing logic)
-      const iconCreateFunction = (cluster: any) => {
-        const children = cluster.getAllChildMarkers();
-        return L.divIcon({
-          html: renderToString(<ClusterMarker>{children}</ClusterMarker>),
-          className: 'custom-cluster-icon',
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
-        });
-      };
-      const markers = (L as any).markerClusterGroup({
-        iconCreateFunction,
-        maxClusterRadius: 40,
-      });
-      nodes.forEach((node: NodePosition) => {
-        const icon = L.divIcon({
-          className: 'custom-node-marker-container',
-          iconSize: [16, 32],
-          iconAnchor: [8, 8],
-          html: renderToString(<NodeMarker node={node} showNodeNames={config?.showNodeNames !== false} />),
-        });
-        const marker = L.marker([node.latitude, node.longitude], { icon });
-        (marker as any).options.nodeData = node;
-        marker.bindPopup(renderToString(<PopupContent node={node} />));
-        markers.addLayer(marker);
-      });
-      markers._isClusterLayer = true;
-      map.addLayer(markers);
-      return () => {
-        map.removeLayer(markers);
-      };
+      markerRef.current.setIcon(icon);
+      markerRef.current.getPopup()?.setContent(renderToString(<PopupContent node={node} />));
     }
-  }, [map, nodes, config?.clustering, config?.showNodeNames]);
+  }, [node, showNodeNames]);
+
   return null;
+}
+
+// Clustered markers component
+function ClusteredMarkersGroup({ nodes, showNodeNames }: { nodes: NodePosition[]; showNodeNames: boolean }) {
+  const map = useMap();
+  const clusterGroupRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!map) return;
+
+    const iconCreateFunction = (cluster: any) => {
+      const children = cluster.getAllChildMarkers();
+      return L.divIcon({
+        html: renderToString(<ClusterMarker>{children}</ClusterMarker>),
+        className: 'custom-cluster-icon',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+    };
+
+    const markers = (L as any).markerClusterGroup({
+      iconCreateFunction,
+      maxClusterRadius: 40,
+    });
+
+    nodes.forEach((node: NodePosition) => {
+      const icon = L.divIcon({
+        className: 'custom-node-marker-container',
+        iconSize: [16, 32],
+        iconAnchor: [8, 8],
+        html: renderToString(<NodeMarker node={node} showNodeNames={showNodeNames} />),
+      });
+      const marker = L.marker([node.latitude, node.longitude], { icon });
+      (marker as any).options.nodeData = node;
+      marker.bindPopup(renderToString(<PopupContent node={node} />));
+      markers.addLayer(marker);
+    });
+
+    markers._isClusterLayer = true;
+    map.addLayer(markers);
+    clusterGroupRef.current = markers;
+
+    return () => {
+      if (clusterGroupRef.current && map.hasLayer(clusterGroupRef.current)) {
+        map.removeLayer(clusterGroupRef.current);
+      }
+    };
+  }, [map, nodes, showNodeNames]);
+
+  return null;
+}
+
+function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
+  const configResult = useConfig();
+  const config = configResult?.config;
+  const showNodeNames = config?.showNodeNames !== false;
+
+  if (config?.clustering === false) {
+    // Render individual marker components
+    return (
+      <>
+        {nodes.map((node) => (
+          <IndividualMarker 
+            key={node.node_id} 
+            node={node} 
+            showNodeNames={showNodeNames} 
+          />
+        ))}
+      </>
+    );
+  } else {
+    // Render clustered markers
+    return (
+      <ClusteredMarkersGroup 
+        nodes={nodes} 
+        showNodeNames={showNodeNames} 
+      />
+    );
+  }
 }
 
 export default function MapView() {
@@ -306,7 +367,7 @@ export default function MapView() {
             opacity={0.7}
           />
         )}
-        <ClusteredMarkers nodes={nodePositions} />
+        <ClusteredMarkers key={`clustering-${config?.clustering}-${config?.showNodeNames}`} nodes={nodePositions} />
       </MapContainer>
     </div>
   );

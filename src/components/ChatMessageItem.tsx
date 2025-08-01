@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useConfig } from "./ConfigContext";
 import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
 
@@ -26,10 +26,11 @@ function formatLocalTime(utcString: string): string {
 
 export default function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow?: boolean }) {
   const { config } = useConfig();
-  const knownKeys = [
+  const knownKeys = useMemo(() => [
     ...(config?.meshcoreKeys?.map((k: any) => k.privateKey) || []),
     "izOH6cXN6mrJ5e26oRXNcg==", // Always include public key
-  ];
+  ], [config?.meshcoreKeys]);
+  const knownKeysString = knownKeys.join(",");
   const [parsed, setParsed] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [originsExpanded, setOriginsExpanded] = useState(false);
@@ -62,7 +63,7 @@ export default function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessag
       }
     })();
     return () => { cancelled = true; };
-  }, [msg.encrypted_message, msg.mac, msg.channel_hash, knownKeys.join(",")]);
+  }, [msg.encrypted_message, msg.mac, msg.channel_hash, knownKeysString, knownKeys]);
 
   const originPathArray = msg.origin_path_array && msg.origin_path_array.length > 0 ? msg.origin_path_array : [];
   const originsCount = originPathArray.length;

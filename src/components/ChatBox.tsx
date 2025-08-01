@@ -45,7 +45,7 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
     ? [{ channelName: "All Messages", privateKey: "", isAllMessages: true }, ...meshcoreKeys]
     : meshcoreKeys;
     
-  const [selectedTab, setSelectedTab] = useState(0);
+  const [selectedTab, setSelectedTab] = useState(showAllMessagesTab ? 1 : 0);
   const [minimized, setMinimized] = useState(!startExpanded); // Use startExpanded as default for minimized state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);

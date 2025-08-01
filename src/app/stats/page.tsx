@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { buildApiUrl } from "@/lib/api";
 
 export default function StatsPage() {
   const [totalNodes, setTotalNodes] = useState<number | null>(null);
@@ -12,9 +13,9 @@ export default function StatsPage() {
     async function fetchStats() {
       setLoading(true);
       const [totalNodesRes, nodesOverTimeRes, popularChannelsRes] = await Promise.all([
-        fetch("/api/stats/total-nodes").then(r => r.json()),
-        fetch("/api/stats/nodes-over-time").then(r => r.json()),
-        fetch("/api/stats/popular-channels").then(r => r.json()),
+        fetch(buildApiUrl("/api/stats/total-nodes")).then(r => r.json()),
+        fetch(buildApiUrl("/api/stats/nodes-over-time")).then(r => r.json()),
+        fetch(buildApiUrl("/api/stats/popular-channels")).then(r => r.json()),
       ]);
       setTotalNodes(totalNodesRes.total_nodes ?? null);
       setNodesOverTime(nodesOverTimeRes.data ?? []);

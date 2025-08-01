@@ -6,6 +6,7 @@ import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
 import { getChannelIdFromKey } from "../lib/meshcore";
 import ChatMessageItem, { ChatMessage } from "./ChatMessageItem";
 import RefreshButton from "./RefreshButton";
+import { buildApiUrl } from "../lib/api";
 
 const PAGE_SIZE = 20;
 
@@ -96,7 +97,7 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
         url += `&before=${encodeURIComponent(before)}`;
       }
       
-      const res = await fetch(url);
+      const res = await fetch(buildApiUrl(url));
       const data = await res.json();
       if (Array.isArray(data)) {
         if (fetchNewer && data.length > 0) {

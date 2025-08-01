@@ -11,6 +11,7 @@ import { useConfig } from "./ConfigContext";
 import RefreshButton from "@/components/RefreshButton";
 import { NodeMarker, ClusterMarker, PopupContent } from "./MapIcons";
 import { renderToString } from "react-dom/server";
+import { buildApiUrl } from "../lib/api";
 
 const DEFAULT = {
   lat: 47.6062, // Seattle
@@ -155,7 +156,7 @@ export default function MapView() {
     if (params.length > 0) {
       url += `?${params.join("&")}`;
     }
-    fetch(url, { signal: controller.signal })
+    fetch(buildApiUrl(url), { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {

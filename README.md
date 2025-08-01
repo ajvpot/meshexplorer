@@ -27,6 +27,37 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Environment Variables
+
+### `NEXT_PUBLIC_API_URL`
+
+This environment variable allows you to override the API base URL for frontend development purposes. When set, all API calls will be made to the specified URL instead of using relative URLs.
+
+**Use case**: This is useful when you want to develop the frontend without direct access to the ClickHouse database, by pointing to a remote API endpoint.
+
+**Example**:
+```bash
+NEXT_PUBLIC_API_URL=https://map.w0z.is
+```
+
+**Important**: When this environment variable is set, the local API routes (`/api/*`) will not work. Make sure the remote API endpoint provides the same API structure and endpoints.
+
+**Default behavior**: If not set, the application uses relative URLs and works with the local Next.js API routes.
+
+### CORS Support
+
+The application includes middleware (`middleware.ts`) that automatically adds CORS headers to all API routes. This allows:
+
+- Cross-origin requests from localhost to production APIs
+- Cross-protocol requests (HTTP on localhost to HTTPS in production)
+- Preflight OPTIONS requests are handled automatically
+
+The middleware applies the following CORS headers to all `/api/*` routes:
+- `Access-Control-Allow-Origin: *`
+- `Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS`
+- `Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With`
+- `Access-Control-Allow-Credentials: true`
+
 ## Learn More
 
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.

@@ -25,8 +25,8 @@ const TILE_LAYERS = [
 ];
 
 const DEFAULT_CONFIG: Config = {
-  nodeTypes: ["meshcore", "meshtastic"],
-  lastSeen: null, // forever by default
+  nodeTypes: ["meshcore"],
+  lastSeen: 604800, // 1 week by default
   tileLayer: "openstreetmap", // default
   clustering: true, // default to clustering enabled
   showNodeNames: true, // default to show node names

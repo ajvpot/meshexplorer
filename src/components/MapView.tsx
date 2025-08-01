@@ -115,7 +115,7 @@ export default function MapView() {
   const tileLayerOptions: Record<TileLayerKey, { url: string; attribution: string; maxZoom: number; subdomains?: string[] }> = {
     openstreetmap: {
       url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      attribution: 'Tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Data from <a target="_blank" href="https://meshtastic.org/docs/software/integrations/mqtt/">Meshtastic</a>',
+      attribution: 'Tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 22,
     },
     opentopomap: {
@@ -125,7 +125,7 @@ export default function MapView() {
     },
     esri: {
       url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      attribution: 'Tiles &copy; <a href="https://developers.arcgis.com/documentation/mapping-apis-and-services/deployment/basemap-attribution/">Esri</a> | Data from <a target="_blank" href="https://meshtastic.org/docs/software/integrations/mqtt/">Meshtastic</a>',
+      attribution: 'Tiles &copy; <a href="https://developers.arcgis.com/documentation/mapping-apis-and-services/deployment/basemap-attribution/">Esri</a>',
       maxZoom: 21,
     },
   };
@@ -248,6 +248,7 @@ export default function MapView() {
           [b.getSouthWest().lat, b.getSouthWest().lng],
           [b.getNorthEast().lat, b.getNorthEast().lng],
         ]);
+        map.attributionControl.setPrefix('map.w0z.is')
       }
     }, [map]);
     return null;

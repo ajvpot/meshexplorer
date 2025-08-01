@@ -75,10 +75,11 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       const res = await fetch(buildApiUrl(url));
       const data = await res.json();
       if (Array.isArray(data)) {
-        if (after && data.length > 0) {
+        if (after) {
           // Add newer messages to the beginning (most recent first)
-          setMessages((prev) => [...data, ...prev]);
-          // Don't update hasMore or lastBefore for auto-refresh
+          if (data.length > 0) {
+            setMessages((prev) => [...data, ...prev]);
+          }
         } else {
           setMessages((prev) => replace ? data : [...prev, ...data]);
           setHasMore(data.length === PAGE_SIZE);

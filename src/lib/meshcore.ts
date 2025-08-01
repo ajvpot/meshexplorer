@@ -192,3 +192,9 @@ export async function decryptMeshcoreGroupMessage({
   }
   return null;
 } 
+
+export function formatPublicKey(pubKey: string): string {
+    // Take the first 8 characters, add ellipsis, and then the last 8 characters
+    const formattedKey = `<${pubKey.slice(0, 8)}...${pubKey.slice(-8)}>`;
+    return formattedKey;
+} 

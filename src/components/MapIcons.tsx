@@ -1,5 +1,6 @@
 import React from 'react';
 import moment from "moment";
+import { formatPublicKey } from '../lib/meshcore';
 
 type NodePosition = {
   node_id: string;
@@ -144,7 +145,7 @@ export function ClusterMarker({ children }: ClusterMarkerProps) {
 export function PopupContent({ node }: PopupContentProps) {
   return (
     <div>
-      <div><b>ID:</b> {node.node_id}</div>
+      <div><b>ID:</b> {node.type === "meshcore" ? formatPublicKey(node.node_id) : node.node_id}</div>
       <div><b>Full Name:</b> {node.name ?? "-"}</div>
       <div><b>Short Name:</b> {node.short_name ?? "-"}</div>
       <div><b>Type:</b> {node.type ?? "-"}</div>

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  meshexplorer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=password
+    restart: unless-stopped
+    init: true
+    networks:
+      - shared-network
+
+networks:
+  shared-network:
+    external: true 

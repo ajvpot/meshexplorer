@@ -277,12 +277,6 @@ export default function MapView() {
           ariaLabel="Refresh map nodes"
         />
       </div>
-      {/* Add keyframes for spin animation */}
-      <style>{`
-        @keyframes spin {
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
       <MapContainer
         center={[DEFAULT.lat, DEFAULT.lng]}
         zoom={DEFAULT.zoom}

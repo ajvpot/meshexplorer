@@ -1,28 +1,20 @@
 "use client";
 import React from "react";
+import { getAppName } from "../lib/api";
+import Modal from "./Modal";
 
 interface InfoModalProps {
+  isOpen: boolean;
   onClose: () => void;
 }
 
-export default function InfoModal({ onClose }: InfoModalProps) {
+export default function InfoModal({ isOpen, onClose }: InfoModalProps) {
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-lg p-6 min-w-[350px] max-w-[500px] max-h-[60vh] overflow-auto border border-gray-200 dark:border-neutral-700 relative">
-        <button
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          onClick={onClose}
-          aria-label="Close info modal"
-        >
-          <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-        
-        <h2 className="text-lg font-semibold mb-4">About MeshExplorer</h2>
-        
-        <div className="space-y-4">
+    <Modal isOpen={isOpen} onClose={onClose} title={`About ${getAppName()}`}>
+      <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-              MeshExplorer is a web-based visualization tool for exploring and monitoring mesh networks. 
+              {getAppName()} is a web-based visualization tool for exploring and monitoring mesh networks. 
               It provides real-time mapping of network nodes, message tracking, and statistical analysis for MeshCore and Meshtastic networks.
             </p>
           </div>
@@ -41,9 +33,28 @@ export default function InfoModal({ onClose }: InfoModalProps) {
           </div>
           
           <div className="border-t border-gray-200 dark:border-neutral-700 pt-4">
+            <h3 className="text-md font-medium mb-2">Community</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+              Connect with the Puget Mesh community, a volunteer group supporting AREDN, Meshtastic, and other off-grid mesh networks in the Puget Sound Region.
+            </p>
+            <a
+              href="https://pugetmesh.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Visit Puget Mesh
+            </a>
+          </div>
+          
+          <div className="border-t border-gray-200 dark:border-neutral-700 pt-4">
             <h3 className="text-md font-medium mb-2">Contributing</h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-              MeshExplorer is open source and welcomes contributions from the community.
+              {getAppName()} is open source and welcomes contributions from the community.
             </p>
             <a
               href="https://github.com/ajvpot/meshexplorer"
@@ -58,7 +69,6 @@ export default function InfoModal({ onClose }: InfoModalProps) {
             </a>
           </div>
         </div>
-      </div>
-    </div>
-  );
+      </Modal>
+    );
 } 

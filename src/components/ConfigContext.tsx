@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
 import { getChannelIdFromKey } from "../lib/meshcore";
+import Modal from "./Modal";
 
 // Config shape
 type NodeType = "meshcore" | "meshtastic";
@@ -269,19 +270,10 @@ function validateMeshcoreKey(key: string): string | null {
 
 function MeshcoreKeyModal({ config, setConfig, onClose }: { config: Config, setConfig: (c: Config) => void, onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-lg p-6 min-w-[350px] max-w-[90vw] max-h-[60vh] overflow-auto border border-gray-200 dark:border-neutral-700 relative">
-        <button
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          onClick={onClose}
-          aria-label="Close key modal"
-        >
-          <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-        <h2 className="text-lg font-semibold mb-4">Meshcore Private Keys</h2>
-        <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-          These keys will be used to decrypt messages. <b>Your keys are never shared with the server</b>, so your messages remain secure.
-        </p>
+    <Modal isOpen={true} onClose={onClose} title="Meshcore Private Keys" maxWidth="90vw">
+      <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+        These keys will be used to decrypt messages. <b>Your keys are never shared with the server</b>, so your messages remain secure.
+      </p>
         <div className="flex flex-col gap-1 mb-2 p-2 border rounded bg-gray-100 dark:bg-neutral-700 opacity-80">
           <div className="flex items-center gap-2">
             <input
@@ -389,7 +381,6 @@ function MeshcoreKeyModal({ config, setConfig, onClose }: { config: Config, setC
         >
           Add Meshcore Key
         </button>
-      </div>
-    </div>
+    </Modal>
   );
 } 

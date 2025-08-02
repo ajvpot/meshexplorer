@@ -4,6 +4,7 @@ import { Cog6ToothIcon, InformationCircleIcon } from "@heroicons/react/24/outlin
 import { useConfig } from "./ConfigContext";
 import React, { useState } from "react";
 import InfoModal from "./InfoModal";
+import { getAppName } from "../lib/api";
 
 interface HeaderProps {
   configButtonRef?: React.Ref<HTMLButtonElement>;
@@ -17,7 +18,7 @@ export default function Header({ configButtonRef }: HeaderProps) {
     <>
       <header className="w-full flex items-center justify-between px-6 py-3 bg-white dark:bg-neutral-900 shadow z-20">
         <nav className="flex gap-6 items-center">
-          <Link href="/" className="font-bold text-lg">MeshExplorer</Link>
+          <Link href="/" className="font-bold text-lg">{getAppName()}</Link>
           <Link href="/messages">Messages</Link>
           <Link href="/stats">Stats</Link>
         </nav>
@@ -25,7 +26,7 @@ export default function Header({ configButtonRef }: HeaderProps) {
           <button
             onClick={() => setInfoModalOpen(true)}
             className="flex items-center gap-2 px-3 py-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            aria-label="Open information about MeshExplorer"
+            aria-label={`Open information about ${getAppName()}`}
           >
             <InformationCircleIcon className="h-6 w-6" />
             <span className="hidden sm:inline">Info</span>
@@ -41,7 +42,7 @@ export default function Header({ configButtonRef }: HeaderProps) {
           </button>
         </div>
       </header>
-      {infoModalOpen && <InfoModal onClose={() => setInfoModalOpen(false)} />}
+      <InfoModal isOpen={infoModalOpen} onClose={() => setInfoModalOpen(false)} />
     </>
   );
 } 

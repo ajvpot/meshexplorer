@@ -90,7 +90,13 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         <MeshcoreKeyModal
           config={config}
           setConfig={setConfig}
-          onClose={() => setKeyModalOpen(false)}
+          onClose={() => {
+            setConfig({
+              ...config,
+              meshcoreKeys: [...(config.meshcoreKeys?.filter(({channelName, privateKey}) => channelName !== "" || privateKey !== "") || [])],
+            });
+            setKeyModalOpen(false)
+          }}
         />
       )}
     </ConfigContext.Provider>

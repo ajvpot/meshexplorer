@@ -142,6 +142,16 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
     fetchMessages(undefined, true);
   };
 
+  const LoadMoreButton = () => (
+<button
+                  className={`w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 ${startExpanded ? "" : "mt-2"}`}
+                  onClick={handleLoadMore}
+                  disabled={loading}
+                >
+                  {loading ? "Loading..." : "Load more"}
+                </button>
+  );
+
   return (
     <div
       className={`bg-white dark:bg-neutral-900 rounded-lg shadow-lg flex flex-col ${
@@ -203,25 +213,22 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
           )}
           
           <div className={`flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 ${startExpanded ? "" : "flex flex-col-reverse"}`}>
-            <div className={`${startExpanded ? "flex flex-col gap-2 p-4" : "flex flex-col-reverse gap-2"}`}>
+            <div className={`${startExpanded ? "flex flex-col gap-2 p-4" : "flex flex-col gap-2"}`}>
               {messages.length === 0 && !loading && (
                 <div className={`text-gray-400 text-center ${startExpanded ? "py-8" : "mt-8"}`}>No chat messages found.</div>
               )}
-              {messages.map((msg, i) => (
+              {hasMore && !startExpanded && (
+                <LoadMoreButton />
+              )}
+              {(startExpanded ? messages : messages.toReversed()).map((msg, i) => (
                 <ChatMessageItem 
                   key={msg.ingest_timestamp + (msg.origins?.join(',') ?? '') + i} 
                   msg={msg} 
                   showErrorRow={selectedKey.isAllMessages}
                 />
               ))}
-              {hasMore && (
-                <button
-                  className={`w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 ${startExpanded ? "" : "mt-2"}`}
-                  onClick={handleLoadMore}
-                  disabled={loading}
-                >
-                  {loading ? "Loading..." : "Load more"}
-                </button>
+              {hasMore && startExpanded && (
+                <LoadMoreButton />
               )}
             </div>
           </div>

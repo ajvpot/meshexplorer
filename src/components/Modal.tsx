@@ -45,7 +45,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = "50
     <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40">
       <div 
         ref={modalRef}
-        className="bg-white dark:bg-neutral-900 rounded-lg shadow-lg p-6 min-w-[350px] max-h-[60vh] overflow-auto border border-gray-200 dark:border-neutral-700 relative"
+        className="text-neutral-800 dark:text-neutral-200 bg-white dark:bg-neutral-900 rounded-lg shadow-lg p-6 min-w-[350px] max-h-[60vh] overflow-auto border border-gray-200 dark:border-neutral-700 relative"
         style={{ maxWidth }}
       >
         <button

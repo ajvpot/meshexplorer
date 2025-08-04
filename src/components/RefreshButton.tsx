@@ -27,8 +27,6 @@ export default function RefreshButton({
         onClick={onClick}
         disabled={loading || disabled}
         style={{
-          background: "#fff",
-          color: "#2563eb",
           border: "none",
           borderRadius: "50%",
           width: size,
@@ -43,6 +41,7 @@ export default function RefreshButton({
           fontSize: iconSize,
           padding: 0,
         }}
+        className="text-blue-600 dark:text-white bg-white dark:bg-blue-600"
         aria-label={ariaLabel}
         title={title}
       >

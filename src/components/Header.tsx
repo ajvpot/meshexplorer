@@ -16,7 +16,7 @@ export default function Header({ configButtonRef }: HeaderProps) {
 
   return (
     <>
-      <header className="w-full flex items-center justify-between px-6 py-3 bg-white dark:bg-neutral-900 shadow z-20">
+      <header className="w-full flex items-center justify-between px-6 py-3 text-gray-800 dark:text-gray-100 bg-white dark:bg-neutral-900 shadow z-20">
         <nav className="flex gap-6 items-center">
           <Link href="/" className="font-bold text-lg">{getAppName()}</Link>
           <Link href="/messages">Messages</Link>

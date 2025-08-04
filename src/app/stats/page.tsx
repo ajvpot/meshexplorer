@@ -29,7 +29,7 @@ export default function StatsPage() {
   }, []);
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
+    <div className="max-w-2xl w-full mx-auto my-4 py-2 px-4 text-gray-800 dark:text-gray-200 bg-white dark:bg-neutral-900 rounded-lg shadow-lg">
       <h1 className="text-2xl font-bold mb-6">MeshCore Network Stats</h1>
       {loading ? (
         <div>Loading...</div>

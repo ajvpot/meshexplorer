@@ -131,7 +131,7 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
   return (
     <div
       ref={popoverRef}
-      className="z-[2000] bg-white dark:bg-neutral-900 rounded-lg shadow-lg p-6 min-w-[320px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-auto border border-gray-200 dark:border-neutral-700 fixed top-16 right-4 flex flex-col"
+      className="z-[2000] text-neutral-800 dark:text-neutral-200 bg-white dark:bg-neutral-900 rounded-lg shadow-lg p-6 min-w-[320px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-auto border border-gray-200 dark:border-neutral-700 fixed top-16 right-4 flex flex-col"
       style={{ boxSizing: 'border-box' }}
     >
       <button

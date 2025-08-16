@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "../components/Header";
@@ -19,6 +19,13 @@ export const metadata: Metadata = {
   description: "A real-time map, chat client, and packet analysis tool for mesh networks using MeshCore and Meshtastic.",
 };
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "oklch(92.2% 0 0)" }, // neutral-200
+    { media: "(prefers-color-scheme: dark)", color: "oklch(26.9% 0 0)" }, //neutral-800
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,7 +40,7 @@ export default function RootLayout({
         <div className="flex flex-col min-h-screen w-full">
           <ConfigProvider>
             <Header />
-            <main className="flex-1 flex flex-col w-full">{children}</main>
+            <main className="flex-1 flex flex-col w-full bg-neutral-200 dark:bg-neutral-800">{children}</main>
           </ConfigProvider>
         </div>
       </body>

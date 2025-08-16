@@ -177,7 +177,7 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
           )}
           {!startExpanded && (
             <button
-              className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800"
+              className="p-1 rounded text-gray-800 dark:text-gray-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               onClick={() => setMinimized((m) => !m)}
               aria-label={minimized ? "Maximize MeshCore Chat" : "Minimize MeshCore Chat"}
             >

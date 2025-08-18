@@ -8,25 +8,24 @@ export async function GET() {
         SELECT toDate(ingest_timestamp) AS day, public_key, latitude, longitude
         FROM meshcore_adverts
       ),
-      node_days AS (
-        SELECT public_key, min(day) AS first_seen, any(latitude) AS latitude, any(longitude) AS longitude
-        FROM all_nodes
-        GROUP BY public_key
-      ),
       all_days AS (
         SELECT DISTINCT day FROM all_nodes
         ORDER BY day ASC
       ),
-      expanded AS (
-        SELECT d.day, nd.public_key, nd.latitude, nd.longitude
+      rolling_window AS (
+        SELECT 
+          d.day,
+          n.public_key,
+          n.latitude,
+          n.longitude
         FROM all_days d
-        INNER JOIN node_days nd ON nd.first_seen <= d.day
+        INNER JOIN all_nodes n ON n.day BETWEEN (d.day - INTERVAL 6 DAY) AND d.day
       )
       SELECT day,
         count(DISTINCT public_key) AS cumulative_unique_nodes,
         count(DISTINCT CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL THEN public_key END) AS nodes_with_location,
         count(DISTINCT CASE WHEN latitude IS NULL OR longitude IS NULL THEN public_key END) AS nodes_without_location
-      FROM expanded
+      FROM rolling_window
       GROUP BY day
       ORDER BY day ASC
     `;

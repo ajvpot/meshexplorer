@@ -64,6 +64,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const firstRender = useRef(true);
 
   // Load from localStorage
+  // todo: this causes a flash of the default config before the local storage is loaded. use suspense?
+  //       also causes race condition on the stats page if the defaults take longer to load than the selected region.
   useEffect(() => {
     const stored = localStorage.getItem("meshExplorerConfig");
     if (stored) {

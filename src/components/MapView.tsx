@@ -14,9 +14,9 @@ import { renderToString } from "react-dom/server";
 import { buildApiUrl } from "../lib/api";
 
 const DEFAULT = {
-  lat: 47.6062, // Seattle
-  lng: -122.3321,
-  zoom: 12,
+  lat: 46.56, // Center between Seattle and Portland
+  lng: -122.51,
+  zoom: 7, // Zoom level to show both cities
 };
 
 type NodePosition = {

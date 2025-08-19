@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { buildApiUrl } from "@/lib/api";
+import { useConfig } from "@/components/ConfigContext";
+import { getRegionConfig } from "@/lib/regions";
 
 export default function StatsPage() {
+  const { config } = useConfig();
   const [totalNodes, setTotalNodes] = useState<number | null>(null);
   const [nodesOverTime, setNodesOverTime] = useState<any[]>([]);
   const [popularChannels, setPopularChannels] = useState<any[]>([]);
@@ -13,11 +16,15 @@ export default function StatsPage() {
   useEffect(() => {
     async function fetchStats() {
       setLoading(true);
+      
+      // Build API URLs with region parameter if selected
+      const regionParam = config?.selectedRegion ? `?region=${encodeURIComponent(config.selectedRegion)}` : '';
+      
       const [totalNodesRes, nodesOverTimeRes, popularChannelsRes, repeaterPrefixesRes] = await Promise.all([
-        fetch(buildApiUrl("/api/stats/total-nodes")).then(r => r.json()),
-        fetch(buildApiUrl("/api/stats/nodes-over-time")).then(r => r.json()),
-        fetch(buildApiUrl("/api/stats/popular-channels")).then(r => r.json()),
-        fetch(buildApiUrl("/api/stats/repeater-prefixes")).then(r => r.json()),
+        fetch(buildApiUrl(`/api/stats/total-nodes${regionParam}`)).then(r => r.json()),
+        fetch(buildApiUrl(`/api/stats/nodes-over-time${regionParam}`)).then(r => r.json()),
+        fetch(buildApiUrl(`/api/stats/popular-channels${regionParam}`)).then(r => r.json()),
+        fetch(buildApiUrl(`/api/stats/repeater-prefixes${regionParam}`)).then(r => r.json()),
       ]);
       setTotalNodes(totalNodesRes.total_nodes ?? null);
       setNodesOverTime(nodesOverTimeRes.data ?? []);
@@ -26,11 +33,23 @@ export default function StatsPage() {
       setLoading(false);
     }
     fetchStats();
-  }, []);
+  }, [config?.selectedRegion]);
+
+  // Get the friendly name for the selected region
+  const regionFriendlyName = config?.selectedRegion 
+    ? getRegionConfig(config.selectedRegion)?.friendlyName || config.selectedRegion
+    : null;
 
   return (
     <div className="max-w-2xl w-full mx-auto my-4 py-2 px-4 text-gray-800 dark:text-gray-200 bg-white dark:bg-neutral-900 rounded-lg shadow-lg">
-      <h1 className="text-2xl font-bold mb-6">MeshCore Network Stats</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">MeshCore Network Stats</h1>
+        {regionFriendlyName && (
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {regionFriendlyName}
+          </div>
+        )}
+      </div>
       {loading ? (
         <div>Loading...</div>
       ) : (

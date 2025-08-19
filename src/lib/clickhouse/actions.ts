@@ -1,5 +1,6 @@
 "use server";
 import { clickhouse } from "./clickhouse";
+import { generateRegionWhereClauseFromArray } from "../regionFilters";
 
 export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen }: { minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], lastSeen?: string | null } = {}) {
   try {
@@ -69,15 +70,9 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
     }
     
     // Add region filtering if specified
-    // todo: generate these from the regions.ts file
-    if (region) {
-      if (region === 'seattle') {
-        where.push("arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND (x.2 = 'meshcore' OR x.2 = 'meshcore/salish'), topic_broker_array)");
-      } else if (region === 'portland') {
-        where.push("arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND x.2 = 'meshcore/pdx', topic_broker_array)");
-      } else if (region === 'boston') {
-        where.push("arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND x.2 = 'meshcore/bos', topic_broker_array)");
-      }
+    const regionFilter = generateRegionWhereClauseFromArray(region);
+    if (regionFilter.whereClause) {
+      where.push(regionFilter.whereClause);
     }
     
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';

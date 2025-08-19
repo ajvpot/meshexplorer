@@ -161,7 +161,7 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
             : "w-80 h-96 px-4 py-4"
       }`}>
         <div className={`flex items-center justify-between ${startExpanded ? "px-4 py-2 border-b border-gray-200 dark:border-neutral-800" : ""}`} style={startExpanded ? {} : { minHeight: minimized ? '2rem' : '2rem' }}>
-          <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
+          <span className="font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">MeshCore Chat</span>
           {!startExpanded && (
             <button
               className="p-1 rounded text-gray-800 dark:text-gray-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -205,13 +205,13 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       }`}
     >
       <div className={`flex items-center justify-between ${startExpanded ? "px-4 py-2 border-b border-gray-200 dark:border-neutral-800" : ""}`} style={startExpanded ? {} : { minHeight: minimized ? '2rem' : '2rem' }}>
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap flex-shrink-0">MeshCore Chat</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 truncate" title={getRegionConfig(config.selectedRegion!)?.friendlyName || config.selectedRegion}>
             {getRegionConfig(config.selectedRegion!)?.friendlyName || config.selectedRegion}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {(!minimized) && (
             <RefreshButton
               onClick={handleRefresh}

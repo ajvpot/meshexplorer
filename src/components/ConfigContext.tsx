@@ -257,7 +257,7 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
           ))}
         </select>
         <p className="text-xs text-gray-500 mt-1">
-          Select a region to filter chat messages by broker and topic
+          Select a region to filter chat messages
         </p>
       </div>
     </div>

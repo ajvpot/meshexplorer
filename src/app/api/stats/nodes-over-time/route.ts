@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { clickhouse } from "@/lib/clickhouse/clickhouse";
+import { generateRegionWhereClause } from "@/lib/regionFilters";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const region = searchParams.get("region") || undefined;
+    
+    const regionFilter = generateRegionWhereClause(region);
+    const regionWhereClause = regionFilter.whereClause ? `WHERE ${regionFilter.whereClause}` : '';
+    
     const query = `
       WITH all_nodes AS (
         SELECT toDate(ingest_timestamp) AS day, public_key, latitude, longitude
         FROM meshcore_adverts
+        ${regionWhereClause}
       ),
       all_days AS (
         SELECT DISTINCT day FROM all_nodes

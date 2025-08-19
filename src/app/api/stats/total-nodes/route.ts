@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { clickhouse } from "@/lib/clickhouse/clickhouse";
+import { generateRegionWhereClause } from "@/lib/regionFilters";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const query = `SELECT count() AS total_nodes FROM meshcore_adverts_latest`;
+    const { searchParams } = new URL(req.url);
+    const region = searchParams.get("region") || undefined;
+    
+    const regionFilter = generateRegionWhereClause(region);
+    const whereClause = regionFilter.whereClause ? `WHERE ${regionFilter.whereClause}` : '';
+    
+    const query = `SELECT count() AS total_nodes FROM meshcore_adverts_latest ${whereClause}`;
+    
     const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
     const rows = await resultSet.json() as Array<{ total_nodes: number }>;
     const total = rows.length > 0 ? Number(rows[0].total_nodes) : 0;

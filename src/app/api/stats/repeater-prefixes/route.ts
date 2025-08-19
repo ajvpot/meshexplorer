@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { clickhouse } from "@/lib/clickhouse/clickhouse";
+import { generateRegionWhereClause } from "@/lib/regionFilters";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const region = searchParams.get("region") || undefined;
+    
+    const regionFilter = generateRegionWhereClause(region);
+    const regionWhereClause = regionFilter.whereClause ? `AND ${regionFilter.whereClause}` : '';
+    
     const query = `
       SELECT 
           substring(public_key, 1, 2) as prefix,
@@ -11,6 +18,7 @@ export async function GET() {
       FROM meshcore_adverts_latest 
       WHERE is_repeater = 1 
           AND last_seen >= now() - INTERVAL 7 DAY
+          ${regionWhereClause}
       GROUP BY prefix
       ORDER BY node_count DESC, prefix ASC
     `;

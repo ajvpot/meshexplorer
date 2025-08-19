@@ -245,7 +245,7 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
         </button>
       </div>
       <div className="mb-2">
-        <div className="font-medium mb-2">Chat Region</div>
+        <div className="font-medium mb-2">Region</div>
         <select
           className="w-full p-2 border rounded"
           value={config.selectedRegion || ''}
@@ -257,7 +257,7 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
           ))}
         </select>
         <p className="text-xs text-gray-500 mt-1">
-          Select a region to filter chat messages
+          Select a region to filter chat messages and stats
         </p>
       </div>
     </div>

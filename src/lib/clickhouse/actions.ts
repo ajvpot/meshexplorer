@@ -69,6 +69,7 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
     }
     
     // Add region filtering if specified
+    // todo: generate these from the regions.ts file
     if (region) {
       if (region === 'seattle') {
         where.push("arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND (x.2 = 'meshcore' OR x.2 = 'meshcore/salish'), topic_broker_array)");

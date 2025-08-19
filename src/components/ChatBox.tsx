@@ -7,6 +7,8 @@ import { getChannelIdFromKey } from "../lib/meshcore";
 import ChatMessageItem, { ChatMessage } from "./ChatMessageItem";
 import RefreshButton from "./RefreshButton";
 import { buildApiUrl } from "../lib/api";
+import RegionSelector from "./RegionSelector";
+import { getRegionConfig } from "../lib/regions";
 
 const PAGE_SIZE = 20;
 
@@ -59,9 +61,11 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
   const showTabs = allTabs.length > 1;
 
   const fetchMessages = useCallback(async (before?: string, replace = false, after?: string) => {
+    if (!config?.selectedRegion) return;
+    
     setLoading(true);
     try {
-      let url = `/api/chat?limit=${PAGE_SIZE}`;
+      let url = `/api/chat?limit=${PAGE_SIZE}&region=${encodeURIComponent(config.selectedRegion!)}`;
       if (channelId) url += `&channel_id=${channelId}`;
       
       if (after) {
@@ -94,18 +98,11 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
         }
       }
     } catch (error) {
-      // Only set hasMore to false if we don't have a lastBefore value (can't load more)
-      if (!lastBefore) {
-        setHasMore(false);
-      }
-      if (after) {
-        // Silently fail for auto-refresh
-        console.error('Auto-refresh failed:', error);
-      }
+      console.error('Load failed:', error);
     } finally {
       setLoading(false);
     }
-  }, [channelId]);
+  }, [channelId, config.selectedRegion]);
 
   useEffect(() => {
     if (!minimized) {
@@ -114,7 +111,7 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       setLastBefore(undefined);
       fetchMessages(undefined, true);
     }
-  }, [minimized, selectedTab]);
+  }, [minimized, selectedTab, config?.selectedRegion, fetchMessages]);
 
   // Auto-refresh effect
   useEffect(() => {
@@ -128,7 +125,7 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       
       return () => clearInterval(interval);
     }
-  }, [minimized, channelId, messages]);
+  }, [minimized, channelId, messages, fetchMessages]);
 
   const handleLoadMore = () => {
     if (lastBefore) {
@@ -144,14 +141,58 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
   };
 
   const LoadMoreButton = () => (
-<button
-                  className={`w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 ${startExpanded ? "" : "mt-2"}`}
-                  onClick={handleLoadMore}
-                  disabled={loading}
-                >
-                  {loading ? "Loading..." : "Load more"}
-                </button>
+    <button
+      className={`w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700 ${startExpanded ? "" : "mt-2"}`}
+      onClick={handleLoadMore}
+      disabled={loading}
+    >
+      {loading ? "Loading..." : "Load more"}
+    </button>
   );
+
+  // If no region is selected, show the region selector
+  if (!config?.selectedRegion) {
+    return (
+      <div className={`bg-white dark:bg-neutral-900 rounded-lg shadow-lg flex flex-col ${
+        startExpanded 
+          ? className 
+          : minimized 
+            ? "w-80 h-10 px-3 py-1" 
+            : "w-80 h-96 px-4 py-4"
+      }`}>
+        <div className={`flex items-center justify-between ${startExpanded ? "px-4 py-2 border-b border-gray-200 dark:border-neutral-800" : ""}`} style={startExpanded ? {} : { minHeight: minimized ? '2rem' : '2rem' }}>
+          <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
+          {!startExpanded && (
+            <button
+              className="p-1 rounded text-gray-800 dark:text-gray-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              onClick={() => setMinimized((m) => !m)}
+              aria-label={minimized ? "Maximize MeshCore Chat" : "Minimize MeshCore Chat"}
+            >
+              {minimized ? (
+                <PlusIcon className="h-5 w-5" />
+              ) : (
+                <MinusIcon className="h-5 w-5" />
+              )}
+            </button>
+          )}
+        </div>
+        
+        {!minimized && (
+          <div className="flex-1 flex items-center justify-center p-4">
+            <RegionSelector 
+              onRegionSelected={() => {
+                setMessages([]);
+                setHasMore(true);
+                setLastBefore(undefined);
+                fetchMessages(undefined, true);
+              }}
+              className="w-full"
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -164,7 +205,12 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
       }`}
     >
       <div className={`flex items-center justify-between ${startExpanded ? "px-4 py-2 border-b border-gray-200 dark:border-neutral-800" : ""}`} style={startExpanded ? {} : { minHeight: minimized ? '2rem' : '2rem' }}>
-        <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-800 dark:text-gray-100">MeshCore Chat</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {getRegionConfig(config.selectedRegion!)?.friendlyName || config.selectedRegion}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           {(!minimized) && (
             <RefreshButton

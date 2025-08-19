@@ -9,7 +9,8 @@ export async function GET(req: Request) {
     const before = searchParams.get("before") || undefined;
     const after = searchParams.get("after") || undefined;
     const channelId = searchParams.get("channel_id") || undefined;
-    const messages = await getLatestChatMessages({ limit, before, after, channelId } as { limit?: number, before?: string, after?: string, channelId?: string });
+    const region = searchParams.get("region") || undefined;
+    const messages = await getLatestChatMessages({ limit, before, after, channelId, region } as { limit?: number, before?: string, after?: string, channelId?: string, region?: string });
     return NextResponse.json(messages);
   } catch (error) {
     return NextResponse.json({ error: "Failed to fetch chat messages" }, { status: 500 });

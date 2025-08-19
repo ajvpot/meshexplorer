@@ -50,10 +50,11 @@ export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTyp
   }
 } 
 
-export async function getLatestChatMessages({ limit = 20, before, after, channelId }: { limit?: number, before?: string, after?: string, channelId?: string } = {}) {
+export async function getLatestChatMessages({ limit = 20, before, after, channelId, region }: { limit?: number, before?: string, after?: string, channelId?: string, region?: string } = {}) {
   try {
     let where = [];
     const params: Record<string, any> = { limit };
+    
     if (before) {
       where.push('ingest_timestamp < {before:DateTime64}');
       params.before = before;
@@ -66,6 +67,18 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
       where.push('channel_hash = {channelId:String}');
       params.channelId = channelId;
     }
+    
+    // Add region filtering if specified
+    if (region) {
+      if (region === 'seattle') {
+        where.push("arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND (x.2 = 'meshcore' OR x.2 = 'meshcore/salish'), topic_broker_array)");
+      } else if (region === 'portland') {
+        where.push("arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND x.2 = 'meshcore/pdx', topic_broker_array)");
+      } else if (region === 'boston') {
+        where.push("arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND x.2 = 'meshcore/bos', topic_broker_array)");
+      }
+    }
+    
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
     const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_array FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
     const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });

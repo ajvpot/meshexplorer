@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
 import { getChannelIdFromKey } from "../lib/meshcore";
+import { getRegionFriendlyNames } from "../lib/regions";
 import Modal from "./Modal";
 
 // Config shape
@@ -17,6 +18,7 @@ export type Config = {
   showNodeNames?: boolean; // add show node names toggle
   meshcoreKeys?: MeshcoreKey[]; // meshcore private keys
   showMeshcoreCoverageOverlay?: boolean; // meshcore overlay toggle
+  selectedRegion?: string; // selected region for chat messages
 };
 
 const TILE_LAYERS = [
@@ -33,6 +35,7 @@ const DEFAULT_CONFIG: Config = {
   showNodeNames: true, // default to show node names
   meshcoreKeys: [], // default empty
   showMeshcoreCoverageOverlay: false, // meshcore overlay default
+  selectedRegion: undefined, // no region selected by default
 };
 
 const LAST_SEEN_OPTIONS = [
@@ -240,6 +243,22 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
         >
           Manage Meshcore Private Keys
         </button>
+      </div>
+      <div className="mb-2">
+        <div className="font-medium mb-2">Chat Region</div>
+        <select
+          className="w-full p-2 border rounded"
+          value={config.selectedRegion || ''}
+          onChange={e => setConfig({ ...config, selectedRegion: e.target.value || undefined })}
+        >
+          <option value="">Select a region...</option>
+          {getRegionFriendlyNames().map(({ name, friendlyName }) => (
+            <option key={name} value={name}>{friendlyName}</option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-1">
+          Select a region to filter chat messages by broker and topic
+        </p>
       </div>
     </div>
   );

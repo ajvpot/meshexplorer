@@ -76,7 +76,7 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
     }
     
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_array FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
+    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_key_path_array FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
     const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
     const rows = await resultSet.json();
     return rows as Array<{
@@ -86,7 +86,7 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
       mac: string;
       encrypted_message: string;
       message_count: number;
-      origin_path_array: Array<[string, string]>; // Array of [origin, path] tuples
+      origin_key_path_array: Array<[string, string, string]>; // Array of [origin, pubkey, path] tuples
     }>;
   } catch (error) {
     console.error('ClickHouse error in getLatestChatMessages:', error);

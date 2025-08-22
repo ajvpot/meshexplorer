@@ -12,7 +12,7 @@ export interface ChatMessage {
   mac: string;
   encrypted_message: string;
   message_count: number;
-  origin_path_array: Array<[string, string]>; // Array of [origin, path] tuples
+  origin_key_path_array: Array<[string, string, string]>; // Array of [origin, pubkey, path] tuples
 }
 
 function formatHex(hex: string): string {
@@ -65,8 +65,8 @@ export default function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessag
     return () => { cancelled = true; };
   }, [msg.encrypted_message, msg.mac, msg.channel_hash, knownKeysString, knownKeys]);
 
-  const originPathArray = msg.origin_path_array && msg.origin_path_array.length > 0 ? msg.origin_path_array : [];
-  const originsCount = originPathArray.length;
+  const originKeyPathArray = msg.origin_key_path_array && msg.origin_key_path_array.length > 0 ? msg.origin_key_path_array : [];
+  const originsCount = originKeyPathArray.length;
 
   const OriginsBox = () => (
     <div className="text-xs text-gray-600 dark:text-gray-300">
@@ -86,15 +86,18 @@ export default function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessag
       </button>
       {originsExpanded && originsCount > 0 && (
         <div className="mt-1 p-2 bg-gray-100 dark:bg-neutral-700 rounded text-xs break-all text-gray-800 dark:text-gray-200">
-          {originPathArray.map(([origin, path], index) => {
+          {originKeyPathArray.map(([origin, pubkey, path], index: number) => {
             // Parse path into 2-character slices
             const pathSlices = path.match(/.{1,2}/g) || [];
             const formattedPath = pathSlices.join(' ');
+            // Get first 2 characters of the pubkey
+            const pubkeyPrefix = pubkey.substring(0, 2);
             
             return (
               <div key={index} className="flex items-center gap-2">
                 <span>{origin}</span>
                 <span className="font-mono">{formattedPath}</span>
+                <span className="text-blue-600 dark:text-blue-400">({pubkeyPrefix})</span>
               </div>
             );
           })}

@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     
     const query = `
       WITH all_nodes AS (
-        SELECT toDate(ingest_timestamp) AS day, public_key, latitude, longitude
+        SELECT toDate(ingest_timestamp) AS day, public_key, latitude, longitude, is_repeater, is_room_server
         FROM meshcore_adverts
         ${regionWhereClause}
       ),
@@ -25,14 +25,18 @@ export async function GET(req: Request) {
           d.day,
           n.public_key,
           n.latitude,
-          n.longitude
+          n.longitude,
+          n.is_repeater,
+          n.is_room_server
         FROM all_days d
         INNER JOIN all_nodes n ON n.day BETWEEN (d.day - INTERVAL 6 DAY) AND d.day
       )
       SELECT day,
         count(DISTINCT public_key) AS cumulative_unique_nodes,
-        count(DISTINCT CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL THEN public_key END) AS nodes_with_location,
-        count(DISTINCT CASE WHEN latitude IS NULL OR longitude IS NULL THEN public_key END) AS nodes_without_location
+        count(DISTINCT CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL AND latitude != 0 AND longitude != 0 THEN public_key END) AS nodes_with_location,
+        count(DISTINCT CASE WHEN latitude IS NULL OR longitude IS NULL OR latitude = 0 OR longitude = 0 THEN public_key END) AS nodes_without_location,
+        count(DISTINCT CASE WHEN is_repeater = 1 THEN public_key END) AS repeaters,
+        count(DISTINCT CASE WHEN is_room_server = 1 THEN public_key END) AS room_servers
       FROM rolling_window
       GROUP BY day
       ORDER BY day ASC
@@ -42,7 +46,9 @@ export async function GET(req: Request) {
       day: string,
       cumulative_unique_nodes: number,
       nodes_with_location: number,
-      nodes_without_location: number
+      nodes_without_location: number,
+      repeaters: number,
+      room_servers: number
     }>;
     return NextResponse.json({ data: rows });
   } catch (error) {

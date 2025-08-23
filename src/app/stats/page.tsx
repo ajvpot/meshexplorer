@@ -64,26 +64,32 @@ export default function StatsPage() {
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Shows nodes heard within the last 7 days by date.
             </p>
-            <table className="w-full text-sm border">
-              <thead>
-                <tr>
-                  <th className="border px-2 py-1">Day</th>
-                  <th className="border px-2 py-1">Total Nodes</th>
-                  <th className="border px-2 py-1">With Location</th>
-                  <th className="border px-2 py-1">Without Location</th>
-                </tr>
-              </thead>
-              <tbody>
-                {nodesOverTime.map((row, i) => (
-                  <tr key={i}>
-                    <td className="border px-2 py-1">{row.day}</td>
-                    <td className="border px-2 py-1">{row.cumulative_unique_nodes}</td>
-                    <td className="border px-2 py-1">{row.nodes_with_location}</td>
-                    <td className="border px-2 py-1">{row.nodes_without_location}</td>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm border rounded">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-800 font-semibold">
+                    <th className="border px-3 py-2 text-center min-w-[120px]">Day</th>
+                    <th className="border px-3 py-2 text-center">Total Nodes</th>
+                    <th className="border px-3 py-2 text-center">With Location</th>
+                    <th className="border px-3 py-2 text-center">Without Location</th>
+                    <th className="border px-3 py-2 text-center">Repeaters</th>
+                    <th className="border px-3 py-2 text-center">Room Servers</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {nodesOverTime.map((row, i) => (
+                    <tr key={i} className="border-t">
+                      <td className="border px-3 py-2 text-center min-w-[120px]">{row.day}</td>
+                      <td className="border px-3 py-2 text-center">{row.cumulative_unique_nodes}</td>
+                      <td className="border px-3 py-2 text-center">{row.nodes_with_location}</td>
+                      <td className="border px-3 py-2 text-center">{row.nodes_without_location}</td>
+                      <td className="border px-3 py-2 text-center">{row.repeaters}</td>
+                      <td className="border px-3 py-2 text-center">{row.room_servers}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="mb-6">

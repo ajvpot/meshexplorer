@@ -31,6 +31,11 @@ interface TreeNode {
   [key: string]: any;
 }
 
+// Type guard to ensure treeData is valid
+const isValidTreeData = (data: TreeNode | null): data is TreeNode => {
+  return data !== null && typeof data === 'object' && 'name' in data;
+};
+
 function formatHex(hex: string): string {
   return hex.replace(/(.{2})/g, "$1 ").trim();
 }
@@ -209,9 +214,9 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
   ), [originsExpanded, originsCount, showGraph, originKeyPathArray, handleOriginsToggle, handleGraphToggle]);
 
   const GraphView = useCallback(() => {
-    if (!showGraph || originsCount === 0) return null;
+    if (!showGraph || originsCount === 0 || !treeData) return null;
 
-    const treeComponent = (
+    const renderTree = () => (
       <Tree
         key={`tree-${msg.ingest_timestamp}-${originsCount}`}
         data={treeData}
@@ -222,7 +227,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
         nodeSize={{ x: 60, y: 60 }}
         zoomable={true}
         draggable={true}
-        fitContent={true}
+
         renderCustomNodeElement={({ nodeDatum, toggleNode }) => {
           const isRoot = nodeDatum.name === "??";
           // Check if this node represents an origin pubkey (final 2-char hex from pubkey)
@@ -274,7 +279,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
               </button>
             </div>
             <div className="flex-1 overflow-hidden">
-              {treeData ? treeComponent : null}
+              {renderTree()}
             </div>
           </div>
         </div>,
@@ -292,7 +297,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
             <ArrowsPointingOutIcon className="w-4 h-4" />
           </button>
           <div key="graph-content" className="w-full h-80">
-            {treeData && treeComponent}
+            {renderTree()}
           </div>
         </div>
       );

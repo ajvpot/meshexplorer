@@ -269,7 +269,7 @@ export default function ChatBox({ showAllMessagesTab = false, className = "", st
               )}
               {(startExpanded ? messages : messages.toReversed()).map((msg, i) => (
                 <ChatMessageItem 
-                  key={msg.ingest_timestamp + (msg.origins?.join(',') ?? '') + i} 
+                  key={`${msg.ingest_timestamp}-${msg.origin_key_path_array?.length || 0}`}
                   msg={msg} 
                   showErrorRow={selectedKey.isAllMessages}
                 />

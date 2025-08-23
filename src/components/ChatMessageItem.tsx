@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useConfig } from "./ConfigContext";
 import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
 import Tree from 'react-d3-tree';
+import { ArrowsPointingOutIcon, ArrowsPointingInIcon } from "@heroicons/react/24/outline";
 
 export interface ChatMessage {
   ingest_timestamp: string;
@@ -25,6 +27,8 @@ interface PathGroup {
 interface TreeNode {
   name: string;
   children?: TreeNode[];
+  attributes?: Record<string, any>;
+  [key: string]: any;
 }
 
 function formatHex(hex: string): string {
@@ -47,6 +51,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
   const [error, setError] = useState<string | null>(null);
   const [originsExpanded, setOriginsExpanded] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
+  const [graphFullscreen, setGraphFullscreen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +153,10 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
     setShowGraph(prev => !prev);
   }, []);
 
+  const handleFullscreenToggle = useCallback(() => {
+    setGraphFullscreen(prev => !prev);
+  }, []);
+
   const OriginsBox = useCallback(() => (
     <div className="text-xs text-gray-600 dark:text-gray-300">
       <div className="flex items-center gap-2">
@@ -169,9 +178,9 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
         {originsCount > 0 && (
           <button
             onClick={handleGraphToggle}
-            className="px-2 py-1 text-xs rounded bg-gray-200 dark:bg-neutral-700 hover:bg-gray-300 dark:hover:bg-neutral-600 transition-colors"
+            className="flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
           >
-            {showGraph ? 'Hide Graph' : 'Show Graph'}
+            <span>{showGraph ? 'Hide Graph' : 'Show Graph'}</span>
           </button>
         )}
       </div>
@@ -199,52 +208,95 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
     </div>
   ), [originsExpanded, originsCount, showGraph, originKeyPathArray, handleOriginsToggle, handleGraphToggle]);
 
-  const GraphView = useCallback(() => (
-    showGraph && originsCount > 0 && (
-      <div key="graph-container" className="mt-2 p-3 bg-gray-100 dark:bg-neutral-700 rounded text-xs text-gray-800 dark:text-gray-200">
-        <div key="graph-title" className="mb-2 font-medium text-gray-700 dark:text-gray-300">Message Propagation Tree</div>
-        <div key="graph-content" className="w-full h-80">
-          {treeData && (
-            <Tree
-              key={`tree-${msg.ingest_timestamp}-${originsCount}`}
-              data={treeData}
-              orientation="vertical"
-              pathFunc="step"
-              translate={{ x: 200, y: 50 }}
-              separation={{ siblings: 1.2, nonSiblings: 1.5 }}
-              nodeSize={{ x: 60, y: 60 }}
-              renderCustomNodeElement={({ nodeDatum, toggleNode }) => {
-                const isRoot = nodeDatum.name === "??";
-                // Check if this node represents an origin pubkey (final 2-char hex from pubkey)
-                const isOriginPubkey = originKeyPathArray.some(([origin, pubkey, path]) => {
-                  const pubkeyPrefix = pubkey.substring(0, 2);
-                  return nodeDatum.name === pubkeyPrefix;
-                });
-                
-                return (
-                  <g key={`node-${nodeDatum.name}`}>
-                    <circle 
-                      r={15} 
-                      fill={isRoot ? "#3b82f6" : "#6b7280"}
-                      stroke={isOriginPubkey && !isRoot ? "#10b981" : "none"}
-                      strokeWidth={isOriginPubkey && !isRoot ? 2 : 0}
-                    />
-                    <text
-                      textAnchor="middle"
-                      y="5"
-                      style={{ fontSize: "12px", fill: "white", fontWeight: "bold", stroke: "none" }}
-                    >
-                      {nodeDatum.name}
-                    </text>
-                  </g>
-                );
-              }}
-            />
-          )}
+  const GraphView = useCallback(() => {
+    if (!showGraph || originsCount === 0) return null;
+
+    const treeComponent = (
+      <Tree
+        key={`tree-${msg.ingest_timestamp}-${originsCount}`}
+        data={treeData}
+        orientation="vertical"
+        pathFunc="step"
+        translate={{ x: graphFullscreen ? 300 : 200, y: graphFullscreen ? 80 : 50 }}
+        separation={{ siblings: 1.2, nonSiblings: 1.5 }}
+        nodeSize={{ x: 60, y: 60 }}
+        zoomable={true}
+        draggable={true}
+        fitContent={true}
+        renderCustomNodeElement={({ nodeDatum, toggleNode }) => {
+          const isRoot = nodeDatum.name === "??";
+          // Check if this node represents an origin pubkey (final 2-char hex from pubkey)
+          const isOriginPubkey = originKeyPathArray.some(([origin, pubkey, path]) => {
+            const pubkeyPrefix = pubkey.substring(0, 2);
+            return nodeDatum.name === pubkeyPrefix;
+          });
+          
+          return (
+            <g key={`node-${nodeDatum.name}`}>
+              <circle 
+                r={15} 
+                fill={isRoot ? "#3b82f6" : "#6b7280"}
+                stroke={isOriginPubkey && !isRoot ? "#10b981" : "none"}
+                strokeWidth={isOriginPubkey && !isRoot ? 2 : 0}
+              />
+              <text
+                textAnchor="middle"
+                y="5"
+                style={{ fontSize: "12px", fill: "white", fontWeight: "bold", stroke: "none" }}
+              >
+                {nodeDatum.name}
+              </text>
+            </g>
+          );
+        }}
+      />
+    );
+
+    if (graphFullscreen && typeof window !== 'undefined') {
+      return createPortal(
+        <div 
+          key="fullscreen-overlay"
+          className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center"
+          onClick={handleFullscreenToggle}
+        >
+          <div 
+            className="bg-gray-100 dark:bg-neutral-700 rounded-lg shadow-2xl w-11/12 h-5/6 p-6 text-gray-800 dark:text-gray-200 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <h2 className="text-lg font-semibold">Message Propagation Tree</h2>
+              <button
+                onClick={handleFullscreenToggle}
+                className="p-2 text-sm rounded bg-gray-200 dark:bg-neutral-700 hover:bg-gray-300 dark:hover:bg-neutral-600 transition-colors"
+                title="Exit Fullscreen"
+              >
+                <ArrowsPointingInIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {treeData ? treeComponent : null}
+            </div>
+          </div>
+        </div>,
+        document.body
+      );
+    }
+
+          return (
+        <div key="graph-container" className="mt-2 p-3 bg-gray-100 dark:bg-neutral-700 rounded text-xs text-gray-800 dark:text-gray-200 relative">
+          <button
+            onClick={handleFullscreenToggle}
+            className="absolute top-2 right-2 p-2 text-xs rounded bg-gray-200 dark:bg-neutral-600 hover:bg-gray-300 dark:hover:bg-neutral-500 transition-colors z-10"
+            title="Enter Fullscreen"
+          >
+            <ArrowsPointingOutIcon className="w-4 h-4" />
+          </button>
+          <div key="graph-content" className="w-full h-80">
+            {treeData && treeComponent}
+          </div>
         </div>
-      </div>
-    )
-  ), [showGraph, originsCount, treeData, msg.ingest_timestamp]);
+      );
+  }, [showGraph, originsCount, treeData, msg.ingest_timestamp, graphFullscreen, handleFullscreenToggle, originKeyPathArray]);
 
   if (parsed) {
     return (

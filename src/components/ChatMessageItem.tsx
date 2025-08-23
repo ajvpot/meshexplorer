@@ -45,6 +45,30 @@ function formatLocalTime(utcString: string): string {
   return utcDate.toLocaleString();
 }
 
+function linkifyText(text: string): React.ReactNode {
+  // URL regex pattern to match http/https URLs
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  
+  const parts = text.split(urlRegex);
+  
+  return parts.map((part, index) => {
+    if (urlRegex.test(part)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="nofollow noopener noreferrer"
+          className="text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow?: boolean }) {
   const { config } = useConfig();
   const knownKeys = useMemo(() => [
@@ -314,7 +338,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
         <div className="break-all whitespace-pre-wrap">
           <span className="font-bold text-blue-800 dark:text-blue-300">{parsed.sender}</span>
           {parsed.sender && ": "}
-          <span>{parsed.text}</span>
+          <span>{linkifyText(parsed.text)}</span>
         </div>
         <OriginsBox />
         <GraphView />

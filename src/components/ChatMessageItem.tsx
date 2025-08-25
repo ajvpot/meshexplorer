@@ -346,21 +346,24 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
     );
   }
 
-  if  (error) {
+  if (error) {
     if (showErrorRow) {
-    return (
-      <div className="border-b border-red-200 dark:border-red-800 pb-2 mb-2 bg-red-50 dark:bg-red-900/30">
-        <div className="text-xs text-red-600 dark:text-red-300 flex items-center gap-2">
-          Error: {error}
-          <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
+      return (
+        <div className="border-b border-red-200 dark:border-red-800 pb-2 mb-2 bg-red-50 dark:bg-red-900/30">
+          <div className="text-xs text-gray-400 flex items-center gap-2">
+            {formatLocalTime(msg.ingest_timestamp)}
+            <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
+          </div>
+          <div className="text-xs text-red-600 dark:text-red-300">
+            {error}
+          </div>
+          <OriginsBox />
+          <GraphView />
         </div>
-        <OriginsBox />
-        <GraphView />
-      </div>
-    );
-}else{
-  return <></>;
-}
+      );
+    } else {
+      return <></>;
+    }
   }
 
   return (

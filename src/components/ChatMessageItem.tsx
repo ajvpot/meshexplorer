@@ -335,7 +335,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
           <span className="text-xs text-gray-500">type: {parsed.msgType}</span>
           <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
         </div>
-        <div className="break-all whitespace-pre-wrap">
+        <div className="break-words whitespace-pre-wrap">
           <span className="font-bold text-blue-800 dark:text-blue-300">{parsed.sender}</span>
           {parsed.sender && ": "}
           <span>{linkifyText(parsed.text)}</span>

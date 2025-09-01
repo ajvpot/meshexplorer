@@ -2,17 +2,7 @@ import React from 'react';
 import moment from "moment";
 import { formatPublicKey } from '../lib/meshcore';
 import { getNameIconLabel } from '../lib/meshcore-map-nodeutils';
-
-type NodePosition = {
-  node_id: string;
-  latitude: number;
-  longitude: number;
-  altitude?: number;
-  last_seen?: string;
-  type?: string;
-  short_name?: string;
-  name?: string | null;
-};
+import { NodePosition } from '../types/map';
 
 interface NodeMarkerProps {
   node: NodePosition;
@@ -162,6 +152,14 @@ export function PopupContent({ node }: PopupContentProps) {
         </div>
       ) : (
         <div><b>Last seen:</b> -</div>
+      )}
+      {node.first_seen ? (
+        <div>
+          <b>First seen:</b> {moment.utc(node.first_seen).format('YYYY-MM-DD HH:mm:ss')} <span style={{color: '#888'}}>(UTC)</span><br/>
+          <span style={{color: '#888'}}>{moment.utc(node.first_seen).local().fromNow()}</span>
+        </div>
+      ) : (
+        <div><b>First seen:</b> -</div>
       )}
     </div>
   );

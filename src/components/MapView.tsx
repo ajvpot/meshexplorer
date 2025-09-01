@@ -12,22 +12,12 @@ import RefreshButton from "@/components/RefreshButton";
 import { NodeMarker, ClusterMarker, PopupContent } from "./MapIcons";
 import { renderToString } from "react-dom/server";
 import { buildApiUrl } from "../lib/api";
+import { NodePosition } from "../types/map";
 
 const DEFAULT = {
   lat: 46.56, // Center between Seattle and Portland
   lng: -122.51,
   zoom: 7, // Zoom level to show both cities
-};
-
-type NodePosition = {
-  node_id: string;
-  latitude: number;
-  longitude: number;
-  altitude?: number;
-  last_seen?: string;
-  type?: string;
-  short_name?: string;
-  name?: string | null;
 };
 
 type ClusteredMarkersProps = { nodes: NodePosition[] };

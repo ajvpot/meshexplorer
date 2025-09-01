@@ -33,7 +33,7 @@ export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTyp
       where.push(`last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND`);
       params.lastSeen = Number(lastSeen);
     }
-    const query = `SELECT node_id, name, short_name, latitude, longitude, last_seen, type FROM unified_latest_nodeinfo WHERE ${where.join(" AND ")}`;
+    const query = `SELECT node_id, name, short_name, latitude, longitude, last_seen, first_seen, type FROM unified_latest_nodeinfo WHERE ${where.join(" AND ")}`;
     const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
     const rows = await resultSet.json();
     return rows as Array<{
@@ -43,6 +43,7 @@ export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTyp
       latitude: number;
       longitude: number;
       last_seen: string;
+      first_seen?: string;
       type: string;
     }>;
   } catch (error) {

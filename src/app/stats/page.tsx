@@ -16,27 +16,37 @@ export default function StatsPage() {
   useEffect(() => {
     async function fetchStats() {
       setLoading(true);
-      
+
       // Build API URLs with region parameter if selected
-      const regionParam = config?.selectedRegion ? `?region=${encodeURIComponent(config.selectedRegion)}` : '';
-      
-      const [totalNodesRes, nodesOverTimeRes, popularChannelsRes, repeaterPrefixesRes] = await Promise.all([
-        fetch(buildApiUrl(`/api/stats/total-nodes${regionParam}`)).then(r => r.json()),
-        fetch(buildApiUrl(`/api/stats/nodes-over-time${regionParam}`)).then(r => r.json()),
-        fetch(buildApiUrl(`/api/stats/popular-channels${regionParam}`)).then(r => r.json()),
-        fetch(buildApiUrl(`/api/stats/repeater-prefixes${regionParam}`)).then(r => r.json()),
-      ]);
-      setTotalNodes(totalNodesRes.total_nodes ?? null);
-      setNodesOverTime(nodesOverTimeRes.data ?? []);
-      setPopularChannels(popularChannelsRes.data ?? []);
-      setRepeaterPrefixes(repeaterPrefixesRes.data ?? []);
-      setLoading(false);
+      const regionParam = config?.selectedRegion
+        ? `?region=${encodeURIComponent(config.selectedRegion)}`
+        : "";
+
+      const [totalNodesRes, nodesOverTimeRes, popularChannelsRes, repeaterPrefixesRes] =
+        await Promise.all([
+          fetch(buildApiUrl(`/api/stats/total-nodes${regionParam}`)).then((r) => r.json()),
+          fetch(buildApiUrl(`/api/stats/nodes-over-time${regionParam}`)).then((r) => r.json()),
+          fetch(buildApiUrl(`/api/stats/popular-channels${regionParam}`)).then((r) => r.json()),
+          fetch(buildApiUrl(`/api/stats/repeater-prefixes${regionParam}`)).then((r) => r.json()),
+        ]);
+      if (!ignore) {
+        setTotalNodes(totalNodesRes.total_nodes ?? null);
+        setNodesOverTime(nodesOverTimeRes.data ?? []);
+        setPopularChannels(popularChannelsRes.data ?? []);
+        setRepeaterPrefixes(repeaterPrefixesRes.data ?? []);
+        setLoading(false);
+      }
     }
+
+    let ignore = false;
     fetchStats();
-  }, [config?.selectedRegion]);
+    return () => {
+      ignore = true;
+    };
+  }, [config, config?.selectedRegion]);
 
   // Get the friendly name for the selected region
-  const regionFriendlyName = config?.selectedRegion 
+  const regionFriendlyName = config?.selectedRegion
     ? getRegionConfig(config.selectedRegion)?.friendlyName || config.selectedRegion
     : null;
 
@@ -45,9 +55,7 @@ export default function StatsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">MeshCore Network Stats</h1>
         {regionFriendlyName && (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {regionFriendlyName}
-          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{regionFriendlyName}</div>
         )}
       </div>
       {loading ? (
@@ -80,7 +88,9 @@ export default function StatsPage() {
                   {nodesOverTime.map((row, i) => (
                     <tr key={i} className="border-t">
                       <td className="border px-3 py-2 text-center min-w-[120px]">{row.day}</td>
-                      <td className="border px-3 py-2 text-center">{row.cumulative_unique_nodes}</td>
+                      <td className="border px-3 py-2 text-center">
+                        {row.cumulative_unique_nodes}
+                      </td>
                       <td className="border px-3 py-2 text-center">{row.nodes_with_location}</td>
                       <td className="border px-3 py-2 text-center">{row.nodes_without_location}</td>
                       <td className="border px-3 py-2 text-center">{row.repeaters}</td>
@@ -115,7 +125,8 @@ export default function StatsPage() {
           <div className="mb-6">
             <h2 className="text-lg font-semibold mb-2">Used Repeater Prefixes</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Shows repeater nodes grouped by the first byte of their public key, seen within the last 7 days.
+              Shows repeater nodes grouped by the first byte of their public key, seen within the
+              last 7 days.
             </p>
             <table className="w-full text-sm border">
               <thead>
@@ -133,7 +144,7 @@ export default function StatsPage() {
                         <div className="space-y-1">
                           {row.node_names.map((name: string, j: number) => (
                             <div key={j} className="text-xs">
-                              {name || 'Unnamed Node'}
+                              {name || "Unnamed Node"}
                             </div>
                           ))}
                         </div>
@@ -150,4 +161,4 @@ export default function StatsPage() {
       )}
     </div>
   );
-} 
+}

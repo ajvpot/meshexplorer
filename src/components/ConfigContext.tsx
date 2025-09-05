@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode, use, Suspense } from "react";
 import { getChannelIdFromKey } from "../lib/meshcore";
 import { getRegionFriendlyNames } from "../lib/regions";
 import Modal from "./Modal";
@@ -54,26 +54,55 @@ const PUBLIC_MESHCORE_KEY = {
   privateKey: "izOH6cXN6mrJ5e26oRXNcg==",
 };
 
+// Config loader that uses Suspense
+let configPromise: Promise<Config> | null = null;
+
+function loadConfigFromStorage(): Promise<Config> {
+  if (configPromise) {
+    return configPromise;
+  }
+  
+  configPromise = new Promise((resolve) => {
+    // Use setTimeout to ensure this runs after the component mounts
+    setTimeout(() => {
+      try {
+        const stored = localStorage.getItem("meshExplorerConfig");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          resolve({ ...DEFAULT_CONFIG, ...parsed });
+        } else {
+          resolve(DEFAULT_CONFIG);
+        }
+      } catch (error) {
+        console.warn("Failed to parse config from localStorage:", error);
+        resolve(DEFAULT_CONFIG);
+      }
+    }, 0);
+  });
+  
+  return configPromise;
+}
+
+// Hook to get config with Suspense
+function useConfigWithSuspense(): Config {
+  return use(loadConfigFromStorage());
+}
+
 const ConfigContext = createContext<any>(null);
 
-export function ConfigProvider({ children }: { children: ReactNode }) {
-  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
+// Internal component that uses the config with Suspense
+function ConfigProviderInternal({ children }: { children: ReactNode }) {
+  const initialConfig = useConfigWithSuspense();
+  const [config, setConfig] = useState<Config>(initialConfig);
   const [open, setOpen] = useState(false);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const configButtonRef = useRef<HTMLElement | null>(null);
   const firstRender = useRef(true);
 
-  // Load from localStorage
-  // todo: this causes a flash of the default config before the local storage is loaded. use suspense?
-  //       also causes race condition on the stats page if the defaults take longer to load than the selected region.
+  // Update config when the initial config changes (should only happen once)
   useEffect(() => {
-    const stored = localStorage.getItem("meshExplorerConfig");
-    if (stored) {
-      try {
-        setConfig({ ...DEFAULT_CONFIG, ...JSON.parse(stored) });
-      } catch {}
-    }
-  }, []);
+    setConfig(initialConfig);
+  }, [initialConfig]);
 
   // Save to localStorage
   useEffect(() => {
@@ -106,6 +135,24 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         />
       )}
     </ConfigContext.Provider>
+  );
+}
+
+// Loading component for Suspense fallback
+function ConfigLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-lg">Loading configuration...</div>
+    </div>
+  );
+}
+
+// Main ConfigProvider that wraps with Suspense
+export function ConfigProvider({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<ConfigLoadingFallback />}>
+      <ConfigProviderInternal>{children}</ConfigProviderInternal>
+    </Suspense>
   );
 }
 

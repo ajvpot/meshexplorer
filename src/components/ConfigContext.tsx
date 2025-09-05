@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode, use, Suspense } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
 import { getChannelIdFromKey } from "../lib/meshcore";
 import { getRegionFriendlyNames } from "../lib/regions";
 import Modal from "./Modal";
@@ -54,61 +54,53 @@ const PUBLIC_MESHCORE_KEY = {
   privateKey: "izOH6cXN6mrJ5e26oRXNcg==",
 };
 
-// Config loader that uses Suspense
-let configPromise: Promise<Config> | null = null;
-
-function loadConfigFromStorage(): Promise<Config> {
-  if (configPromise) {
-    return configPromise;
+function loadConfigFromStorage(): Config {
+  try {
+    const stored = localStorage.getItem("meshExplorerConfig");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { ...DEFAULT_CONFIG, ...parsed };
+    }
+    return DEFAULT_CONFIG;
+  } catch (error) {
+    console.warn("Failed to parse config from localStorage:", error);
+    return DEFAULT_CONFIG;
   }
-  
-  configPromise = new Promise((resolve) => {
-    // Use setTimeout to ensure this runs after the component mounts
-    setTimeout(() => {
-      try {
-        const stored = localStorage.getItem("meshExplorerConfig");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          resolve({ ...DEFAULT_CONFIG, ...parsed });
-        } else {
-          resolve(DEFAULT_CONFIG);
-        }
-      } catch (error) {
-        console.warn("Failed to parse config from localStorage:", error);
-        resolve(DEFAULT_CONFIG);
-      }
-    }, 0);
-  });
-  
-  return configPromise;
-}
-
-// Hook to get config with Suspense
-function useConfigWithSuspense(): Config {
-  return use(loadConfigFromStorage());
 }
 
 const ConfigContext = createContext<any>(null);
 
-// Internal component that uses the config with Suspense
-function ConfigProviderInternal({ children }: { children: ReactNode }) {
-  const initialConfig = useConfigWithSuspense();
-  const [config, setConfig] = useState<Config>(initialConfig);
+// Loading component for Suspense fallback
+function ConfigLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-neutral-200 dark:bg-neutral-800">
+      <div className="flex flex-col items-center gap-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
+        <div className="text-sm text-gray-600 dark:text-gray-400">Loading configuration...</div>
+      </div>
+    </div>
+  );
+}
+
+// Main ConfigProvider that uses proper loading state
+export function ConfigProvider({ children }: { children: ReactNode }) {
+  const [config, setConfig] = useState<Config | null>(null);
   const [open, setOpen] = useState(false);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const configButtonRef = useRef<HTMLElement | null>(null);
   const firstRender = useRef(true);
 
-  // Update config when the initial config changes (should only happen once)
+  // Load config from localStorage on mount
   useEffect(() => {
-    setConfig(initialConfig);
-  }, [initialConfig]);
+    const loadedConfig = loadConfigFromStorage();
+    setConfig(loadedConfig);
+  }, []);
 
-  // Save to localStorage
+  // Save to localStorage when config changes
   useEffect(() => {
-    if (!firstRender.current) {
+    if (config && !firstRender.current) {
       localStorage.setItem("meshExplorerConfig", JSON.stringify(config));
-    } else {
+    } else if (config) {
       firstRender.current = false;
     }
   }, [config]);
@@ -116,6 +108,11 @@ function ConfigProviderInternal({ children }: { children: ReactNode }) {
   // Expose openConfig for header button
   const openConfig = () => setOpen(true);
   const closeConfig = () => setOpen(false);
+
+  // Show loading state while config is being loaded
+  if (!config) {
+    return <ConfigLoadingFallback />;
+  }
 
   return (
     <ConfigContext.Provider value={{ config, setConfig, openConfig, configButtonRef }}>
@@ -135,24 +132,6 @@ function ConfigProviderInternal({ children }: { children: ReactNode }) {
         />
       )}
     </ConfigContext.Provider>
-  );
-}
-
-// Loading component for Suspense fallback
-function ConfigLoadingFallback() {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-lg">Loading configuration...</div>
-    </div>
-  );
-}
-
-// Main ConfigProvider that wraps with Suspense
-export function ConfigProvider({ children }: { children: ReactNode }) {
-  return (
-    <Suspense fallback={<ConfigLoadingFallback />}>
-      <ConfigProviderInternal>{children}</ConfigProviderInternal>
-    </Suspense>
   );
 }
 

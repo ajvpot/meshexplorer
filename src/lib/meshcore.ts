@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHash, createHmac } from "crypto";
 import aesjs from "aes-js";
 
 // Module-level cache for channel IDs
@@ -69,15 +69,19 @@ export function getChannelIdFromKey(key: string): string {
 
 // Helper: HMAC-SHA256, returns Uint8Array
 async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-  if (window.crypto?.subtle) {
+  // Check if we're in a browser environment
+  if (typeof window !== 'undefined' && window.crypto?.subtle) {
+    // Use WebCrypto API in browser
     const cryptoKey = await window.crypto.subtle.importKey(
       "raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
     );
     const sig = await window.crypto.subtle.sign("HMAC", cryptoKey, data);
     return new Uint8Array(sig);
   } else {
-    // Fallback: use a JS polyfill if needed (not implemented here)
-    throw new Error("No WebCrypto support for HMAC-SHA256");
+    // Use Node.js crypto in server environment
+    const hmac = createHmac('sha256', Buffer.from(key));
+    hmac.update(Buffer.from(data));
+    return new Uint8Array(hmac.digest());
   }
 }
 

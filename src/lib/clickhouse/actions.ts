@@ -93,4 +93,129 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
     console.error('ClickHouse error in getLatestChatMessages:', error);
     throw error;
   }
+}
+
+export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50) {
+  try {
+    // Get basic node info from the latest advert
+    const nodeInfoQuery = `
+      SELECT 
+        public_key,
+        node_name,
+        latitude,
+        longitude,
+        has_location,
+        is_repeater,
+        is_chat_node,
+        is_room_server,
+        has_name,
+        mesh_timestamp as last_seen
+      FROM meshcore_adverts 
+      WHERE public_key = {publicKey:String}
+      ORDER BY mesh_timestamp DESC 
+      LIMIT 1
+    `;
+    
+    const nodeInfoResult = await clickhouse.query({ 
+      query: nodeInfoQuery, 
+      query_params: { publicKey }, 
+      format: 'JSONEachRow' 
+    });
+    const nodeInfo = await nodeInfoResult.json();
+    
+    if (!nodeInfo || nodeInfo.length === 0) {
+      return null;
+    }
+    
+    // Get recent adverts with path information
+    const advertsQuery = `
+      SELECT 
+        mesh_timestamp,
+        hex(path) as path,
+        path_len,
+        latitude,
+        longitude,
+        is_repeater,
+        is_chat_node,
+        is_room_server,
+        has_location,
+        hex(origin_pubkey) as origin_pubkey,
+        concat(hex(path), substring(hex(origin_pubkey), 1, 4)) as full_path
+      FROM meshcore_adverts 
+      WHERE public_key = {publicKey:String}
+      ORDER BY mesh_timestamp DESC 
+      LIMIT {limit:UInt32}
+    `;
+    
+    const advertsResult = await clickhouse.query({ 
+      query: advertsQuery, 
+      query_params: { publicKey, limit }, 
+      format: 'JSONEachRow' 
+    });
+    const adverts = await advertsResult.json();
+    
+    // Get location history (unique locations over time) - last 30 days only
+    const locationHistoryQuery = `
+      SELECT 
+        mesh_timestamp,
+        latitude,
+        longitude,
+        hex(path) as path,
+        path_len,
+        hex(origin_pubkey) as origin_pubkey,
+        concat(hex(path), substring(hex(origin_pubkey), 1, 4)) as full_path
+      FROM (
+        SELECT 
+          mesh_timestamp,
+          latitude,
+          longitude,
+          path,
+          path_len,
+          origin_pubkey,
+          row_number() OVER (PARTITION BY round(latitude, 6), round(longitude, 6) ORDER BY mesh_timestamp DESC) as rn
+        FROM meshcore_adverts 
+        WHERE public_key = {publicKey:String}
+          AND latitude IS NOT NULL 
+          AND longitude IS NOT NULL
+          AND mesh_timestamp >= now() - INTERVAL 30 DAY
+      ) 
+      WHERE rn = 1
+      ORDER BY mesh_timestamp DESC 
+      LIMIT 100
+    `;
+    
+    const locationResult = await clickhouse.query({ 
+      query: locationHistoryQuery, 
+      query_params: { publicKey }, 
+      format: 'JSONEachRow' 
+    });
+    const locationHistory = await locationResult.json();
+    
+    // Check MQTT uplink status and last packet time
+    const mqttQuery = `
+      SELECT 
+        count() > 0 as has_packets,
+        max(ingest_timestamp) as last_uplink_time,
+        max(ingest_timestamp) >= now() - INTERVAL 7 DAY as is_uplinked
+      FROM meshcore_packets 
+      WHERE hex(origin_pubkey) = {publicKey:String}
+    `;
+    
+    const mqttResult = await clickhouse.query({ 
+      query: mqttQuery, 
+      query_params: { publicKey }, 
+      format: 'JSONEachRow' 
+    });
+    const mqttData = await mqttResult.json();
+    
+    return {
+      node: nodeInfo[0],
+      recentAdverts: adverts,
+      locationHistory: locationHistory,
+      mqtt: mqttData[0] || { is_uplinked: false, last_uplink_time: null }
+    };
+  } catch (error) {
+    console.error('ClickHouse error in getMeshcoreNodeInfo:', error);
+    throw error;
+  }
 } 

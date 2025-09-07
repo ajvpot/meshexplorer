@@ -37,7 +37,7 @@ export async function GET(req: Request) {
               ...message,
               decrypted
             });
-          }
+          } 
         } catch (error) {
           // Skip messages that fail to decrypt
           console.warn("Failed to decrypt message:", error);

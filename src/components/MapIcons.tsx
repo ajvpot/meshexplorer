@@ -161,6 +161,27 @@ export function PopupContent({ node }: PopupContentProps) {
       ) : (
         <div><b>First seen:</b> -</div>
       )}
+      {node.type === "meshcore" && (
+        <div style={{marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb'}}>
+          <a 
+            href={`/meshcore/node/${node.node_id}`}
+            style={{
+              display: 'inline-block',
+              padding: '4px 8px',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: '500'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+          >
+            View Node Details →
+          </a>
+        </div>
+      )}
     </div>
   );
 }

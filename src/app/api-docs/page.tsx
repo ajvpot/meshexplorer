@@ -204,6 +204,101 @@ export default function ApiDocsPage() {
                 </div>
               </section>
 
+              {/* Meshcore Node API */}
+              <section>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Meshcore Node API</h2>
+                <div className="bg-gray-50 dark:bg-neutral-800 rounded-lg p-6 mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">GET /api/meshcore/node/{`{publicKey}`}</h3>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">Retrieve detailed information about a specific meshcore node including recent adverts and location history.</p>
+                  
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Path Parameters</h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-neutral-700">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Parameter</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Required</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-neutral-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">publicKey</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">string</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">Yes</td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">The public key of the meshcore node</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2 mt-6">Query Parameters</h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-neutral-700">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Parameter</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Required</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-neutral-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">limit</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">number</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">No</td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">Number of recent adverts to return (default: 50)</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2 mt-6">Response Format</h4>
+                  <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto">
+                    <pre className="text-green-400 dark:text-green-300 text-sm">
+{`{
+  "node": {
+    "public_key": "82D396A8754609E302A2A3FDB9210A1C67C7081606C16A89F77AD75C16E1DA1A",
+    "node_name": "🌲 Tree Room (hello)",
+    "latitude": 47.54969,
+    "longitude": -122.28085999999999,
+    "has_location": 1,
+    "is_repeater": 1,
+    "is_chat_node": 1,
+    "is_room_server": 0,
+    "has_name": 1,
+    "last_seen": "2025-09-07T00:59:18"
+  },
+  "recentAdverts": [
+    {
+      "mesh_timestamp": "2025-09-07T00:59:18",
+      "path": "7ffb7e",
+      "path_len": 3,
+      "latitude": 47.54969,
+      "longitude": -122.28085999999999,
+      "is_repeater": 1,
+      "is_chat_node": 1,
+      "is_room_server": 0,
+      "has_location": 1
+    }
+  ],
+  "locationHistory": [
+    {
+      "mesh_timestamp": "2025-09-07T00:59:18",
+      "latitude": 47.54969,
+      "longitude": -122.28085999999999,
+      "path": "7ffb7e",
+      "path_len": 3
+    }
+  ]
+}`}
+                    </pre>
+                  </div>
+                </div>
+              </section>
+
               {/* Stats APIs */}
               <section>
                 <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Stats APIs</h2>
@@ -425,6 +520,15 @@ export default function ApiDocsPage() {
                     <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto">
                       <pre className="text-blue-400 dark:text-blue-300 text-sm">
 {`GET /api/stats/total-nodes?region=us-east`}
+                      </pre>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 dark:bg-neutral-800 rounded-lg p-6">
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Get meshcore node details</h3>
+                    <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto">
+                      <pre className="text-blue-400 dark:text-blue-300 text-sm">
+{`GET /api/meshcore/node/82D396A8754609E302A2A3FDB9210A1C67C7081606C16A89F77AD75C16E1DA1A?limit=100`}
                       </pre>
                     </div>
                   </div>

@@ -140,7 +140,7 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
         is_room_server,
         has_location,
         hex(origin_pubkey) as origin_pubkey,
-        concat(hex(path), substring(hex(origin_pubkey), 1, 4)) as full_path
+        concat(path, substring(origin_pubkey, 1, 2)) as full_path
       FROM meshcore_adverts 
       WHERE public_key = {publicKey:String}
       ORDER BY mesh_timestamp DESC 

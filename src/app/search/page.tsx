@@ -1,7 +1,7 @@
 "use client";
 
 import { useConfig } from '@/components/ConfigContext';
-import { useSearchQuery } from '@/hooks/useSearchQuery';
+import { useSearchQuery } from '@/hooks/useQueryParams';
 import { useMeshcoreSearch } from '@/hooks/useMeshcoreSearch';
 import SearchInput from '@/components/SearchInput';
 import SearchResults from '@/components/SearchResults';

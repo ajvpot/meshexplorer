@@ -9,6 +9,7 @@ import RegionSelector from "./RegionSelector";
 import { getRegionConfig } from "../lib/regions";
 import { useChatMessages } from "../hooks/useChatMessages";
 import { useIntersectionObserver } from "../hooks/useIntersectionObserver";
+import { useQueryParams } from "../hooks/useQueryParams";
 
 
 interface ChatBoxProps {
@@ -21,6 +22,10 @@ interface TabItem {
   channelName: string;
   privateKey: string;
   isAllMessages?: boolean;
+}
+
+interface ChatBoxQuery {
+  selectedTab?: number;
 }
 
 export default function ChatBox({
@@ -39,7 +44,18 @@ export default function ChatBox({
     ? [{ channelName: "All Messages", privateKey: "", isAllMessages: true }, ...meshcoreKeys]
     : meshcoreKeys;
 
-  const [selectedTab, setSelectedTab] = useState(showAllMessagesTab ? 1 : 0);
+  // Use query params to persist selected tab across navigation
+  const { query, setParam } = useQueryParams<ChatBoxQuery>({
+    selectedTab: showAllMessagesTab ? 1 : 0,
+  });
+  
+  // Ensure selectedTab is within bounds of available tabs
+  const rawSelectedTab = query.selectedTab ?? (showAllMessagesTab ? 1 : 0);
+  const selectedTab = rawSelectedTab >= 0 && rawSelectedTab < allTabs.length 
+    ? rawSelectedTab 
+    : (showAllMessagesTab ? 1 : 0);
+  const setSelectedTab = (tabIndex: number) => setParam('selectedTab', tabIndex);
+  
   const [minimized, setMinimized] = useState(!startExpanded); // Use startExpanded as default for minimized state
 
   const selectedKey = allTabs[selectedTab];

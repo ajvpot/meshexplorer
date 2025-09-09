@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 
 interface ContactQRCodeProps {
@@ -12,15 +12,17 @@ interface ContactQRCodeProps {
 
 export default function ContactQRCode({ name, publicKey, type, size = 200 }: ContactQRCodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [contactUrl, setContactUrl] = useState<string>("");
 
   useEffect(() => {
     if (!canvasRef.current) return;
 
     const generateQR = async () => {
       try {
-        const contactUrl = `meshcore://contact/add?name=${encodeURIComponent(name)}&public_key=${encodeURIComponent(publicKey)}&type=${type}`;
+        const url = `meshcore://contact/add?name=${encodeURIComponent(name)}&public_key=${encodeURIComponent(publicKey)}&type=${type}`;
+        setContactUrl(url);
         
-        await QRCode.toCanvas(canvasRef.current, contactUrl, {
+        await QRCode.toCanvas(canvasRef.current, url, {
           width: size,
           margin: 2,
           color: {
@@ -38,10 +40,17 @@ export default function ContactQRCode({ name, publicKey, type, size = 200 }: Con
 
   return (
     <div className="flex flex-col items-center">
-      <canvas
-        ref={canvasRef}
-        className="border border-gray-200 dark:border-gray-700 rounded-lg"
-      />
+      <a
+        href={contactUrl}
+        rel="noopener noreferrer"
+        className="inline-block hover:opacity-80 transition-opacity"
+        title="Click to open meshcore contact link"
+      >
+        <canvas
+          ref={canvasRef}
+          className="border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer"
+        />
+      </a>
     </div>
   );
 }

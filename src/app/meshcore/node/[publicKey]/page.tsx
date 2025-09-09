@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import moment from "moment";
@@ -11,59 +10,10 @@ import AdvertDetails from "@/components/AdvertDetails";
 import ContactQRCode from "@/components/ContactQRCode";
 import { useConfig, LAST_SEEN_OPTIONS } from "@/components/ConfigContext";
 import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
+import { useNodeData, type NodeData, type NodeInfo, type Advert, type LocationHistory, type MqttInfo, type NodeError } from "@/hooks/useNodeData";
+import { ArrowRightEndOnRectangleIcon, ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
 
-interface NodeInfo {
-  public_key: string;
-  node_name: string;
-  latitude: number | null;
-  longitude: number | null;
-  has_location: number;
-  is_repeater: number;
-  is_chat_node: number;
-  is_room_server: number;
-  has_name: number;
-}
-
-interface Advert {
-  group_id: number;
-  origin_path_pubkey_tuples: Array<[string, string, string]>; // Array of [origin, path, origin_pubkey] tuples
-  advert_count: number;
-  earliest_timestamp: string;
-  latest_timestamp: string;
-  latitude: number | null;
-  longitude: number | null;
-  is_repeater: number;
-  is_chat_node: number;
-  is_room_server: number;
-  has_location: number;
-}
-
-interface LocationHistory {
-  mesh_timestamp: string;
-  latitude: number;
-  longitude: number;
-}
-
-interface MqttTopic {
-  topic: string;
-  broker: string;
-  last_packet_time: string;
-  is_recent: boolean;
-}
-
-interface MqttInfo {
-  is_uplinked: boolean;
-  has_packets: boolean;
-  topics: MqttTopic[];
-}
-
-
-interface NodeData {
-  node: NodeInfo;
-  recentAdverts: Advert[];
-  locationHistory: LocationHistory[];
-  mqtt: MqttInfo;
-}
+// Interfaces are now imported from useNodeData hook
 
 // Function to determine node type based on capabilities
 function getNodeType(node: NodeInfo): number {
@@ -77,72 +27,30 @@ export default function MeshcoreNodePage() {
   const params = useParams();
   const publicKey = params.publicKey as string;
   const { config } = useConfig();
-  const [nodeData, setNodeData] = useState<NodeData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [errorCode, setErrorCode] = useState<string | null>(null);
 
-  // Use TanStack Query for neighbors data - only fetch if node is uplinked
+  // Use TanStack Query for node data
+  const { 
+    data: nodeData, 
+    isLoading: loading, 
+    error: queryError 
+  } = useNodeData({
+    publicKey: publicKey,
+    enabled: !!publicKey
+  });
+
+  // Use TanStack Query for neighbors data - fetch for all nodes
   const { 
     data: neighbors = [], 
     isLoading: neighborsLoading 
   } = useNeighbors({
     nodeId: publicKey,
     lastSeen: config.lastSeen,
-    enabled: !!nodeData?.mqtt?.is_uplinked
+    enabled: !!publicKey
   });
 
-  // Fetch node data only when publicKey changes
-  useEffect(() => {
-    if (!publicKey) return;
-
-    const fetchNodeData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        setErrorCode(null);
-        
-        // Fetch node data
-        const nodeResponse = await fetch(`/api/meshcore/node/${publicKey}`);
-        
-        if (nodeResponse.status === 404) {
-          const errorData = await nodeResponse.json().catch(() => ({}));
-          setError(errorData.error || "Node not found");
-          setErrorCode(errorData.code || "NODE_NOT_FOUND");
-          return;
-        }
-        
-        if (nodeResponse.status === 400) {
-          const errorData = await nodeResponse.json().catch(() => ({}));
-          setError(errorData.error || "Invalid request");
-          setErrorCode(errorData.code || "BAD_REQUEST");
-          return;
-        }
-        
-        if (nodeResponse.status === 503) {
-          const errorData = await nodeResponse.json().catch(() => ({}));
-          setError(errorData.error || "Service temporarily unavailable");
-          setErrorCode(errorData.code || "SERVICE_UNAVAILABLE");
-          return;
-        }
-        
-        if (!nodeResponse.ok) {
-          const errorData = await nodeResponse.json().catch(() => ({}));
-          throw new Error(errorData.error || "Failed to fetch node data");
-        }
-        
-        const nodeData = await nodeResponse.json();
-        setNodeData(nodeData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-        setErrorCode("NETWORK_ERROR");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchNodeData();
-  }, [publicKey]);
+  // Extract error information from TanStack Query error
+  const error = queryError?.error || null;
+  const errorCode = queryError?.code || null;
 
 
   if (loading) {
@@ -355,6 +263,32 @@ export default function MeshcoreNodePage() {
                 </dd>
               </div>
               <div>
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">First Seen</dt>
+                <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                  <div className="space-y-1">
+                    <div>
+                      {moment.utc(node.first_seen).format('YYYY-MM-DD HH:mm:ss')} UTC
+                    </div>
+                    <div className="text-gray-500 dark:text-gray-400">
+                      {moment.utc(node.first_seen).local().fromNow()}
+                    </div>
+                  </div>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Last Seen</dt>
+                <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                  <div className="space-y-1">
+                    <div>
+                      {moment.utc(node.last_seen).format('YYYY-MM-DD HH:mm:ss')} UTC
+                    </div>
+                    <div className="text-gray-500 dark:text-gray-400">
+                      {moment.utc(node.last_seen).local().fromNow()}
+                    </div>
+                  </div>
+                </dd>
+              </div>
+              <div>
                 <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Location</dt>
                 <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   {node.has_location && node.latitude && node.longitude ? (
@@ -463,9 +397,8 @@ export default function MeshcoreNodePage() {
           </div>
         </div>
 
-        {/* Neighbors Section - Only show if MQTT uplink is connected */}
-        {mqtt.is_uplinked && (
-          <div className="mt-6 bg-white dark:bg-neutral-900 shadow rounded-lg">
+        {/* Neighbors Section - Show for all nodes */}
+        <div className="mt-6 bg-white dark:bg-neutral-900 shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
                 Neighbors ({neighborsLoading ? "..." : neighbors.length})
@@ -545,11 +478,8 @@ export default function MeshcoreNodePage() {
                         {neighbor.directions && neighbor.directions.length > 0 && (
                           <div className="flex items-center gap-1">
                             <span>Direction:</span>
-                            {neighbor.directions.includes('incoming') && <span title="Incoming - This node hears the neighbor">📥</span>}
-                            {neighbor.directions.includes('outgoing') && <span title="Outgoing - The neighbor hears this node">📤</span>}
-                            {neighbor.directions.includes('incoming') && neighbor.directions.includes('outgoing') && (
-                              <span className="text-green-600 dark:text-green-400">↔️ Bidirectional</span>
-                            )}
+                            {neighbor.directions.includes('incoming') && <ArrowRightEndOnRectangleIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" title="Incoming - This node hears the neighbor" />}
+                            {neighbor.directions.includes('outgoing') && <ArrowRightStartOnRectangleIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" title="Outgoing - The neighbor hears this node" />}
                           </div>
                         )}
                       </div>
@@ -559,7 +489,6 @@ export default function MeshcoreNodePage() {
               )}
             </div>
           </div>
-        )}
       </div>
     </div>
   );

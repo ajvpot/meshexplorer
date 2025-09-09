@@ -15,6 +15,7 @@
     "@tanstack/react-query": "^5.87.1",
     "@types/leaflet": "^1.9.19",
     "@types/qrcode": "^1.5.5",
+    "@yornaath/batshit": "^0.10.1",
     "aes-js": "^3.1.2",
     "class-variance-authority": "^0.7.1",
     "clickhouse": "^2.6.0",
@@ -30,6 +31,7 @@
     "react-d3-tree": "^3.6.6",
     "react-dom": "^19.1.0",
     "react-leaflet": "^5.0.0",
+    "react-tiny-popover": "^8.1.6",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {

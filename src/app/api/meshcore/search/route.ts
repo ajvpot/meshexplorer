@@ -1,70 +1,100 @@
 import { NextResponse } from "next/server";
 import { searchMeshcoreNodes } from "@/lib/clickhouse/actions";
 
-export async function GET(req: Request) {
+interface SearchQueryParams {
+  query?: string;
+  region?: string;
+  lastSeen?: string | null;
+  limit: number;
+  exact: boolean;
+  is_repeater?: boolean;
+}
+
+export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const query = searchParams.get("q");
-    const region = searchParams.get("region");
-    const lastSeen = searchParams.get("lastSeen");
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const body = await req.json();
     
-    // Validate limit
-    if (limit < 1 || limit > 200) {
+    // Validate that body contains an array of queries
+    if (!Array.isArray(body.queries)) {
       return NextResponse.json({ 
-        error: "Limit must be between 1 and 200",
-        code: "INVALID_LIMIT"
+        error: "Body must contain a 'queries' array",
+        code: "INVALID_BODY"
       }, { status: 400 });
     }
     
-    // If no query provided, return empty results
-    if (!query || query.trim().length === 0) {
+    // Validate queries array length
+    if (body.queries.length === 0) {
       return NextResponse.json({
         results: [],
-        total: 0,
-        query: query || "",
-        region: region || null
+        total: 0
       });
     }
     
-    // Validate query length
-    if (query.length > 100) {
+    if (body.queries.length > 50) {
       return NextResponse.json({ 
-        error: "Query too long (max 100 characters)",
-        code: "QUERY_TOO_LONG"
+        error: "Maximum 50 queries allowed per batch",
+        code: "TOO_MANY_QUERIES"
       }, { status: 400 });
     }
     
-    // Validate lastSeen parameter
-    let lastSeenValue: string | null = null;
-    if (lastSeen !== null) {
-      const lastSeenNum = parseInt(lastSeen, 10);
-      if (isNaN(lastSeenNum) || lastSeenNum < 0) {
-        return NextResponse.json({ 
-          error: "lastSeen must be a positive number (seconds)",
-          code: "INVALID_LAST_SEEN"
-        }, { status: 400 });
+    // Validate and normalize each query
+    const normalizedQueries: SearchQueryParams[] = body.queries.map((queryObj: any, index: number) => {
+      // Validate limit for each query
+      const limit = parseInt(queryObj.limit || "50", 10);
+      if (limit < 1 || limit > 200) {
+        throw new Error(`Query ${index}: Limit must be between 1 and 200`);
       }
-      lastSeenValue = lastSeen;
-    }
+      
+      // Validate query length
+      if (queryObj.query && queryObj.query.length > 100) {
+        throw new Error(`Query ${index}: Query too long (max 100 characters)`);
+      }
+      
+      // Validate lastSeen parameter
+      let lastSeenValue: string | null = null;
+      if (queryObj.lastSeen !== null && queryObj.lastSeen !== undefined) {
+        const lastSeenNum = parseInt(queryObj.lastSeen, 10);
+        if (isNaN(lastSeenNum) || lastSeenNum < 0) {
+          throw new Error(`Query ${index}: lastSeen must be a positive number (seconds)`);
+        }
+        lastSeenValue = queryObj.lastSeen.toString();
+      }
+      
+      return {
+        query: queryObj.query?.trim() || undefined,
+        region: queryObj.region || undefined,
+        lastSeen: lastSeenValue,
+        limit,
+        exact: Boolean(queryObj.exact),
+        is_repeater: queryObj.is_repeater !== undefined ? Boolean(queryObj.is_repeater) : undefined
+      };
+    });
     
-    const results = await searchMeshcoreNodes({ 
-      query: query.trim(), 
-      region: region || undefined, 
-      lastSeen: lastSeenValue,
-      limit 
+    // Execute batch search
+    const results = await searchMeshcoreNodes(normalizedQueries);
+    
+    // Format response - array of arrays, one per query
+    const formattedResults = normalizedQueries.map((queryParams: SearchQueryParams, index: number) => {
+      const queryResults = Array.isArray(results) 
+        ? (Array.isArray(results[index]) ? results[index] : [])
+        : [];
+      
+      return queryResults;
     });
     
     return NextResponse.json({
-      results,
-      total: results.length,
-      query: query.trim(),
-      region: region || null,
-      lastSeen: lastSeenValue,
-      limit
+      results: formattedResults
     });
   } catch (error) {
-    console.error("Error searching meshcore nodes:", error);
+    console.error("Error in batch search:", error);
+    
+    // Handle validation errors
+    if (error instanceof Error && error.message.includes('Query ')) {
+      return NextResponse.json({ 
+        error: error.message,
+        code: "VALIDATION_ERROR"
+      }, { status: 400 });
+    }
     
     // Check if it's a ClickHouse connection error
     if (error instanceof Error && error.message.includes('ClickHouse')) {
@@ -75,7 +105,7 @@ export async function GET(req: Request) {
     }
     
     return NextResponse.json({ 
-      error: "Failed to search nodes",
+      error: "Failed to execute batch search",
       code: "INTERNAL_ERROR"
     }, { status: 500 });
   }

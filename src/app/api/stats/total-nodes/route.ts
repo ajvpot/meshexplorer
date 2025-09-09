@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     const regionFilter = generateRegionWhereClause(region);
     const whereClause = regionFilter.whereClause ? `WHERE ${regionFilter.whereClause}` : '';
     
-    const query = `SELECT count() AS total_nodes FROM meshcore_adverts_latest ${whereClause}`;
+    const query = `SELECT count(DISTINCT public_key) AS total_nodes FROM meshcore_adverts ${whereClause}`;
     
     const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
     const rows = await resultSet.json() as Array<{ total_nodes: number }>;

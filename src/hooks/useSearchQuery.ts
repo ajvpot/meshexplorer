@@ -106,15 +106,17 @@ export function useQueryParams<T extends Record<string, any>>(defaultValues: T =
 export interface SearchQuery {
   q: string;
   limit?: number;
+  exact?: boolean;
 }
 
 export function useSearchQuery() {
-  const { query, setParam } = useQueryParams<SearchQuery>({ q: '', limit: 50 });
+  const { query, setParam } = useQueryParams<SearchQuery>({ q: '', limit: 50, exact: false });
   
   return {
     query,
     setQuery: (q: string) => setParam('q', q),
     setLimit: (limit: number) => setParam('limit', limit),
+    setExact: (exact: boolean) => setParam('exact', exact),
     updateQuery: (updates: Partial<SearchQuery>) => {
       Object.entries(updates).forEach(([key, value]) => {
         setParam(key as keyof SearchQuery, value as any);

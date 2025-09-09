@@ -6,6 +6,8 @@ import Link from "next/link";
 import Tree from 'react-d3-tree';
 import { ArrowsPointingOutIcon, ArrowsPointingInIcon } from "@heroicons/react/24/outline";
 import PathDisplay from "./PathDisplay";
+import { useMeshcoreSearches } from "../hooks/useMeshcoreSearch";
+import type { MeshcoreSearchResult } from "../hooks/useMeshcoreSearch";
 
 export interface PathData {
   origin: string;
@@ -31,6 +33,7 @@ interface PathVisualizationProps {
   showDropdown?: boolean;
   initiatingNodeKey?: string;
 }
+
 
 export default function PathVisualization({ 
   paths, 
@@ -102,6 +105,67 @@ export default function PathVisualization({
     return buildTree();
   }, [showGraph, paths, pathsCount, initiatingNodeKey]);
 
+  // Extract unique prefixes from tree data for name lookups
+  const uniquePrefixes = useMemo(() => {
+    if (!treeData) return [];
+    
+    const prefixes = new Set<string>();
+    
+    const extractPrefixes = (node: TreeNode) => {
+      prefixes.add(node.name);
+      node.children?.forEach(extractPrefixes);
+    };
+    
+    extractPrefixes(treeData);
+    return Array.from(prefixes);
+  }, [treeData]);
+
+  // Use the new useMeshcoreSearches hook to handle multiple prefix searches
+  // Filter out "??" prefix and only search for valid hex prefixes
+  const searches = useMemo(() => 
+    uniquePrefixes
+      .filter(prefix => prefix !== "??") // Don't search for placeholder prefix
+      .map(prefix => ({
+        query: prefix,
+        exact: false,
+        limit: 20,
+        is_repeater: true, // Filter for repeaters only
+        enabled: showGraph && prefix.length > 0
+      }))
+  , [uniquePrefixes, showGraph]);
+
+  const searchResults = useMeshcoreSearches({ searches });
+
+  // Create mapping from prefix to node data (name + public key)
+  const prefixToNodes = useMemo(() => {
+    const mapping = new Map<string, Array<{ name: string; publicKey: string }>>();
+    
+    // Create searchable prefixes (excluding "??")
+    const searchablePrefixes = uniquePrefixes.filter(prefix => prefix !== "??");
+    
+    searchablePrefixes.forEach((prefix, index) => {
+      const searchResult = searchResults[index];
+      if (searchResult?.data?.results) {
+        const matchingNodes = searchResult.data.results
+          .filter(result => result.public_key.toLowerCase().startsWith(prefix.toLowerCase()) && result.node_name)
+          .map(result => ({
+            name: result.node_name,
+            publicKey: result.public_key
+          }))
+          .filter(node => node.name.length > 0);
+        
+        if (matchingNodes.length > 0) {
+          mapping.set(prefix, matchingNodes);
+        }
+      }
+    });
+    
+    return mapping;
+  }, [searchResults, uniquePrefixes]);
+
+  // Fixed node spacing optimized for ~3 lines of text
+  const fixedNodeSize = { x: 140, y: 100 };
+
   const handleToggle = useCallback(() => {
     setExpanded(prev => !prev);
   }, []);
@@ -134,6 +198,65 @@ export default function PathVisualization({
     </div>
   ), [paths]);
 
+  // Memoize the render function to prevent unnecessary re-renders
+  const renderCustomNodeElement = useCallback(({ nodeDatum, toggleNode }: any) => {
+    const rootName = initiatingNodeKey ? initiatingNodeKey.substring(0, 2) : "??";
+    const isRoot = nodeDatum.name === rootName;
+    // Check if this node represents an origin pubkey (final 2-char hex from pubkey)
+    const isOriginPubkey = paths.some(({ pubkey }) => {
+      const pubkeyPrefix = pubkey.substring(0, 2);
+      return nodeDatum.name === pubkeyPrefix;
+    });
+    
+    // Get node data for this prefix
+    const nodeData = prefixToNodes.get(nodeDatum.name) || [];
+    const isResolved = nodeData.length > 0;
+
+    
+    return (
+      <g key={`node-${nodeDatum.name}`}>
+        {/* Use same circle style for all nodes */}
+        <circle 
+          r={15}
+          fill={isRoot ? "#3b82f6" : "#6b7280"}
+          stroke={isOriginPubkey && !isRoot ? "#10b981" : "none"}
+          strokeWidth={isOriginPubkey && !isRoot ? 2 : 0}
+        />
+        
+        {/* Hex prefix inside circle */}
+        <text
+          textAnchor="middle"
+          y="5"
+          style={{ fontSize: "10px", fill: "white", fontWeight: "bold", stroke: "none" }}
+        >
+          {nodeDatum.name}
+        </text>
+        
+        {/* Show all node names below circle for resolved prefixes - clickable */}
+        {isResolved && nodeData.map((node, index) => {
+          // Calculate dynamic width based on text length (approximate 6px per character + padding)
+          const estimatedWidth = Math.max(60, node.name.length * 8 + 20);
+          return (
+            <foreignObject
+              key={index}
+              x={-estimatedWidth / 2} // Center the link horizontally
+              y={24 + (index * 12)} // Increased gap from circle to first name
+              width={estimatedWidth}
+              height={16}
+            >
+            <Link
+              href={`/meshcore/node/${node.publicKey}`}
+              className="block text-center font-bold hover:opacity-80 cursor-pointer whitespace-nowrap px-1 py-0.5 text-xs text-blue-600 dark:text-blue-300"
+            >
+              {node.name}
+            </Link>
+          </foreignObject>
+          );
+        })}
+      </g>
+    );
+  }, [initiatingNodeKey, paths, prefixToNodes]);
+
   const GraphView = useCallback(() => {
     if (!showGraph || pathsCount === 0 || !treeData) return null;
 
@@ -145,36 +268,10 @@ export default function PathVisualization({
         pathFunc="step"
         translate={{ x: graphFullscreen ? 300 : 200, y: graphFullscreen ? 80 : 50 }}
         separation={{ siblings: 1.2, nonSiblings: 1.5 }}
-        nodeSize={{ x: 60, y: 60 }}
+        nodeSize={fixedNodeSize}
         zoomable={true}
         draggable={true}
-        renderCustomNodeElement={({ nodeDatum, toggleNode }) => {
-          const rootName = initiatingNodeKey ? initiatingNodeKey.substring(0, 2) : "??";
-          const isRoot = nodeDatum.name === rootName;
-          // Check if this node represents an origin pubkey (final 2-char hex from pubkey)
-          const isOriginPubkey = paths.some(({ pubkey }) => {
-            const pubkeyPrefix = pubkey.substring(0, 2);
-            return nodeDatum.name === pubkeyPrefix;
-          });
-          
-          return (
-            <g key={`node-${nodeDatum.name}`}>
-              <circle 
-                r={15} 
-                fill={isRoot ? "#3b82f6" : "#6b7280"}
-                stroke={isOriginPubkey && !isRoot ? "#10b981" : "none"}
-                strokeWidth={isOriginPubkey && !isRoot ? 2 : 0}
-              />
-              <text
-                textAnchor="middle"
-                y="5"
-                style={{ fontSize: "12px", fill: "white", fontWeight: "bold", stroke: "none" }}
-              >
-                {nodeDatum.name}
-              </text>
-            </g>
-          );
-        }}
+        renderCustomNodeElement={renderCustomNodeElement}
       />
     );
 
@@ -194,7 +291,7 @@ export default function PathVisualization({
               </button>
             </div>
             <div className="flex-1 overflow-hidden">
-              <div className="w-full h-full border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-600">
+              <div className="w-full h-full border border-gray-200 dark:border-gray-700 rounded bg-neutral-200 dark:bg-neutral-800">
                 {renderTree()}
               </div>
             </div>
@@ -217,12 +314,12 @@ export default function PathVisualization({
             <ArrowsPointingOutIcon className="w-4 h-4" />
           </button>
         </div>
-        <div className="w-full h-64 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-600">
+        <div className="w-full h-64 border border-gray-200 dark:border-gray-700 rounded bg-neutral-200 dark:bg-neutral-800">
           {renderTree()}
         </div>
       </div>
     );
-  }, [showGraph, pathsCount, treeData, graphFullscreen, handleFullscreenToggle, paths, initiatingNodeKey]);
+  }, [showGraph, pathsCount, treeData, graphFullscreen, handleFullscreenToggle, renderCustomNodeElement]);
 
   if (!showDropdown) {
     return (

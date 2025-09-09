@@ -26,6 +26,7 @@ type ClusteredMarkersProps = {
   nodes: NodePosition[];
   selectedNodeId: string | null;
   onNodeClick: (nodeId: string | null) => void;
+  isLoadingNeighbors?: boolean;
 };
 
 // Individual marker component
@@ -33,12 +34,14 @@ function IndividualMarker({
   node, 
   showNodeNames, 
   selectedNodeId, 
-  onNodeClick 
+  onNodeClick,
+  isLoadingNeighbors = false
 }: { 
   node: NodePosition; 
   showNodeNames: boolean; 
   selectedNodeId: string | null;
   onNodeClick: (nodeId: string | null) => void;
+  isLoadingNeighbors?: boolean;
 }) {
   const map = useMap();
   const markerRef = useRef<L.Marker | null>(null);
@@ -52,11 +55,19 @@ function IndividualMarker({
   useEffect(() => {
     if (!map) return;
 
+    const isSelected = selectedNodeId === node.node_id;
     const icon = L.divIcon({
       className: 'custom-node-marker-container',
       iconSize: [16, 32],
       iconAnchor: [8, 8],
-      html: renderToString(<NodeMarker node={node} showNodeNames={showNodeNames} />),
+      html: renderToString(
+        <NodeMarker 
+          node={node} 
+          showNodeNames={showNodeNames} 
+          isSelected={isSelected}
+          isLoadingNeighbors={isSelected && isLoadingNeighbors}
+        />
+      ),
     });
 
     const marker = L.marker([node.latitude, node.longitude], { icon });
@@ -78,7 +89,7 @@ function IndividualMarker({
         map.removeLayer(markerRef.current);
       }
     };
-  }, [map, node, showNodeNames]);
+  }, [map, node, showNodeNames, selectedNodeId, isLoadingNeighbors]);
 
   // Update marker when node data changes
   useEffect(() => {
@@ -89,16 +100,24 @@ function IndividualMarker({
       }
       
       // Update icon and popup
+      const isSelected = selectedNodeId === node.node_id;
       const icon = L.divIcon({
         className: 'custom-node-marker-container',
         iconSize: [16, 32],
         iconAnchor: [8, 8],
-        html: renderToString(<NodeMarker node={node} showNodeNames={showNodeNames} />),
+        html: renderToString(
+          <NodeMarker 
+            node={node} 
+            showNodeNames={showNodeNames} 
+            isSelected={isSelected}
+            isLoadingNeighbors={isSelected && isLoadingNeighbors}
+          />
+        ),
       });
       markerRef.current.setIcon(icon);
       markerRef.current.getPopup()?.setContent(renderToString(<PopupContent node={node} />));
     }
-  }, [node, showNodeNames]);
+  }, [node, showNodeNames, selectedNodeId, isLoadingNeighbors]);
 
   return null;
 }
@@ -108,12 +127,14 @@ function ClusteredMarkersGroup({
   nodes, 
   showNodeNames, 
   selectedNodeId, 
-  onNodeClick 
+  onNodeClick,
+  isLoadingNeighbors = false
 }: { 
   nodes: NodePosition[]; 
   showNodeNames: boolean; 
   selectedNodeId: string | null;
   onNodeClick: (nodeId: string | null) => void;
+  isLoadingNeighbors?: boolean;
 }) {
   const map = useMap();
   const clusterGroupRef = useRef<any>(null);
@@ -143,11 +164,19 @@ function ClusteredMarkersGroup({
     });
 
     nodes.forEach((node: NodePosition) => {
+      const isSelected = selectedNodeId === node.node_id;
       const icon = L.divIcon({
         className: 'custom-node-marker-container',
         iconSize: [16, 32],
         iconAnchor: [8, 8],
-        html: renderToString(<NodeMarker node={node} showNodeNames={showNodeNames} />),
+        html: renderToString(
+          <NodeMarker 
+            node={node} 
+            showNodeNames={showNodeNames} 
+            isSelected={isSelected}
+            isLoadingNeighbors={isSelected && isLoadingNeighbors}
+          />
+        ),
       });
       const marker = L.marker([node.latitude, node.longitude], { icon });
       (marker as any).options.nodeData = node;
@@ -172,12 +201,12 @@ function ClusteredMarkersGroup({
         map.removeLayer(clusterGroupRef.current);
       }
     };
-  }, [map, nodes, showNodeNames]);
+  }, [map, nodes, showNodeNames, selectedNodeId, isLoadingNeighbors]);
 
   return null;
 }
 
-function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick }: ClusteredMarkersProps) {
+function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick, isLoadingNeighbors = false }: ClusteredMarkersProps) {
   const configResult = useConfig();
   const config = configResult?.config;
   const showNodeNames = config?.showNodeNames !== false;
@@ -193,6 +222,7 @@ function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick }: ClusteredMarke
             showNodeNames={showNodeNames}
             selectedNodeId={selectedNodeId}
             onNodeClick={onNodeClick}
+            isLoadingNeighbors={isLoadingNeighbors}
           />
         ))}
       </>
@@ -205,6 +235,7 @@ function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick }: ClusteredMarke
         showNodeNames={showNodeNames}
         selectedNodeId={selectedNodeId}
         onNodeClick={onNodeClick}
+        isLoadingNeighbors={isLoadingNeighbors}
       />
     );
   }
@@ -502,6 +533,7 @@ export default function MapView() {
           nodes={nodePositions} 
           selectedNodeId={selectedNodeId}
           onNodeClick={handleNodeClick}
+          isLoadingNeighbors={neighborsLoading}
         />
         <NeighborLines 
           selectedNodeId={selectedNodeId}

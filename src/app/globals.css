@@ -153,6 +153,32 @@ html {
   position: relative;
 }
 
+.custom-node-marker--loading {
+  position: relative;
+}
+
+.custom-node-marker--loading::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 2px solid transparent;
+  border-top: 2px solid #2563eb; /* blue-600 */
+  border-radius: 50%;
+  animation: node-spinner 1s linear infinite;
+}
+
+@keyframes node-spinner {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 .map-spinner {
   width: 28px;
   height: 28px;

@@ -1,27 +1,15 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useConfig } from "./ConfigContext";
-import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
 import { getChannelIdFromKey } from "../lib/meshcore";
-import ChatMessageItem, { ChatMessage } from "./ChatMessageItem";
+import ChatMessageItem from "./ChatMessageItem";
 import RefreshButton from "./RefreshButton";
-import { buildApiUrl } from "../lib/api";
 import RegionSelector from "./RegionSelector";
 import { getRegionConfig } from "../lib/regions";
+import { useChatMessages } from "../hooks/useChatMessages";
+import { useIntersectionObserver } from "../hooks/useIntersectionObserver";
 
-const PAGE_SIZE = 20;
-
-function formatHex(hex: string): string {
-  // Add a space every 2 characters for readability
-  return hex.replace(/(.{2})/g, "$1 ").trim();
-}
-
-function formatLocalTime(utcString: string): string {
-  // Parse as UTC and display in local time
-  const utcDate = new Date(utcString + (utcString.endsWith("Z") ? "" : "Z"));
-  return utcDate.toLocaleString();
-}
 
 interface ChatBoxProps {
   showAllMessagesTab?: boolean;
@@ -53,112 +41,53 @@ export default function ChatBox({
 
   const [selectedTab, setSelectedTab] = useState(showAllMessagesTab ? 1 : 0);
   const [minimized, setMinimized] = useState(!startExpanded); // Use startExpanded as default for minimized state
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [lastBefore, setLastBefore] = useState<string | undefined>(undefined);
 
   const selectedKey = allTabs[selectedTab];
   const channelId = selectedKey.isAllMessages
     ? undefined
     : getChannelIdFromKey(selectedKey.privateKey).toUpperCase();
+  
+  // Use the new chat messages hook
+  const {
+    messages,
+    loading,
+    hasMore,
+    loadMore,
+    isLoadingMore,
+    refresh,
+    isRefreshing
+  } = useChatMessages({
+    channelId,
+    region: config?.selectedRegion,
+    enabled: !minimized,
+    autoRefreshEnabled: !minimized,
+  });
 
   // Only show tabs if more than one channel (or if we have all messages tab)
   const showTabs = allTabs.length > 1;
 
-  const fetchMessages = useCallback(
-    async (before?: string, replace = false, after?: string) => {
-      if (!config?.selectedRegion) return;
-
-      setLoading(true);
-      try {
-        let url = `/api/chat?limit=${PAGE_SIZE}&region=${encodeURIComponent(
-          config.selectedRegion!
-        )}`;
-        if (channelId) url += `&channel_id=${channelId}`;
-
-        if (after) {
-          // Fetch newer messages using the after parameter
-          url += `&after=${encodeURIComponent(after)}`;
-        } else if (before) {
-          // Fetch older messages using before parameter
-          url += `&before=${encodeURIComponent(before)}`;
-        }
-
-        const res = await fetch(buildApiUrl(url));
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          if (after) {
-            // Add newer messages to the beginning (most recent first)
-            if (data.length > 0) {
-              setMessages((prev) => [...data, ...prev]);
-            }
-          } else {
-            setMessages((prev) => (replace ? data : [...prev, ...data]));
-            setHasMore(data.length === PAGE_SIZE);
-            if (data.length > 0) {
-              setLastBefore(data[data.length - 1].ingest_timestamp);
-            }
-          }
-        } else {
-          // Only set hasMore to false if this is not an auto-refresh request
-          if (!after) {
-            setHasMore(false);
-          }
-        }
-      } catch (error) {
-        console.error("Load failed:", error);
-      } finally {
-        setLoading(false);
+  // Set up intersection observer for infinite scrolling
+  const loadMoreTriggerRef = useIntersectionObserver(
+    () => {
+      if (hasMore && !isLoadingMore && !loading) {
+        loadMore();
       }
     },
-    [channelId, config.selectedRegion]
+    {
+      threshold: 0.1,
+      rootMargin: '100px',
+      enabled: hasMore && !isLoadingMore && !loading
+    }
   );
 
-  useEffect(() => {
-    if (!minimized) {
-      setMessages([]);
-      setHasMore(true);
-      setLastBefore(undefined);
-      fetchMessages(undefined, true);
-    }
-  }, [minimized, selectedTab, config?.selectedRegion, fetchMessages]);
-
-  // Auto-refresh effect
-  useEffect(() => {
-    if (!minimized && messages.length > 0) {
-      const interval = setInterval(() => {
-        // Auto-refresh should only fetch newer messages, not replace all
-        // Pass the most recent timestamp directly to avoid ref issues
-        const mostRecentTimestamp = messages[0].ingest_timestamp;
-        fetchMessages(undefined, false, mostRecentTimestamp);
-      }, 5000);
-
-      return () => clearInterval(interval);
-    }
-  }, [minimized, channelId, messages, fetchMessages]);
-
-  const handleLoadMore = () => {
-    if (lastBefore) {
-      fetchMessages(lastBefore);
-    }
-  };
-
   const handleRefresh = () => {
-    setMessages([]);
-    setHasMore(true);
-    setLastBefore(undefined);
-    fetchMessages(undefined, true);
+    refresh();
   };
 
-  const LoadMoreButton = () => (
-    <button
-      className="w-full py-2 bg-gray-100 dark:bg-neutral-800 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-neutral-700"
-      onClick={handleLoadMore}
-      disabled={loading}
-    >
-      {loading ? "Loading..." : "Load more"}
-    </button>
+  const LoadingIndicator = () => (
+    <div className="flex justify-center py-4">
+      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700 dark:border-gray-200"></div>
+    </div>
   );
 
   return (
@@ -187,7 +116,7 @@ export default function ChatBox({
           {!minimized && config?.selectedRegion && (
             <RefreshButton
               onClick={handleRefresh}
-              loading={loading}
+              loading={isRefreshing}
               small={true}
               title="Refresh chat messages"
               ariaLabel="Refresh chat messages"
@@ -231,39 +160,42 @@ export default function ChatBox({
             </div>
           )}
 
-          <div
-            className={`flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 ${
-              startExpanded ? "" : "flex flex-col-reverse"
-            }`}
-          >
-            <div className={`p-4 ${startExpanded ? "flex flex-col gap-2" : "flex flex-col gap-2"}`}>
-              {messages.length === 0 && !loading && (
-                <div className={`text-gray-400 text-center ${startExpanded ? "py-8" : "mt-8"}`}>
-                  No chat messages found.
-                </div>
-              )}
-              {hasMore && !startExpanded && <LoadMoreButton />}
-              {(startExpanded ? messages : messages.toReversed()).map((msg, i) => (
-                <ChatMessageItem
-                  key={`${msg.ingest_timestamp}-${msg.origin_key_path_array?.length || 0}`}
-                  msg={msg}
-                  showErrorRow={selectedKey.isAllMessages}
-                />
-              ))}
-              {hasMore && startExpanded && <LoadMoreButton />}
-            </div>
-          </div>
+           <div
+             className={`flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 ${
+               startExpanded ? "" : "flex flex-col-reverse"
+             }`}
+           >
+             <div className={`p-4 ${startExpanded ? "flex flex-col gap-2" : "flex flex-col gap-2"}`}>
+               {messages.length === 0 && !loading && (
+                 <div className={`text-gray-400 text-center ${startExpanded ? "py-8" : "mt-8"}`}>
+                   No chat messages found.
+                 </div>
+               )}
+               
+               {/* Messages */}
+               {(startExpanded ? messages : messages.toReversed()).map((msg, i) => (
+                 <ChatMessageItem
+                   key={`${msg.ingest_timestamp}-${msg.origin_key_path_array?.length || 0}`}
+                   msg={msg}
+                   showErrorRow={selectedKey.isAllMessages}
+                 />
+               ))}
+               
+               {/* Loading indicator */}
+               {isLoadingMore && <LoadingIndicator />}
+               
+
+               {/* Load more trigger always at the bottom */}
+               {hasMore && (
+                 <div ref={loadMoreTriggerRef} className="h-2" />
+               )}
+             </div>
+           </div>
         </>
       )}
       {!minimized && !config?.selectedRegion && (
         <div className="p-4 flex flex-col rounded-lg overflow-scroll">
           <RegionSelector
-            onRegionSelected={() => {
-              setMessages([]);
-              setHasMore(true);
-              setLastBefore(undefined);
-              fetchMessages(undefined, true);
-            }}
             className="w-full"
           />
         </div>

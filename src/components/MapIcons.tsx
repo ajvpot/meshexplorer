@@ -7,6 +7,8 @@ import { NodePosition } from '../types/map';
 interface NodeMarkerProps {
   node: NodePosition;
   showNodeNames?: boolean;
+  isSelected?: boolean;
+  isLoadingNeighbors?: boolean;
 }
 
 interface ClusterMarkerProps {
@@ -18,14 +20,22 @@ interface PopupContentProps {
 }
 
 // Individual node marker component
-export function NodeMarker({ node, showNodeNames = true }: NodeMarkerProps) {
+export function NodeMarker({ node, showNodeNames = true, isSelected = false, isLoadingNeighbors = false }: NodeMarkerProps) {
   const getMarkerClass = () => {
+    let baseClass = "custom-node-marker";
+    
     if (node.type === "meshtastic") {
-      return "custom-node-marker custom-node-marker--green";
+      baseClass += " custom-node-marker--green";
     } else if (node.type === "meshcore") {
-      return "custom-node-marker custom-node-marker--blue custom-node-marker--top";
+      baseClass += " custom-node-marker--blue custom-node-marker--top";
     }
-    return "custom-node-marker";
+    
+    // Only add loading class when actually loading neighbors
+    if (isLoadingNeighbors) {
+      baseClass += " custom-node-marker--loading";
+    }
+    
+    return baseClass;
   };
 
   return (

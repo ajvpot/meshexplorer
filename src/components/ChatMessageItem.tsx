@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useConfig } from "./ConfigContext";
 import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
 import PathVisualization, { PathData } from "./PathVisualization";
+import NodeLinkWithHover from "./NodeLinkWithHover";
 
 export interface ChatMessage {
   ingest_timestamp: string;
@@ -115,7 +116,13 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
           <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
         </div>
         <div className="break-words whitespace-pre-wrap">
-          <span className="font-bold text-blue-800 dark:text-blue-300">{parsed.sender}</span>
+          {parsed.sender ? (
+            <NodeLinkWithHover 
+              nodeName={parsed.sender}
+            >
+              {parsed.sender}
+            </NodeLinkWithHover>
+          ) : null}
           {parsed.sender && ": "}
           <span>{linkifyText(parsed.text)}</span>
         </div>

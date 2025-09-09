@@ -7,13 +7,17 @@ import SearchInput from '@/components/SearchInput';
 import SearchResults from '@/components/SearchResults';
 import RegionSelector from '@/components/RegionSelector';
 import { LAST_SEEN_OPTIONS } from '@/components/ConfigContext';
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 
 function SearchPageContent() {
   const { config } = useConfig();
-  const { query, setQuery, setLimit } = useSearchQuery();
+  const { query, setQuery, setLimit, setExact } = useSearchQuery();
   const [showFilters, setShowFilters] = useState(false);
+
+  // Helper function to check if exact search is enabled
+  const isExactEnabled = query.exact === true || (typeof query.exact === 'string' && (query.exact === 'true' || query.exact === ''));
 
   // Always use config values for region and lastSeen
   const searchParams = {
@@ -21,6 +25,7 @@ function SearchPageContent() {
     region: config.selectedRegion,
     lastSeen: config.lastSeen,
     limit: query.limit || 50,
+    exact: isExactEnabled,
   };
 
   const { data, isLoading, error } = useMeshcoreSearch({
@@ -77,7 +82,7 @@ function SearchPageContent() {
 
           {showFilters && (
             <div className="mt-4 p-4 bg-white dark:bg-neutral-800 rounded-lg border border-gray-200 dark:border-neutral-700">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Region Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -130,6 +135,26 @@ function SearchPageContent() {
                     <option value={200}>200 results</option>
                   </select>
                 </div>
+
+                {/* Exact Match Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Match Type
+                  </label>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="exact-match"
+                      checked={isExactEnabled}
+                      onChange={(e) => setExact(e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="exact-match" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      Exact match only
+                    </label>
+                  </div>
+                </div>
+
               </div>
             </div>
           )}

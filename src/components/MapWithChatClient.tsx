@@ -27,11 +27,13 @@ export default function MapWithChat({ nodePositions }: MapWithChatProps) {
     >
       <div className="flex-1 relative">
         <MapView />
+        {/* ChatBox temporarily disabled - infinite scroll is broken in reverse view
         <div className="absolute bottom-6 right-6 z-30">
           <div className="w-80">
             <ChatBox showAllMessagesTab={false} startExpanded={false} className="w-full" />
           </div>
         </div>
+        */}
       </div>
     </div>
   );

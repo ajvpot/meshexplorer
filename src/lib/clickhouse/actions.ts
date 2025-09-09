@@ -366,80 +366,147 @@ export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: stri
   }
 }
 
-export async function searchMeshcoreNodes({ 
-  query: searchQuery, 
-  region, 
-  lastSeen,
-  limit = 50 
-}: { 
-  query?: string; 
-  region?: string; 
+interface SearchQuery {
+  query?: string;
+  region?: string;
   lastSeen?: string | null;
-  limit?: number; 
-} = {}) {
+  limit?: number;
+  exact?: boolean;
+  is_repeater?: boolean;
+}
+
+export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuery[] = {}) {
   try {
-    let where = [];
-    const params: Record<string, any> = { limit };
+    // Normalize input to array format
+    const queries = Array.isArray(searchParams) ? searchParams : [searchParams];
     
-    // Add search conditions
-    if (searchQuery && searchQuery.trim()) {
-      const trimmedQuery = searchQuery.trim();
+    // If no queries or empty array, return empty results
+    if (queries.length === 0) {
+      return [];
+    }
+    
+    // Build individual query parts
+    const queryParts: string[] = [];
+    const allParams: Record<string, any> = {};
+    
+    queries.forEach((searchQuery, index) => {
+      const {
+        query: searchString,
+        region,
+        lastSeen,
+        limit = 50,
+        exact = false,
+        is_repeater
+      } = searchQuery;
       
-      // Check if it looks like a public key (hex string)
-      if (/^[0-9A-Fa-f]+$/.test(trimmedQuery)) {
-        // Search by public key prefix
-        where.push('public_key LIKE {publicKeyPattern:String}');
-        params.publicKeyPattern = `${trimmedQuery.toUpperCase()}%`;
-      } else {
-        // Search by node name (case insensitive, anywhere in the name)
-        where.push('lower(node_name) LIKE {namePattern:String}');
-        params.namePattern = `%${trimmedQuery.toLowerCase()}%`;
+      const where: string[] = [];
+      const queryParams: Record<string, any> = {};
+      
+      // Add search conditions
+      if (searchString && searchString.trim()) {
+        const trimmedQuery = searchString.trim();
+        
+        // Check if it looks like a public key (hex string)
+        if (/^[0-9A-Fa-f]+$/.test(trimmedQuery)) {
+          if (exact) {
+            // Exact public key match
+            where.push(`public_key = {publicKeyExact_${index}:String}`);
+            queryParams[`publicKeyExact_${index}`] = trimmedQuery.toUpperCase();
+          } else {
+            // Search by public key prefix
+            where.push(`public_key LIKE {publicKeyPattern_${index}:String}`);
+            queryParams[`publicKeyPattern_${index}`] = `${trimmedQuery.toUpperCase()}%`;
+          }
+        } else {
+          if (exact) {
+            // Exact node name match (case insensitive)
+            where.push(`lower(node_name) = {nameExact_${index}:String}`);
+            queryParams[`nameExact_${index}`] = trimmedQuery.toLowerCase();
+          } else {
+            // Search by node name (case insensitive, anywhere in the name)
+            where.push(`lower(node_name) LIKE {namePattern_${index}:String}`);
+            queryParams[`namePattern_${index}`] = `%${trimmedQuery.toLowerCase()}%`;
+          }
+        }
       }
-    }
+      
+      // Add lastSeen filter if provided
+      if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
+        where.push(`last_seen >= now() - INTERVAL {lastSeen_${index}:UInt32} SECOND`);
+        queryParams[`lastSeen_${index}`] = Number(lastSeen);
+      }
+      
+      // Add region filtering if specified
+      const regionFilter = generateRegionWhereClause(region);
+      if (regionFilter.whereClause) {
+        where.push(regionFilter.whereClause);
+      }
+      
+      // Add is_repeater filter if specified
+      if (is_repeater !== undefined) {
+        where.push(`is_repeater = {isRepeater_${index}:UInt8}`);
+        queryParams[`isRepeater_${index}`] = is_repeater ? 1 : 0;
+      }
+      
+      const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+      
+      const queryPart = `
+        SELECT 
+          public_key,
+          node_name,
+          latitude,
+          longitude,
+          has_location,
+          is_repeater,
+          is_chat_node,
+          is_room_server,
+          has_name,
+          first_heard,
+          last_seen,
+          broker,
+          topic,
+          ${index} as query_index
+        FROM (
+          SELECT 
+            public_key,
+            argMax(node_name, ingest_timestamp) as node_name,
+            argMax(latitude, ingest_timestamp) as latitude,
+            argMax(longitude, ingest_timestamp) as longitude,
+            argMax(has_location, ingest_timestamp) as has_location,
+            argMax(is_repeater, ingest_timestamp) as is_repeater,
+            argMax(is_chat_node, ingest_timestamp) as is_chat_node,
+            argMax(is_room_server, ingest_timestamp) as is_room_server,
+            argMax(has_name, ingest_timestamp) as has_name,
+            min(ingest_timestamp) as first_heard,
+            max(ingest_timestamp) as last_seen,
+            argMax(broker, ingest_timestamp) as broker,
+            argMax(topic, ingest_timestamp) as topic
+          FROM meshcore_adverts 
+          GROUP BY public_key
+        ) 
+        ${whereClause} 
+        ORDER BY last_seen DESC 
+        LIMIT {limit_${index}:UInt32}
+      `;
+      
+      queryParts.push(queryPart);
+      queryParams[`limit_${index}`] = limit;
+      
+      // Add query params to the global params object
+      Object.assign(allParams, queryParams);
+    });
     
-    // Add lastSeen filter if provided
-    if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
-      where.push('last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND');
-      params.lastSeen = Number(lastSeen);
-    }
-    
-    // Add region filtering if specified
-    const regionFilter = generateRegionWhereClause(region);
-    if (regionFilter.whereClause) {
-      where.push(regionFilter.whereClause);
-    }
-    
-    const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-    
-    const query = `
-      SELECT 
-        public_key,
-        node_name,
-        latitude,
-        longitude,
-        has_location,
-        is_repeater,
-        is_chat_node,
-        is_room_server,
-        has_name,
-        first_heard,
-        last_seen,
-        broker,
-        topic
-      FROM meshcore_adverts_latest 
-      ${whereClause} 
-      ORDER BY last_seen DESC 
-      LIMIT {limit:UInt32}
-    `;
+    // Combine all queries with UNION ALL
+    const finalQuery = queryParts.join(' UNION ALL ');
     
     const resultSet = await clickhouse.query({ 
-      query, 
-      query_params: params, 
+      query: finalQuery, 
+      query_params: allParams, 
       format: 'JSONEachRow' 
     });
     const rows = await resultSet.json();
     
-    return rows as Array<{
+    type SearchResult = {
       public_key: string;
       node_name: string;
       latitude: number | null;
@@ -453,7 +520,30 @@ export async function searchMeshcoreNodes({
       last_seen: string;
       broker: string;
       topic: string;
-    }>;
+      query_index?: number;
+    };
+    
+    // If single query, return results without query_index
+    if (!Array.isArray(searchParams)) {
+      return (rows as SearchResult[]).map(row => {
+        const { query_index, ...result } = row;
+        return result;
+      });
+    }
+    
+    // For batch queries, group results by query_index
+    const groupedResults = (rows as SearchResult[]).reduce((acc, row) => {
+      const index = row.query_index || 0;
+      if (!acc[index]) {
+        acc[index] = [];
+      }
+      const { query_index, ...result } = row;
+      acc[index].push(result);
+      return acc;
+    }, {} as Record<number, SearchResult[]>);
+    
+    // Return results in the same order as input queries
+    return queries.map((_, index) => groupedResults[index] || []);
   } catch (error) {
     console.error('ClickHouse error in searchMeshcoreNodes:', error);
     throw error;

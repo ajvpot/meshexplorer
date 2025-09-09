@@ -14,12 +14,19 @@ import { renderToString } from "react-dom/server";
 import { buildApiUrl } from "../lib/api";
 import { NodePosition } from "../types/map";
 import { useNeighbors, type Neighbor } from "../hooks/useNeighbors";
+import { useQueryParams } from "../hooks/useQueryParams";
 
 const DEFAULT = {
   lat: 46.56, // Center between Seattle and Portland
   lng: -122.51,
   zoom: 7, // Zoom level to show both cities
 };
+
+interface MapQuery {
+  lat?: number;
+  lng?: number;
+  zoom?: number;
+}
 
 
 type ClusteredMarkersProps = { 
@@ -30,7 +37,7 @@ type ClusteredMarkersProps = {
 };
 
 // Individual marker component
-function IndividualMarker({ 
+const IndividualMarker = React.memo(function IndividualMarker({ 
   node, 
   showNodeNames, 
   selectedNodeId, 
@@ -89,17 +96,13 @@ function IndividualMarker({
         map.removeLayer(markerRef.current);
       }
     };
-  }, [map, node, showNodeNames, selectedNodeId, isLoadingNeighbors]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omitting selectedNodeId, showNodeNames, isLoadingNeighbors to prevent marker recreation
+  }, [map, node.node_id, node.latitude, node.longitude, node.type]);
 
-  // Update marker when node data changes
+  // Update marker when visual properties change (but don't recreate marker)
   useEffect(() => {
     if (markerRef.current) {
-      const currentPos = markerRef.current.getLatLng();
-      if (currentPos.lat !== node.latitude || currentPos.lng !== node.longitude) {
-        markerRef.current.setLatLng([node.latitude, node.longitude]);
-      }
-      
-      // Update icon and popup
+      // Update icon and popup content only
       const isSelected = selectedNodeId === node.node_id;
       const icon = L.divIcon({
         className: 'custom-node-marker-container',
@@ -119,11 +122,21 @@ function IndividualMarker({
     }
   }, [node, showNodeNames, selectedNodeId, isLoadingNeighbors]);
 
+  // Handle position updates separately to avoid recreating marker
+  useEffect(() => {
+    if (markerRef.current) {
+      const currentPos = markerRef.current.getLatLng();
+      if (currentPos.lat !== node.latitude || currentPos.lng !== node.longitude) {
+        markerRef.current.setLatLng([node.latitude, node.longitude]);
+      }
+    }
+  }, [node.latitude, node.longitude]);
+
   return null;
-}
+});
 
 // Clustered markers component
-function ClusteredMarkersGroup({ 
+const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({ 
   nodes, 
   showNodeNames, 
   selectedNodeId, 
@@ -145,6 +158,7 @@ function ClusteredMarkersGroup({
     onNodeClickRef.current = onNodeClick;
   }, [onNodeClick]);
 
+  // Create cluster group only when map or nodes array changes
   useEffect(() => {
     if (!map) return;
 
@@ -201,12 +215,40 @@ function ClusteredMarkersGroup({
         map.removeLayer(clusterGroupRef.current);
       }
     };
-  }, [map, nodes, showNodeNames, selectedNodeId, isLoadingNeighbors]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omitting selectedNodeId, showNodeNames, isLoadingNeighbors to prevent cluster recreation
+  }, [map, nodes]);
+
+  // Update marker appearances when visual properties change
+  useEffect(() => {
+    if (!clusterGroupRef.current) return;
+
+    clusterGroupRef.current.eachLayer((marker: any) => {
+      const nodeData = marker.options.nodeData;
+      if (nodeData) {
+        const isSelected = selectedNodeId === nodeData.node_id;
+        const icon = L.divIcon({
+          className: 'custom-node-marker-container',
+          iconSize: [16, 32],
+          iconAnchor: [8, 8],
+          html: renderToString(
+            <NodeMarker 
+              node={nodeData} 
+              showNodeNames={showNodeNames} 
+              isSelected={isSelected}
+              isLoadingNeighbors={isSelected && isLoadingNeighbors}
+            />
+          ),
+        });
+        marker.setIcon(icon);
+        marker.getPopup()?.setContent(renderToString(<PopupContent node={nodeData} />));
+      }
+    });
+  }, [showNodeNames, selectedNodeId, isLoadingNeighbors]);
 
   return null;
-}
+});
 
-function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick, isLoadingNeighbors = false }: ClusteredMarkersProps) {
+const ClusteredMarkers = React.memo(function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick, isLoadingNeighbors = false }: ClusteredMarkersProps) {
   const configResult = useConfig();
   const config = configResult?.config;
   const showNodeNames = config?.showNodeNames !== false;
@@ -239,7 +281,7 @@ function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick, isLoadingNeighbo
       />
     );
   }
-}
+});
 
 // Component to render neighbor lines with directional arrows
 function NeighborLines({ 
@@ -313,6 +355,16 @@ export default function MapView() {
   const lastRequestedBounds = useRef<[[number, number], [number, number]] | null>(null);
   const configResult = useConfig();
   const config = configResult?.config;
+  
+  // Use query params to persist map position
+  const { query: mapQuery, updateQuery: updateMapQuery } = useQueryParams<MapQuery>({
+    lat: DEFAULT.lat,
+    lng: DEFAULT.lng,
+    zoom: DEFAULT.zoom,
+  });
+  
+  const mapCenter: [number, number] = [mapQuery.lat ?? DEFAULT.lat, mapQuery.lng ?? DEFAULT.lng];
+  const mapZoom = mapQuery.zoom ?? DEFAULT.zoom;
   
   // Neighbor-related state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -409,7 +461,18 @@ export default function MapView() {
   function MapEventCatcher() {
     useMapEvents({
       moveend: (e) => {
-        const b = e.target.getBounds();
+        const map = e.target;
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        
+        // Update URL with new map position
+        updateMapQuery({
+          lat: Math.round(center.lat * 100000) / 100000, // Round to 5 decimal places
+          lng: Math.round(center.lng * 100000) / 100000,
+          zoom: zoom
+        });
+        
+        const b = map.getBounds();
         const buffer = 0.2; // 20% buffer
         const latDiff = b.getNorthEast().lat - b.getSouthWest().lat;
         const lngDiff = b.getNorthEast().lng - b.getSouthWest().lng;
@@ -433,7 +496,18 @@ export default function MapView() {
         }
       },
       zoomend: (e) => {
-        const b = e.target.getBounds();
+        const map = e.target;
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        
+        // Update URL with new map position
+        updateMapQuery({
+          lat: Math.round(center.lat * 100000) / 100000, // Round to 5 decimal places
+          lng: Math.round(center.lng * 100000) / 100000,
+          zoom: zoom
+        });
+        
+        const b = map.getBounds();
         const buffer = 0.2; // 20% buffer
         const latDiff = b.getNorthEast().lat - b.getSouthWest().lat;
         const lngDiff = b.getNorthEast().lng - b.getSouthWest().lng;
@@ -502,9 +576,9 @@ export default function MapView() {
           ariaLabel="Refresh map nodes"
         />
       </div>
-      <MapContainer
-        center={[DEFAULT.lat, DEFAULT.lng]}
-        zoom={DEFAULT.zoom}
+        <MapContainer
+        center={mapCenter}
+        zoom={mapZoom}
         style={{ width: "100%", height: "100%", zIndex: 1 }}
         className="bg-gray-200"
       >
@@ -529,7 +603,6 @@ export default function MapView() {
           />
         )}
         <ClusteredMarkers 
-          key={`clustering-${config?.clustering}-${config?.showNodeNames}`} 
           nodes={nodePositions} 
           selectedNodeId={selectedNodeId}
           onNodeClick={handleNodeClick}

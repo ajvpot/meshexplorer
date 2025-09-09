@@ -164,7 +164,7 @@ export default function PathVisualization({
   }, [searchResults, uniquePrefixes]);
 
   // Fixed node spacing optimized for ~3 lines of text
-  const fixedNodeSize = { x: 140, y: 100 };
+  const fixedNodeSize = useMemo(() => ({ x: 140, y: 100 }), []);
 
   const handleToggle = useCallback(() => {
     setExpanded(prev => !prev);
@@ -319,7 +319,7 @@ export default function PathVisualization({
         </div>
       </div>
     );
-  }, [showGraph, pathsCount, treeData, graphFullscreen, handleFullscreenToggle, renderCustomNodeElement]);
+  }, [showGraph, pathsCount, treeData, graphFullscreen, handleFullscreenToggle, renderCustomNodeElement, fixedNodeSize]);
 
   if (!showDropdown) {
     return (

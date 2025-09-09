@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMeshcoreNodeInfo } from "@/lib/clickhouse/actions";
+import { getMeshcoreNodeNeighbors } from "@/lib/clickhouse/actions";
 
 export async function GET(
   req: Request,
@@ -8,7 +8,7 @@ export async function GET(
   try {
     const { publicKey } = await params;
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const lastSeen = searchParams.get("lastSeen");
     
     if (!publicKey) {
       return NextResponse.json({ 
@@ -25,19 +25,19 @@ export async function GET(
       }, { status: 400 });
     }
 
-    const nodeInfo = await getMeshcoreNodeInfo(publicKey, limit);
+    const neighbors = await getMeshcoreNodeNeighbors(publicKey, lastSeen);
     
-    if (!nodeInfo) {
-      return NextResponse.json({ 
-        error: "Node not found",
-        code: "NODE_NOT_FOUND",
-        publicKey: publicKey
-      }, { status: 404 });
+    // Check if the parent node exists by trying to get basic node info
+    // This is a lightweight check to ensure the node exists before returning neighbors
+    if (!neighbors || neighbors.length === 0) {
+      // We could add a check here to verify the parent node exists
+      // For now, we'll return an empty array which is valid for nodes with no neighbors
+      return NextResponse.json([]);
     }
-
-    return NextResponse.json(nodeInfo);
+    
+    return NextResponse.json(neighbors);
   } catch (error) {
-    console.error("Error fetching meshcore node info:", error);
+    console.error("Error fetching meshcore node neighbors:", error);
     
     // Check if it's a ClickHouse connection error
     if (error instanceof Error && error.message.includes('ClickHouse')) {
@@ -48,7 +48,7 @@ export async function GET(
     }
     
     return NextResponse.json({ 
-      error: "Failed to fetch node info",
+      error: "Failed to fetch neighbors",
       code: "INTERNAL_ERROR"
     }, { status: 500 });
   }

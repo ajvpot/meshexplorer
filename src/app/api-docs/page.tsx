@@ -209,7 +209,7 @@ export default function ApiDocsPage() {
                 <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Meshcore Node API</h2>
                 <div className="bg-gray-50 dark:bg-neutral-800 rounded-lg p-6 mb-6">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">GET /api/meshcore/node/{`{publicKey}`}</h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-4">Retrieve detailed information about a specific meshcore node including recent adverts and location history.</p>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">Retrieve detailed information about a specific meshcore node including recent adverts, location history, and MQTT uplink status.</p>
                   
                   <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Path Parameters</h4>
                   <div className="overflow-x-auto">
@@ -255,6 +255,63 @@ export default function ApiDocsPage() {
                     </table>
                   </div>
 
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2 mt-6">Response Fields</h4>
+                  <div className="mb-4">
+                    <h5 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Node Object</h5>
+                    <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1 ml-4">
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">public_key</code> - The node&apos;s public key identifier</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">node_name</code> - Display name of the node</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">latitude/longitude</code> - Current position coordinates</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">has_location</code> - Whether the node has location data (0/1)</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_repeater</code> - Whether the node acts as a repeater (0/1)</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_chat_node</code> - Whether the node supports chat (0/1)</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_room_server</code> - Whether the node is a room server (0/1)</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">has_name</code> - Whether the node has a name (0/1)</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">last_seen</code> - Most recent activity timestamp</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">first_seen</code> - First time this node was observed</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h5 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Recent Adverts Array</h5>
+                    <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1 ml-4">
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">adv_timestamp</code> - Advertisement timestamp</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">origin_path_pubkey_tuples</code> - Array of [origin, path, pubkey] tuples</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">advert_count</code> - Number of adverts in this group</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">earliest_timestamp/latest_timestamp</code> - Time range for this advert group</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">latitude/longitude</code> - Position at time of advert</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_repeater/is_chat_node/is_room_server/has_location</code> - Node capabilities at time of advert</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h5 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Location History Array</h5>
+                    <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1 ml-4">
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">mesh_timestamp</code> - When this location was recorded</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">latitude/longitude</code> - Location coordinates</li>
+                      <li>Limited to last 30 days, deduplicated by location</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h5 className="font-medium text-gray-900 dark:text-gray-100 mb-2">MQTT Object</h5>
+                    <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1 ml-4">
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">has_packets</code> - Whether any MQTT packets have been received</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_uplinked</code> - Whether node has been active in last 7 days</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">topics</code> - Array of MQTT topic information</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h5 className="font-medium text-gray-900 dark:text-gray-100 mb-2">MQTT Topics Array</h5>
+                    <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1 ml-4">
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">topic</code> - MQTT topic name (e.g., &quot;meshcore&quot;, &quot;meshcore/pdx&quot;)</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">broker</code> - MQTT broker URL</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">last_packet_time</code> - Most recent packet timestamp for this topic</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_recent</code> - Whether this topic has been active in last 7 days (0/1)</li>
+                    </ul>
+                  </div>
+
                   <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2 mt-6">Response Format</h4>
                   <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto">
                     <pre className="text-green-400 dark:text-green-300 text-sm">
@@ -269,13 +326,18 @@ export default function ApiDocsPage() {
     "is_chat_node": 1,
     "is_room_server": 0,
     "has_name": 1,
-    "last_seen": "2025-09-07T00:59:18"
+    "last_seen": "2025-09-07T00:59:18",
+    "first_seen": "2025-09-01T10:00:00"
   },
   "recentAdverts": [
     {
-      "mesh_timestamp": "2025-09-07T00:59:18",
-      "path": "7ffb7e",
-      "path_len": 3,
+      "adv_timestamp": "2025-09-07T00:59:18",
+      "origin_path_pubkey_tuples": [
+        ["origin_node", "7ffb7e", "origin_pubkey_hex"]
+      ],
+      "advert_count": 1,
+      "earliest_timestamp": "2025-09-07T00:59:18",
+      "latest_timestamp": "2025-09-07T00:59:18",
       "latitude": 47.54969,
       "longitude": -122.28085999999999,
       "is_repeater": 1,
@@ -288,11 +350,27 @@ export default function ApiDocsPage() {
     {
       "mesh_timestamp": "2025-09-07T00:59:18",
       "latitude": 47.54969,
-      "longitude": -122.28085999999999,
-      "path": "7ffb7e",
-      "path_len": 3
+      "longitude": -122.28085999999999
     }
-  ]
+  ],
+  "mqtt": {
+    "is_uplinked": true,
+    "has_packets": true,
+    "topics": [
+      {
+        "topic": "meshcore",
+        "broker": "tcp://mqtt.davekeogh.com:1883",
+        "last_packet_time": "2025-09-07T00:59:18",
+        "is_recent": 1
+      },
+      {
+        "topic": "meshcore/pdx",
+        "broker": "tcp://mqtt.davekeogh.com:1883",
+        "last_packet_time": "2025-09-06T15:30:45",
+        "is_recent": 1
+      }
+    ]
+  }
 }`}
                     </pre>
                   </div>
@@ -531,6 +609,7 @@ export default function ApiDocsPage() {
 {`GET /api/meshcore/node/82D396A8754609E302A2A3FDB9210A1C67C7081606C16A89F77AD75C16E1DA1A?limit=100`}
                       </pre>
                     </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">This will return detailed information about the specified meshcore node including recent adverts, location history, and MQTT uplink status.</p>
                   </div>
                 </div>
               </section>

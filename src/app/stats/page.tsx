@@ -11,6 +11,7 @@ export default function StatsPage() {
   const [nodesOverTime, setNodesOverTime] = useState<any[]>([]);
   const [popularChannels, setPopularChannels] = useState<any[]>([]);
   const [repeaterPrefixes, setRepeaterPrefixes] = useState<any[]>([]);
+  const [unusedPrefixes, setUnusedPrefixes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,6 +31,20 @@ export default function StatsPage() {
       setNodesOverTime(nodesOverTimeRes.data ?? []);
       setPopularChannels(popularChannelsRes.data ?? []);
       setRepeaterPrefixes(repeaterPrefixesRes.data ?? []);
+      
+      // Generate all possible 2-character hex prefixes (01-FE, excluding 00 and FF)
+      const allPrefixes = [];
+      for (let i = 1; i < 255; i++) {
+        allPrefixes.push(i.toString(16).padStart(2, '0').toUpperCase());
+      }
+      
+      // Get used prefixes from the API response
+      const usedPrefixes = new Set((repeaterPrefixesRes.data ?? []).map((row: any) => row.prefix));
+      
+      // Find unused prefixes
+      const unused = allPrefixes.filter(prefix => !usedPrefixes.has(prefix));
+      setUnusedPrefixes(unused);
+      
       setLoading(false);
     }
     fetchStats();
@@ -145,6 +160,30 @@ export default function StatsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-2">Unused Repeater Prefixes</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              Public key prefixes that are not currently used by any repeater nodes. Click to generate a key.
+            </p>
+            <div className="grid grid-cols-8 sm:grid-cols-12 md:grid-cols-16 lg:grid-cols-20 gap-1">
+              {unusedPrefixes.map((prefix) => (
+                <a
+                  key={prefix}
+                  href={`https://gessaman.com/mc-keygen/?prefix=${prefix}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-mono text-center p-1 bg-gray-100 dark:bg-gray-800 rounded border hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                  title={`Click to generate a key with prefix ${prefix}`}
+                >
+                  {prefix}
+                </a>
+              ))}
+            </div>
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              Total unused prefixes: {unusedPrefixes.length} out of 254 possible (excluding 00 and FF)
+            </div>
           </div>
         </>
       )}

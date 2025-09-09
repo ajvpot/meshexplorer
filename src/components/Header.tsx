@@ -28,15 +28,15 @@ export default function Header({ configButtonRef }: HeaderProps) {
   const itemsRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Define all navigation items
-  const allNavItems: NavItem[] = [
-    { href: "/messages", label: "Messages" },
-    { href: "/stats", label: "Stats" },
-    { href: "/api-docs", label: "API Docs" },
-  ];
-
   // Measure available space and determine which items can fit
   const measureAndLayout = useCallback(() => {
+    // Define all navigation items
+    const allNavItems: NavItem[] = [
+      { href: "/messages", label: "Messages" },
+      { href: "/stats", label: "Stats" },
+      { href: "/search", label: "Search" },
+      { href: "/api-docs", label: "API Docs" },
+    ];
     if (!navRef.current || !itemsRef.current) return;
 
     const navWidth = navRef.current.offsetWidth;

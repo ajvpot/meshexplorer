@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "../components/Header";
 import { ConfigProvider } from "../components/ConfigContext";
+import { QueryProvider } from "../components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,6 +18,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "MeshExplorer",
   description: "A real-time map, chat client, and packet analysis tool for mesh networks using MeshCore and Meshtastic.",
+  icons: {
+    icon: { url: "/favicon.svg", type: "image/svg+xml" },
+    apple: { url: "/favicon.svg", type: "image/svg+xml" }
+  },
 };
 
 export const viewport: Viewport = {
@@ -38,10 +43,12 @@ export default function RootLayout({
         style={{ '--header-height': '64px' } as React.CSSProperties}
       >
         <div className="flex flex-col min-h-screen w-full">
-          <ConfigProvider>
-            <Header />
-            <main className="flex-1 flex flex-col w-full bg-neutral-200 dark:bg-neutral-800">{children}</main>
-          </ConfigProvider>
+          <QueryProvider>
+            <ConfigProvider>
+              <Header />
+              <main className="flex-1 flex flex-col w-full bg-neutral-200 dark:bg-neutral-800">{children}</main>
+            </ConfigProvider>
+          </QueryProvider>
         </div>
       </body>
     </html>

@@ -1,7 +1,7 @@
 "use client";
-import { MapContainer, TileLayer, useMapEvents, Marker, Popup, MapContainerProps, useMap } from "react-leaflet";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { MapContainer, TileLayer, useMapEvents, Marker, Popup, MapContainerProps, useMap, Polyline } from "react-leaflet";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import 'leaflet/dist/leaflet.css';
 import L from "leaflet";
 import 'leaflet.markercluster/dist/leaflet.markercluster.js';
@@ -13,6 +13,7 @@ import { NodeMarker, ClusterMarker, PopupContent } from "./MapIcons";
 import { renderToString } from "react-dom/server";
 import { buildApiUrl } from "../lib/api";
 import { NodePosition } from "../types/map";
+import { useNeighbors, type Neighbor } from "../hooks/useNeighbors";
 
 const DEFAULT = {
   lat: 46.56, // Center between Seattle and Portland
@@ -20,12 +21,33 @@ const DEFAULT = {
   zoom: 7, // Zoom level to show both cities
 };
 
-type ClusteredMarkersProps = { nodes: NodePosition[] };
+
+type ClusteredMarkersProps = { 
+  nodes: NodePosition[];
+  selectedNodeId: string | null;
+  onNodeClick: (nodeId: string | null) => void;
+};
 
 // Individual marker component
-function IndividualMarker({ node, showNodeNames }: { node: NodePosition; showNodeNames: boolean }) {
+function IndividualMarker({ 
+  node, 
+  showNodeNames, 
+  selectedNodeId, 
+  onNodeClick 
+}: { 
+  node: NodePosition; 
+  showNodeNames: boolean; 
+  selectedNodeId: string | null;
+  onNodeClick: (nodeId: string | null) => void;
+}) {
   const map = useMap();
   const markerRef = useRef<L.Marker | null>(null);
+  const onNodeClickRef = useRef(onNodeClick);
+
+  // Keep the callback ref updated
+  useEffect(() => {
+    onNodeClickRef.current = onNodeClick;
+  }, [onNodeClick]);
 
   useEffect(() => {
     if (!map) return;
@@ -40,6 +62,14 @@ function IndividualMarker({ node, showNodeNames }: { node: NodePosition; showNod
     const marker = L.marker([node.latitude, node.longitude], { icon });
     (marker as any).options.nodeData = node;
     marker.bindPopup(renderToString(<PopupContent node={node} />));
+    
+    // Add hover handler for meshcore nodes
+    if (node.type === "meshcore") {
+      marker.on('mouseover', () => {
+        onNodeClickRef.current(node.node_id);
+      });
+    }
+    
     marker.addTo(map);
     markerRef.current = marker;
 
@@ -48,7 +78,7 @@ function IndividualMarker({ node, showNodeNames }: { node: NodePosition; showNod
         map.removeLayer(markerRef.current);
       }
     };
-  }, [map, node.latitude, node.longitude, node.node_id, showNodeNames]);
+  }, [map, node, showNodeNames]);
 
   // Update marker when node data changes
   useEffect(() => {
@@ -74,9 +104,25 @@ function IndividualMarker({ node, showNodeNames }: { node: NodePosition; showNod
 }
 
 // Clustered markers component
-function ClusteredMarkersGroup({ nodes, showNodeNames }: { nodes: NodePosition[]; showNodeNames: boolean }) {
+function ClusteredMarkersGroup({ 
+  nodes, 
+  showNodeNames, 
+  selectedNodeId, 
+  onNodeClick 
+}: { 
+  nodes: NodePosition[]; 
+  showNodeNames: boolean; 
+  selectedNodeId: string | null;
+  onNodeClick: (nodeId: string | null) => void;
+}) {
   const map = useMap();
   const clusterGroupRef = useRef<any>(null);
+  const onNodeClickRef = useRef(onNodeClick);
+
+  // Keep the callback ref updated
+  useEffect(() => {
+    onNodeClickRef.current = onNodeClick;
+  }, [onNodeClick]);
 
   useEffect(() => {
     if (!map) return;
@@ -106,6 +152,14 @@ function ClusteredMarkersGroup({ nodes, showNodeNames }: { nodes: NodePosition[]
       const marker = L.marker([node.latitude, node.longitude], { icon });
       (marker as any).options.nodeData = node;
       marker.bindPopup(renderToString(<PopupContent node={node} />));
+      
+      // Add hover handler for meshcore nodes
+      if (node.type === "meshcore") {
+        marker.on('mouseover', () => {
+          onNodeClickRef.current(node.node_id);
+        });
+      }
+      
       markers.addLayer(marker);
     });
 
@@ -123,7 +177,7 @@ function ClusteredMarkersGroup({ nodes, showNodeNames }: { nodes: NodePosition[]
   return null;
 }
 
-function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
+function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick }: ClusteredMarkersProps) {
   const configResult = useConfig();
   const config = configResult?.config;
   const showNodeNames = config?.showNodeNames !== false;
@@ -136,7 +190,9 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
           <IndividualMarker 
             key={node.node_id} 
             node={node} 
-            showNodeNames={showNodeNames} 
+            showNodeNames={showNodeNames}
+            selectedNodeId={selectedNodeId}
+            onNodeClick={onNodeClick}
           />
         ))}
       </>
@@ -146,10 +202,75 @@ function ClusteredMarkers({ nodes }: ClusteredMarkersProps) {
     return (
       <ClusteredMarkersGroup 
         nodes={nodes} 
-        showNodeNames={showNodeNames} 
+        showNodeNames={showNodeNames}
+        selectedNodeId={selectedNodeId}
+        onNodeClick={onNodeClick}
       />
     );
   }
+}
+
+// Component to render neighbor lines with directional arrows
+function NeighborLines({ 
+  selectedNodeId, 
+  neighbors, 
+  nodes 
+}: { 
+  selectedNodeId: string | null; 
+  neighbors: Neighbor[]; 
+  nodes: NodePosition[];
+}) {
+  if (!selectedNodeId || neighbors.length === 0) return null;
+
+  // Find the selected node's position
+  const selectedNode = nodes.find(node => node.node_id === selectedNodeId);
+  if (!selectedNode) return null;
+
+  // Create lines to neighbors that have location data and are visible on the map
+  const lines = neighbors
+    .filter(neighbor => neighbor.has_location && neighbor.latitude && neighbor.longitude)
+    .map(neighbor => {
+      // Check if the neighbor is also visible on the map
+      const neighborOnMap = nodes.find(node => node.node_id === neighbor.public_key);
+      
+      const hasIncoming = neighbor.directions?.includes('incoming') || false;
+      const hasOutgoing = neighbor.directions?.includes('outgoing') || false;
+      const isBidirectional = hasIncoming && hasOutgoing;
+      
+      return {
+        neighbor,
+        positions: [
+          [selectedNode.latitude, selectedNode.longitude] as [number, number],
+          [neighbor.latitude!, neighbor.longitude!] as [number, number]
+        ],
+        isNeighborVisible: !!neighborOnMap,
+        hasIncoming,
+        hasOutgoing,
+        isBidirectional
+      };
+    });
+
+
+  return (
+    <>
+      {lines.map(({ neighbor, positions, isNeighborVisible, isBidirectional }) => {
+        const lineColor = isNeighborVisible ? (isBidirectional ? '#10b981' : '#3b82f6') : '#94a3b8';
+        
+        return (
+          <Polyline
+            key={`${selectedNodeId}-${neighbor.public_key}`}
+            positions={positions}
+            pathOptions={{
+              color: lineColor,
+              weight: isBidirectional ? 3 : 2,
+              opacity: 0.7,
+              dashArray: isNeighborVisible ? undefined : '5, 5'
+            }}
+          />
+        );
+      })}
+    </>
+  );
 }
 
 export default function MapView() {
@@ -161,6 +282,16 @@ export default function MapView() {
   const lastRequestedBounds = useRef<[[number, number], [number, number]] | null>(null);
   const configResult = useConfig();
   const config = configResult?.config;
+  
+  // Neighbor-related state
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  
+  // Use TanStack Query for neighbors data
+  const { data: neighbors = [], isLoading: neighborsLoading } = useNeighbors({
+    nodeId: selectedNodeId,
+    lastSeen: config?.lastSeen,
+    enabled: !!selectedNodeId
+  });
 
   type TileLayerKey = 'openstreetmap' | 'opentopomap' | 'esri';
   const tileLayerOptions: Record<TileLayerKey, { url: string; attribution: string; maxZoom: number; subdomains?: string[] }> = {
@@ -181,6 +312,15 @@ export default function MapView() {
     },
   };
   const selectedTileLayer = tileLayerOptions[(config?.tileLayer as TileLayerKey) || 'openstreetmap'];
+
+  // Handle node hover
+  const handleNodeClick = useCallback((nodeId: string | null) => {
+    if (nodeId !== null && selectedNodeId !== nodeId) {
+      // Mouse over new node - set new selection (TanStack Query will handle fetching)
+      setSelectedNodeId(nodeId);
+    }
+    // Lines persist on mouseout and when hovering over same node
+  }, [selectedNodeId]);
 
   const fetchNodes = useCallback((bounds?: [[number, number], [number, number]]) => {
     if (fetchController.current) {
@@ -357,7 +497,17 @@ export default function MapView() {
             opacity={0.7}
           />
         )}
-        <ClusteredMarkers key={`clustering-${config?.clustering}-${config?.showNodeNames}`} nodes={nodePositions} />
+        <ClusteredMarkers 
+          key={`clustering-${config?.clustering}-${config?.showNodeNames}`} 
+          nodes={nodePositions} 
+          selectedNodeId={selectedNodeId}
+          onNodeClick={handleNodeClick}
+        />
+        <NeighborLines 
+          selectedNodeId={selectedNodeId}
+          neighbors={neighbors}
+          nodes={nodePositions}
+        />
       </MapContainer>
     </div>
   );

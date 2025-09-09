@@ -38,7 +38,7 @@ const DEFAULT_CONFIG: Config = {
   selectedRegion: undefined, // no region selected by default
 };
 
-const LAST_SEEN_OPTIONS = [
+export const LAST_SEEN_OPTIONS = [
   { value: 1800, label: "30m" },
   { value: 3600, label: "1h" },
   { value: 7200, label: "2h" },

@@ -1,7 +1,7 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useMemo } from "react";
 import { useConfig } from "./ConfigContext";
-import { decryptMeshcoreGroupMessage } from "../lib/meshcore";
+import { useMessageDecryption } from "../hooks/useMessageDecryption";
 import PathVisualization, { PathData } from "./PathVisualization";
 import NodeLinkWithHover from "./NodeLinkWithHover";
 
@@ -57,39 +57,17 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
     ...(config?.meshcoreKeys?.map((k: any) => k.privateKey) || []),
     "izOH6cXN6mrJ5e26oRXNcg==", // Always include public key
   ], [config?.meshcoreKeys]);
-  const knownKeysString = knownKeys.join(",");
-  const [parsed, setParsed] = useState<any | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const result = await decryptMeshcoreGroupMessage({
-          encrypted_message: msg.encrypted_message,
-          mac: msg.mac,
-          channel_hash: msg.channel_hash,
-          knownKeys,
-          parse: true,
-        });
-        if (!cancelled) {
-          if (result === null) {
-            setParsed(null);
-            setError("Could not decrypt message with any known key.");
-          } else {
-            setParsed(result);
-            setError(null);
-          }
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setParsed(null);
-          setError(err instanceof Error ? err.message : "Decryption error occurred.");
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [msg.encrypted_message, msg.mac, msg.channel_hash, knownKeysString, knownKeys]);
+  const { data: decryptionResult, isLoading } = useMessageDecryption({
+    encrypted_message: msg.encrypted_message,
+    mac: msg.mac,
+    channel_hash: msg.channel_hash,
+    knownKeys,
+    parse: true,
+  });
+
+  const parsed = decryptionResult?.decrypted || null;
+  const error = decryptionResult?.error || null;
 
   const originKeyPathArray = useMemo(() => 
     msg.origin_key_path_array && msg.origin_key_path_array.length > 0 ? msg.origin_key_path_array : [],
@@ -158,20 +136,24 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
     }
   }
 
-  return (
-    <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
-              <div className="text-xs text-gray-400 flex items-center gap-2">
+  if (isLoading) {
+    return (
+      <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
+        <div className="text-xs text-gray-400 flex items-center gap-2">
           {formatLocalTime(msg.ingest_timestamp)}
           <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
         </div>
-      <div className="w-full h-5 bg-gray-200 dark:bg-neutral-800 rounded animate-pulse my-2" />
-      <PathVisualization 
-        paths={pathData} 
-        title={`Heard ${pathData.length} repeat${pathData.length !== 1 ? 's' : ''}`}
-        className="text-xs"
-      />
-    </div>
-  );
+        <div className="w-full h-5 bg-gray-200 dark:bg-neutral-800 rounded animate-pulse my-2" />
+        <PathVisualization 
+          paths={pathData} 
+          title={`Heard ${pathData.length} repeat${pathData.length !== 1 ? 's' : ''}`}
+          className="text-xs"
+        />
+      </div>
+    );
+  }
+
+  return null; // This should not be reached now, but kept for safety
 }
 
 export default React.memo(ChatMessageItem, (prevProps, nextProps) => {

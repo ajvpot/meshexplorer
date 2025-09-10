@@ -54,32 +54,53 @@ const PUBLIC_MESHCORE_KEY = {
   privateKey: "izOH6cXN6mrJ5e26oRXNcg==",
 };
 
+function loadConfigFromStorage(): Config {
+  try {
+    const stored = localStorage.getItem("meshExplorerConfig");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { ...DEFAULT_CONFIG, ...parsed };
+    }
+    return DEFAULT_CONFIG;
+  } catch (error) {
+    console.warn("Failed to parse config from localStorage:", error);
+    return DEFAULT_CONFIG;
+  }
+}
+
 const ConfigContext = createContext<any>(null);
 
+// Loading component for Suspense fallback
+function ConfigLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-neutral-200 dark:bg-neutral-800">
+      <div className="flex flex-col items-center gap-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
+        <div className="text-sm text-gray-600 dark:text-gray-400">Loading configuration...</div>
+      </div>
+    </div>
+  );
+}
+
+// Main ConfigProvider that uses proper loading state
 export function ConfigProvider({ children }: { children: ReactNode }) {
-  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<Config | null>(null);
   const [open, setOpen] = useState(false);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const configButtonRef = useRef<HTMLElement | null>(null);
   const firstRender = useRef(true);
 
-  // Load from localStorage
-  // todo: this causes a flash of the default config before the local storage is loaded. use suspense?
-  //       also causes race condition on the stats page if the defaults take longer to load than the selected region.
+  // Load config from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem("meshExplorerConfig");
-    if (stored) {
-      try {
-        setConfig({ ...DEFAULT_CONFIG, ...JSON.parse(stored) });
-      } catch {}
-    }
+    const loadedConfig = loadConfigFromStorage();
+    setConfig(loadedConfig);
   }, []);
 
-  // Save to localStorage
+  // Save to localStorage when config changes
   useEffect(() => {
-    if (!firstRender.current) {
+    if (config && !firstRender.current) {
       localStorage.setItem("meshExplorerConfig", JSON.stringify(config));
-    } else {
+    } else if (config) {
       firstRender.current = false;
     }
   }, [config]);
@@ -87,6 +108,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   // Expose openConfig for header button
   const openConfig = () => setOpen(true);
   const closeConfig = () => setOpen(false);
+
+  // Show loading state while config is being loaded
+  if (!config) {
+    return <ConfigLoadingFallback />;
+  }
 
   return (
     <ConfigContext.Provider value={{ config, setConfig, openConfig, configButtonRef }}>

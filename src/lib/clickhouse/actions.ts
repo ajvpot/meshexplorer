@@ -263,31 +263,26 @@ export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: stri
     const baseWhere = baseWhereConditions.length > 0 ? `AND ${baseWhereConditions.join(" AND ")}` : '';
     
     const neighborsQuery = `
-      SELECT 
-        public_key,
-        argMax(node_name, timestamp_ref) as node_name,
-        argMax(latitude, timestamp_ref) as latitude,
-        argMax(longitude, timestamp_ref) as longitude,
-        argMax(has_location, timestamp_ref) as has_location,
-        argMax(is_repeater, timestamp_ref) as is_repeater,
-        argMax(is_chat_node, timestamp_ref) as is_chat_node,
-        argMax(is_room_server, timestamp_ref) as is_room_server,
-        argMax(has_name, timestamp_ref) as has_name,
-        groupUniqArray(direction) as directions
-      FROM (
-        -- Direction 1: Adverts heard directly by the queried node
-        -- (hex(origin_pubkey) is the queried node, public_key is the neighbor)
+      WITH neighbor_details AS (
+        -- Get latest attributes for all nodes based on ingest_timestamp
         SELECT 
           public_key,
-          node_name,
-          latitude,
-          longitude,
-          has_location,
-          is_repeater,
-          is_chat_node,
-          is_room_server,
-          has_name,
-          ingest_timestamp as timestamp_ref,
+          argMax(node_name, ingest_timestamp) as node_name,
+          argMax(latitude, ingest_timestamp) as latitude,
+          argMax(longitude, ingest_timestamp) as longitude,
+          argMax(has_location, ingest_timestamp) as has_location,
+          argMax(is_repeater, ingest_timestamp) as is_repeater,
+          argMax(is_chat_node, ingest_timestamp) as is_chat_node,
+          argMax(is_room_server, ingest_timestamp) as is_room_server,
+          argMax(has_name, ingest_timestamp) as has_name
+        FROM meshcore_adverts 
+        GROUP BY public_key
+      ),
+      neighbor_directions AS (
+        -- Direction 1: Adverts heard directly by the queried node
+        -- (hex(origin_pubkey) is the queried node, public_key is the neighbor)
+        SELECT DISTINCT
+          public_key as neighbor_public_key,
           'incoming' as direction
         FROM meshcore_adverts 
         WHERE hex(origin_pubkey) = {publicKey:String}
@@ -299,46 +294,33 @@ export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: stri
         
         -- Direction 2: Adverts from the queried node heard by other nodes
         -- (public_key is the queried node, origin_pubkey is the neighbor)
-        -- Use a subquery to get neighbor node attributes
-        SELECT 
-          neighbor.public_key,
-          neighbor.node_name,
-          neighbor.latitude,
-          neighbor.longitude,
-          neighbor.has_location,
-          neighbor.is_repeater,
-          neighbor.is_chat_node,
-          neighbor.is_room_server,
-          neighbor.has_name,
-          adv.ingest_timestamp as timestamp_ref,
+        SELECT DISTINCT
+          hex(origin_pubkey) as neighbor_public_key,
           'outgoing' as direction
-        FROM (
-          SELECT DISTINCT 
-            hex(origin_pubkey) as neighbor_key,
-            ingest_timestamp
-          FROM meshcore_adverts 
-          WHERE public_key = {publicKey:String}
-            AND path_len = 0
-            AND hex(origin_pubkey) != {publicKey:String}
-            ${baseWhere}
-        ) adv
-        LEFT JOIN (
-          SELECT DISTINCT
-            public_key,
-            argMax(node_name, ingest_timestamp) as node_name,
-            argMax(latitude, ingest_timestamp) as latitude,
-            argMax(longitude, ingest_timestamp) as longitude,
-            argMax(has_location, ingest_timestamp) as has_location,
-            argMax(is_repeater, ingest_timestamp) as is_repeater,
-            argMax(is_chat_node, ingest_timestamp) as is_chat_node,
-            argMax(is_room_server, ingest_timestamp) as is_room_server,
-            argMax(has_name, ingest_timestamp) as has_name
-          FROM meshcore_adverts 
-          GROUP BY public_key
-        ) neighbor ON adv.neighbor_key = neighbor.public_key
-      ) AS combined_neighbors
-      GROUP BY public_key
-      ORDER BY public_key
+        FROM meshcore_adverts 
+        WHERE public_key = {publicKey:String}
+          AND path_len = 0
+          AND hex(origin_pubkey) != {publicKey:String}
+          ${baseWhere}
+      )
+      SELECT 
+        neighbors.neighbor_public_key as public_key,
+        details.node_name,
+        details.latitude,
+        details.longitude,
+        details.has_location,
+        details.is_repeater,
+        details.is_chat_node,
+        details.is_room_server,
+        details.has_name,
+        groupUniqArray(neighbors.direction) as directions
+      FROM neighbor_directions AS neighbors
+      LEFT JOIN neighbor_details AS details ON neighbors.neighbor_public_key = details.public_key
+      WHERE details.public_key IS NOT NULL
+      GROUP BY neighbors.neighbor_public_key, details.node_name, details.latitude, details.longitude, 
+               details.has_location, details.is_repeater, details.is_chat_node, 
+               details.is_room_server, details.has_name
+      ORDER BY neighbors.neighbor_public_key
     `;
     
     const neighborsResult = await clickhouse.query({ 

@@ -6,11 +6,11 @@ export async function GET(
   { params }: { params: Promise<{ publicKey: string }> }
 ) {
   try {
-    const { publicKey } = await params;
+    const { publicKey: rawPublicKey } = await params;
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     
-    if (!publicKey) {
+    if (!rawPublicKey) {
       return NextResponse.json({ 
         error: "Public key is required",
         code: "MISSING_PUBLIC_KEY"
@@ -18,12 +18,15 @@ export async function GET(
     }
 
     // Validate public key format (basic validation)
-    if (publicKey.length < 10) {
+    if (rawPublicKey.length < 10) {
       return NextResponse.json({ 
         error: "Invalid public key format",
         code: "INVALID_PUBLIC_KEY"
       }, { status: 400 });
     }
+
+    // Normalize public key to uppercase for database query
+    const publicKey = rawPublicKey.toUpperCase();
 
     const nodeInfo = await getMeshcoreNodeInfo(publicKey, limit);
     

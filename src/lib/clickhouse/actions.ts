@@ -1,6 +1,6 @@
 "use server";
 import { clickhouse } from "./clickhouse";
-import { generateRegionWhereClauseFromArray, generateRegionWhereClause } from "../regionFilters";
+import { generateRegionWhereClauseFromArray, generateRegionWhereClause } from "@/lib/regionFilters";
 
 export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen }: { minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], lastSeen?: string | null } = {}) {
   try {

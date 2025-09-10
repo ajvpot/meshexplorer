@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { decryptMeshcoreGroupMessage } from '../lib/meshcore';
+import { decryptMeshcoreGroupMessage } from '@/lib/meshcore';
 import { useMemo } from 'react';
 
 export interface MessageDecryptionParams {

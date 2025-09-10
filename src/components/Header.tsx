@@ -4,7 +4,7 @@ import { Cog6ToothIcon, InformationCircleIcon, ChevronDownIcon } from "@heroicon
 import { useConfig } from "./ConfigContext";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import InfoModal from "./InfoModal";
-import { getAppName } from "../lib/api";
+import { getAppName } from "@/lib/api";
 
 interface HeaderProps {
   configButtonRef?: React.Ref<HTMLButtonElement>;

@@ -1,4 +1,4 @@
-import { getRegionConfig } from "./regions";
+import { getRegionConfig } from "@/lib/regions";
 
 /**
  * Generates a ClickHouse WHERE clause for filtering by region using broker and topic fields

@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { getAppName } from "../lib/api";
+import { getAppName } from "@/lib/api";
 import Modal from "./Modal";
 
 interface InfoModalProps {

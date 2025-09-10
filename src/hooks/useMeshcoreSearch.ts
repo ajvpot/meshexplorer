@@ -1,6 +1,6 @@
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { create, windowScheduler, indexedResolver } from '@yornaath/batshit';
-import { buildApiUrl } from '../lib/api';
+import { buildApiUrl } from '@/lib/api';
 import { useMemo } from 'react';
 
 export interface MeshcoreSearchResult {

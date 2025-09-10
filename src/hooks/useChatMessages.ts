@@ -2,8 +2,8 @@
 
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { buildApiUrl } from '../lib/api';
-import { ChatMessage } from '../components/ChatMessageItem';
+import { buildApiUrl } from '@/lib/api';
+import { ChatMessage } from '@/components/ChatMessageItem';
 
 interface ChatMessagesParams {
   channelId?: string;

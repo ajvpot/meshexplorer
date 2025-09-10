@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { buildApiUrl } from '../lib/api';
+import { buildApiUrl } from '@/lib/api';
 
 export interface Neighbor {
   public_key: string;

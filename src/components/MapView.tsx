@@ -11,10 +11,10 @@ import { useConfig } from "./ConfigContext";
 import RefreshButton from "@/components/RefreshButton";
 import { NodeMarker, ClusterMarker, PopupContent } from "./MapIcons";
 import { renderToString } from "react-dom/server";
-import { buildApiUrl } from "../lib/api";
-import { NodePosition } from "../types/map";
-import { useNeighbors, type Neighbor } from "../hooks/useNeighbors";
-import { useQueryParams } from "../hooks/useQueryParams";
+import { buildApiUrl } from "@/lib/api";
+import { NodePosition } from "@/types/map";
+import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 const DEFAULT = {
   lat: 46.56, // Center between Seattle and Portland

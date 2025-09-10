@@ -1,7 +1,7 @@
 "use client";
 import React, { useMemo } from "react";
 import { useConfig } from "./ConfigContext";
-import { useMessageDecryption } from "../hooks/useMessageDecryption";
+import { useMessageDecryption } from "@/hooks/useMessageDecryption";
 import PathVisualization, { PathData } from "./PathVisualization";
 import NodeLinkWithHover from "./NodeLinkWithHover";
 

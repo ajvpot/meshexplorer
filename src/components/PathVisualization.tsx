@@ -6,8 +6,8 @@ import Link from "next/link";
 import Tree from 'react-d3-tree';
 import { ArrowsPointingOutIcon, ArrowsPointingInIcon } from "@heroicons/react/24/outline";
 import PathDisplay from "./PathDisplay";
-import { useMeshcoreSearches } from "../hooks/useMeshcoreSearch";
-import type { MeshcoreSearchResult } from "../hooks/useMeshcoreSearch";
+import { useMeshcoreSearches } from "@/hooks/useMeshcoreSearch";
+import type { MeshcoreSearchResult } from "@/hooks/useMeshcoreSearch";
 import { useConfig } from "./ConfigContext";
 
 export interface PathData {

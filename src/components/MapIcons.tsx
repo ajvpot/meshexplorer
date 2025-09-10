@@ -1,8 +1,8 @@
 import React from 'react';
 import moment from "moment";
-import { formatPublicKey } from '../lib/meshcore';
-import { getNameIconLabel } from '../lib/meshcore-map-nodeutils';
-import { NodePosition } from '../types/map';
+import { formatPublicKey } from '@/lib/meshcore';
+import { getNameIconLabel } from '@/lib/meshcore-map-nodeutils';
+import { NodePosition } from '@/types/map';
 
 interface NodeMarkerProps {
   node: NodePosition;

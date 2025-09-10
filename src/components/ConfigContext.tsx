@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
-import { getChannelIdFromKey } from "../lib/meshcore";
-import { getRegionFriendlyNames } from "../lib/regions";
+import { getChannelIdFromKey } from "@/lib/meshcore";
+import { getRegionFriendlyNames } from "@/lib/regions";
 import Modal from "./Modal";
 
 // Config shape

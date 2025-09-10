@@ -2,14 +2,14 @@
 import { useState } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useConfig } from "./ConfigContext";
-import { getChannelIdFromKey } from "../lib/meshcore";
+import { getChannelIdFromKey } from "@/lib/meshcore";
 import ChatMessageItem from "./ChatMessageItem";
 import RefreshButton from "./RefreshButton";
 import RegionSelector from "./RegionSelector";
-import { getRegionConfig } from "../lib/regions";
-import { useChatMessages } from "../hooks/useChatMessages";
-import { useIntersectionObserver } from "../hooks/useIntersectionObserver";
-import { useQueryParams } from "../hooks/useQueryParams";
+import { getRegionConfig } from "@/lib/regions";
+import { useChatMessages } from "@/hooks/useChatMessages";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 
 interface ChatBoxProps {

@@ -1,6 +1,6 @@
 "use client";
 import { useConfig } from "./ConfigContext";
-import { getRegionFriendlyNames } from "../lib/regions";
+import { getRegionFriendlyNames } from "@/lib/regions";
 
 interface RegionSelectorProps {
   onRegionSelected?: () => void;

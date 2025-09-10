@@ -17,6 +17,7 @@ interface ClusterMarkerProps {
 
 interface PopupContentProps {
   node: NodePosition;
+  target?: '_blank' | '_self' | '_parent' | '_top';
 }
 
 // Individual node marker component
@@ -145,7 +146,7 @@ export function ClusterMarker({ children }: ClusterMarkerProps) {
 }
 
 // Popup content component
-export function PopupContent({ node }: PopupContentProps) {
+export function PopupContent({ node, target = '_self' }: PopupContentProps) {
   return (
     <div>
       <div><b>ID:</b> {node.type === "meshcore" ? formatPublicKey(node.node_id) : node.node_id}</div>
@@ -175,6 +176,7 @@ export function PopupContent({ node }: PopupContentProps) {
         <div style={{marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb'}}>
           <a 
             href={`/meshcore/node/${node.node_id}`}
+            target={target}
             style={{
               display: 'inline-block',
               padding: '4px 8px',

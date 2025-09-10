@@ -34,6 +34,7 @@ type ClusteredMarkersProps = {
   selectedNodeId: string | null;
   onNodeClick: (nodeId: string | null) => void;
   isLoadingNeighbors?: boolean;
+  target?: '_blank' | '_self' | '_parent' | '_top';
 };
 
 // Individual marker component
@@ -42,13 +43,15 @@ const IndividualMarker = React.memo(function IndividualMarker({
   showNodeNames, 
   selectedNodeId, 
   onNodeClick,
-  isLoadingNeighbors = false
+  isLoadingNeighbors = false,
+  target = '_self'
 }: { 
   node: NodePosition; 
   showNodeNames: boolean; 
   selectedNodeId: string | null;
   onNodeClick: (nodeId: string | null) => void;
   isLoadingNeighbors?: boolean;
+  target?: '_blank' | '_self' | '_parent' | '_top';
 }) {
   const map = useMap();
   const markerRef = useRef<L.Marker | null>(null);
@@ -79,7 +82,7 @@ const IndividualMarker = React.memo(function IndividualMarker({
 
     const marker = L.marker([node.latitude, node.longitude], { icon });
     (marker as any).options.nodeData = node;
-    marker.bindPopup(renderToString(<PopupContent node={node} />));
+    marker.bindPopup(renderToString(<PopupContent node={node} target={target} />));
     
     // Add hover handler for meshcore nodes
     if (node.type === "meshcore") {
@@ -118,7 +121,7 @@ const IndividualMarker = React.memo(function IndividualMarker({
         ),
       });
       markerRef.current.setIcon(icon);
-      markerRef.current.getPopup()?.setContent(renderToString(<PopupContent node={node} />));
+      markerRef.current.getPopup()?.setContent(renderToString(<PopupContent node={node} target={target} />));
     }
   }, [node, showNodeNames, selectedNodeId, isLoadingNeighbors]);
 
@@ -141,13 +144,15 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
   showNodeNames, 
   selectedNodeId, 
   onNodeClick,
-  isLoadingNeighbors = false
+  isLoadingNeighbors = false,
+  target = '_self'
 }: { 
   nodes: NodePosition[]; 
   showNodeNames: boolean; 
   selectedNodeId: string | null;
   onNodeClick: (nodeId: string | null) => void;
   isLoadingNeighbors?: boolean;
+  target?: '_blank' | '_self' | '_parent' | '_top';
 }) {
   const map = useMap();
   const clusterGroupRef = useRef<any>(null);
@@ -194,7 +199,7 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
       });
       const marker = L.marker([node.latitude, node.longitude], { icon });
       (marker as any).options.nodeData = node;
-      marker.bindPopup(renderToString(<PopupContent node={node} />));
+      marker.bindPopup(renderToString(<PopupContent node={node} target={target} />));
       
       // Add hover handler for meshcore nodes
       if (node.type === "meshcore") {
@@ -240,7 +245,7 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
           ),
         });
         marker.setIcon(icon);
-        marker.getPopup()?.setContent(renderToString(<PopupContent node={nodeData} />));
+        marker.getPopup()?.setContent(renderToString(<PopupContent node={nodeData} target={target} />));
       }
     });
   }, [showNodeNames, selectedNodeId, isLoadingNeighbors]);
@@ -248,7 +253,7 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
   return null;
 });
 
-const ClusteredMarkers = React.memo(function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick, isLoadingNeighbors = false }: ClusteredMarkersProps) {
+const ClusteredMarkers = React.memo(function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick, isLoadingNeighbors = false, target = '_self' }: ClusteredMarkersProps) {
   const configResult = useConfig();
   const config = configResult?.config;
   const showNodeNames = config?.showNodeNames !== false;
@@ -265,6 +270,7 @@ const ClusteredMarkers = React.memo(function ClusteredMarkers({ nodes, selectedN
             selectedNodeId={selectedNodeId}
             onNodeClick={onNodeClick}
             isLoadingNeighbors={isLoadingNeighbors}
+            target={target}
           />
         ))}
       </>
@@ -278,6 +284,7 @@ const ClusteredMarkers = React.memo(function ClusteredMarkers({ nodes, selectedN
         selectedNodeId={selectedNodeId}
         onNodeClick={onNodeClick}
         isLoadingNeighbors={isLoadingNeighbors}
+        target={target}
       />
     );
   }
@@ -346,7 +353,11 @@ function NeighborLines({
   );
 }
 
-export default function MapView() {
+interface MapViewProps {
+  target?: '_blank' | '_self' | '_parent' | '_top';
+}
+
+export default function MapView({ target = '_self' }: MapViewProps = {}) {
   const [nodePositions, setNodePositions] = useState<NodePosition[]>([]);
   const [bounds, setBounds] = useState<[[number, number], [number, number]] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -607,6 +618,7 @@ export default function MapView() {
           selectedNodeId={selectedNodeId}
           onNodeClick={handleNodeClick}
           isLoadingNeighbors={neighborsLoading}
+          target={target}
         />
         <NeighborLines 
           selectedNodeId={selectedNodeId}

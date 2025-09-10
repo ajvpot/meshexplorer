@@ -7,7 +7,7 @@ const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 export default function EmbedMapPage() {
   return (
     <div className="relative w-full h-screen">
-      <MapView />
+      <MapView target="_blank" />
       <div className="absolute bottom-4 left-4 z-[1000]">
         <a
           href="/"

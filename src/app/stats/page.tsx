@@ -1,54 +1,44 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { buildApiUrl } from "@/lib/api";
 import { useConfig } from "@/components/ConfigContext";
 import { getRegionConfig } from "@/lib/regions";
+import { 
+  useTotalNodes, 
+  useNodesOverTime, 
+  usePopularChannels, 
+  useRepeaterPrefixes, 
+  useUnusedPrefixes 
+} from "@/hooks/useStats";
 
 export default function StatsPage() {
   const { config } = useConfig();
-  const [totalNodes, setTotalNodes] = useState<number | null>(null);
-  const [nodesOverTime, setNodesOverTime] = useState<any[]>([]);
-  const [popularChannels, setPopularChannels] = useState<any[]>([]);
-  const [repeaterPrefixes, setRepeaterPrefixes] = useState<any[]>([]);
-  const [unusedPrefixes, setUnusedPrefixes] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchStats() {
-      setLoading(true);
-      
-      // Build API URLs with region parameter if selected
-      const regionParam = config?.selectedRegion ? `?region=${encodeURIComponent(config.selectedRegion)}` : '';
-      
-      const [totalNodesRes, nodesOverTimeRes, popularChannelsRes, repeaterPrefixesRes] = await Promise.all([
-        fetch(buildApiUrl(`/api/stats/total-nodes${regionParam}`)).then(r => r.json()),
-        fetch(buildApiUrl(`/api/stats/nodes-over-time${regionParam}`)).then(r => r.json()),
-        fetch(buildApiUrl(`/api/stats/popular-channels${regionParam}`)).then(r => r.json()),
-        fetch(buildApiUrl(`/api/stats/repeater-prefixes${regionParam}`)).then(r => r.json()),
-      ]);
-      setTotalNodes(totalNodesRes.total_nodes ?? null);
-      setNodesOverTime(nodesOverTimeRes.data ?? []);
-      setPopularChannels(popularChannelsRes.data ?? []);
-      setRepeaterPrefixes(repeaterPrefixesRes.data ?? []);
-      
-      // Generate all possible 2-character hex prefixes (01-FE, excluding 00 and FF)
-      const allPrefixes = [];
-      for (let i = 1; i < 255; i++) {
-        allPrefixes.push(i.toString(16).padStart(2, '0').toUpperCase());
-      }
-      
-      // Get used prefixes from the API response
-      const usedPrefixes = new Set((repeaterPrefixesRes.data ?? []).map((row: any) => row.prefix));
-      
-      // Find unused prefixes
-      const unused = allPrefixes.filter(prefix => !usedPrefixes.has(prefix));
-      setUnusedPrefixes(unused);
-      
-      setLoading(false);
-    }
-    fetchStats();
-  }, [config?.selectedRegion]);
+  const region = config?.selectedRegion;
+  
+  // Use TanStack Query hooks for data fetching
+  const totalNodesQuery = useTotalNodes(region);
+  const nodesOverTimeQuery = useNodesOverTime(region);
+  const popularChannelsQuery = usePopularChannels(region);
+  const repeaterPrefixesQuery = useRepeaterPrefixes(region);
+  const unusedPrefixesQuery = useUnusedPrefixes(region);
+  
+  // Combine loading states - show loading if any query is loading
+  const isLoading = totalNodesQuery.isLoading || 
+                   nodesOverTimeQuery.isLoading || 
+                   popularChannelsQuery.isLoading || 
+                   repeaterPrefixesQuery.isLoading;
+  
+  // Combine error states
+  const error = totalNodesQuery.error || 
+               nodesOverTimeQuery.error || 
+               popularChannelsQuery.error || 
+               repeaterPrefixesQuery.error;
+  
+  // Extract data with fallbacks
+  const totalNodes = totalNodesQuery.data?.total_nodes ?? null;
+  const nodesOverTime = nodesOverTimeQuery.data?.data ?? [];
+  const popularChannels = popularChannelsQuery.data?.data ?? [];
+  const repeaterPrefixes = repeaterPrefixesQuery.data?.data ?? [];
+  const unusedPrefixes = unusedPrefixesQuery.data ?? [];
 
   // Get the friendly name for the selected region
   const regionFriendlyName = config?.selectedRegion 
@@ -65,8 +55,16 @@ export default function StatsPage() {
           </div>
         )}
       </div>
-      {loading ? (
-        <div>Loading...</div>
+      {error ? (
+        <div className="text-red-600 dark:text-red-400">
+          <h2 className="text-lg font-semibold mb-2">Error Loading Stats</h2>
+          <p>{error.message || 'An error occurred while loading statistics.'}</p>
+        </div>
+      ) : isLoading ? (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">Loading statistics...</p>
+        </div>
       ) : (
         <>
           <div className="mb-6">

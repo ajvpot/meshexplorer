@@ -13,7 +13,7 @@ interface MapWithChatProps {
   nodePositions?: NodePosition[];
 }
 
-const MapView = dynamic<MapWithChatProps>(
+const MapView = dynamic(
   () => import("./MapView"),
   { ssr: false }
 );

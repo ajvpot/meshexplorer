@@ -100,7 +100,7 @@ const IndividualMarker = React.memo(function IndividualMarker({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omitting selectedNodeId, showNodeNames, isLoadingNeighbors to prevent marker recreation
-  }, [map, node.node_id, node.latitude, node.longitude, node.type]);
+  }, [map, node.node_id, node.latitude, node.longitude, node.type, target]);
 
   // Update marker when visual properties change (but don't recreate marker)
   useEffect(() => {
@@ -221,7 +221,7 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omitting selectedNodeId, showNodeNames, isLoadingNeighbors to prevent cluster recreation
-  }, [map, nodes]);
+  }, [map, nodes, target]);
 
   // Update marker appearances when visual properties change
   useEffect(() => {

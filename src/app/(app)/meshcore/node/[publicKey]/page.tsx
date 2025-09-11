@@ -12,6 +12,7 @@ import { useConfig, LAST_SEEN_OPTIONS } from "@/components/ConfigContext";
 import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
 import { useNodeData, type NodeData, type NodeInfo, type Advert, type LocationHistory, type MqttInfo, type NodeError } from "@/hooks/useNodeData";
 import { ArrowRightEndOnRectangleIcon, ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
+import { RegionProvider } from "@/contexts/RegionContext";
 
 // Interfaces are now imported from useNodeData hook
 
@@ -193,10 +194,11 @@ export default function MeshcoreNodePage() {
     );
   }
 
-  const { node, recentAdverts, locationHistory, mqtt } = nodeData;
+  const { node, recentAdverts, locationHistory, mqtt, region } = nodeData;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-neutral-800 py-8">
+    <RegionProvider region={region}>
+      <div className="min-h-screen bg-gray-50 dark:bg-neutral-800 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="bg-white dark:bg-neutral-900 shadow rounded-lg mb-6">
@@ -214,6 +216,11 @@ export default function MeshcoreNodePage() {
                 <p className="text-gray-600 dark:text-gray-300 font-mono text-sm">
                   {formatPublicKey(node.public_key)}
                 </p>
+                {region && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Region: <span className="font-medium capitalize">{region}</span>
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2 mt-2">
                   {node.is_repeater && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -491,5 +498,6 @@ export default function MeshcoreNodePage() {
           </div>
       </div>
     </div>
+    </RegionProvider>
   );
 }

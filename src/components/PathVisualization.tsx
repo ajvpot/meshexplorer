@@ -8,7 +8,7 @@ import { ArrowsPointingOutIcon, ArrowsPointingInIcon } from "@heroicons/react/24
 import PathDisplay from "./PathDisplay";
 import { useMeshcoreSearches } from "@/hooks/useMeshcoreSearch";
 import type { MeshcoreSearchResult } from "@/hooks/useMeshcoreSearch";
-import { useConfig } from "./ConfigContext";
+import { useConfigWithRegion } from "@/hooks/useConfigWithRegion";
 
 export interface PathData {
   origin: string;
@@ -47,7 +47,7 @@ export default function PathVisualization({
   const [showGraph, setShowGraph] = useState(false);
   const [graphFullscreen, setGraphFullscreen] = useState(false);
   
-  const { config } = useConfig();
+  const { config } = useConfigWithRegion();
   const pathsCount = paths.length;
 
   // Process data for tree visualization

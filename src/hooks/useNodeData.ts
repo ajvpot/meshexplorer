@@ -11,6 +11,8 @@ export interface NodeInfo {
   is_chat_node: number;
   is_room_server: number;
   has_name: number;
+  broker: string | null;
+  topic: string | null;
   first_seen: string;
   last_seen: string;
 }
@@ -53,6 +55,7 @@ export interface NodeData {
   recentAdverts: Advert[];
   locationHistory: LocationHistory[];
   mqtt: MqttInfo;
+  region: string | null;
 }
 
 export interface NodeError {

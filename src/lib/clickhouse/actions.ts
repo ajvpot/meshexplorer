@@ -1,6 +1,7 @@
 "use server";
 import { clickhouse } from "./clickhouse";
 import { generateRegionWhereClauseFromArray, generateRegionWhereClause } from "@/lib/regionFilters";
+import { getRegionConfig } from "@/lib/regions";
 
 export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen }: { minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], lastSeen?: string | null } = {}) {
   try {
@@ -95,6 +96,48 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
   }
 }
 
+/**
+ * Determines the region based on broker and topic information
+ * @param broker Broker string
+ * @param topic Topic string
+ * @returns The detected region name or null if no region matches
+ */
+function detectRegionFromBrokerTopic(broker: string | null, topic: string | null): string | null {
+  if (!broker || !topic) return null;
+  
+  // Check each region configuration
+  const regions = ['seattle', 'portland', 'boston'];
+  for (const regionName of regions) {
+    const regionConfig = getRegionConfig(regionName);
+    if (!regionConfig) continue;
+    
+    // Check if this topic/broker combination matches the region
+    if (broker === regionConfig.broker && regionConfig.topics.includes(topic)) {
+      return regionName;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Combined region detection that tries MQTT topics first, then advert data
+ * @param mqttTopics Array of MQTT topic information
+ * @param advertBroker Broker from advert data
+ * @param advertTopic Topic from advert data
+ * @returns The detected region name or null if no region matches
+ */
+function detectRegion(mqttTopics: Array<{ topic: string; broker: string }>, advertBroker: string | null, advertTopic: string | null): string | null {
+  // First try MQTT topics (more reliable for uplinked nodes)
+  for (const mqttTopic of mqttTopics) {
+    const region = detectRegionFromBrokerTopic(mqttTopic.broker, mqttTopic.topic);
+    if (region) return region;
+  }
+  
+  // Fallback to advert data (works for non-uplinked nodes)
+  return detectRegionFromBrokerTopic(advertBroker, advertTopic);
+}
+
 export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50) {
   try {
     // Get basic node info from the latest advert and first seen time
@@ -109,6 +152,8 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
         argMax(is_chat_node, ingest_timestamp) as is_chat_node,
         argMax(is_room_server, ingest_timestamp) as is_room_server,
         argMax(has_name, ingest_timestamp) as has_name,
+        argMax(broker, ingest_timestamp) as broker,
+        argMax(topic, ingest_timestamp) as topic,
         max(ingest_timestamp) as last_seen,
         min(ingest_timestamp) as first_seen
       FROM meshcore_adverts 
@@ -122,7 +167,21 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
       query_params: { publicKey }, 
       format: 'JSONEachRow' 
     });
-    const nodeInfo = await nodeInfoResult.json();
+    const nodeInfo = await nodeInfoResult.json() as Array<{
+      public_key: string;
+      node_name: string;
+      latitude: number | null;
+      longitude: number | null;
+      has_location: number;
+      is_repeater: number;
+      is_chat_node: number;
+      is_room_server: number;
+      has_name: number;
+      broker: string | null;
+      topic: string | null;
+      last_seen: string;
+      first_seen: string;
+    }>;
     
     if (!nodeInfo || nodeInfo.length === 0) {
       return null;
@@ -232,6 +291,9 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
     const hasPackets = mqttTopics.length > 0;
     const isUplinked = mqttTopics.some(topic => topic.is_recent);
     
+    // Detect region from MQTT topics and advert data
+    const detectedRegion = detectRegion(mqttTopics, nodeInfo[0].broker, nodeInfo[0].topic);
+    
     return {
       node: nodeInfo[0],
       recentAdverts: adverts,
@@ -240,7 +302,8 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
         is_uplinked: isUplinked,
         has_packets: hasPackets,
         topics: mqttTopics
-      }
+      },
+      region: detectedRegion
     };
   } catch (error) {
     console.error('ClickHouse error in getMeshcoreNodeInfo:', error);

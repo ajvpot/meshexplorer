@@ -27,28 +27,48 @@ function formatLocalTime(utcString: string): string {
   return utcDate.toLocaleString();
 }
 
-function linkifyText(text: string): React.ReactNode {
-  // URL regex pattern to match http/https URLs
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
+function ChatMessageContent({ text }: { text: string }) {
+  // Combined regex to match both URLs and @[node_name] patterns
+  const combinedRegex = /(https?:\/\/[^\s]+|@\[[^\]]+\])/g;
   
-  const parts = text.split(urlRegex);
+  const parts = text.split(combinedRegex);
   
-  return parts.map((part, index) => {
-    if (urlRegex.test(part)) {
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="nofollow noopener noreferrer"
-          className="text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          {part}
-        </a>
-      );
-    }
-    return part;
-  });
+  return (
+    <>
+      {parts.map((part, index) => {
+        // Check if it's a URL
+        if (/^https?:\/\//.test(part)) {
+          return (
+            <a
+              key={index}
+              href={part}
+              target="_blank"
+              rel="nofollow noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {part}
+            </a>
+          );
+        }
+        
+        // Check if it's a node mention @[node_name]
+        if (/^@\[.+\]$/.test(part)) {
+          const nodeName = part.slice(2, -1); // Remove @[ and ]
+          return (
+            <NodeLinkWithHover 
+              key={index}
+              nodeName={nodeName}
+            >
+              @{nodeName}
+            </NodeLinkWithHover>
+          );
+        }
+        
+        // Regular text
+        return part;
+      })}
+    </>
+  );
 }
 
 function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow?: boolean }) {
@@ -102,7 +122,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
             </NodeLinkWithHover>
           ) : null}
           {parsed.sender && ": "}
-          <span>{linkifyText(parsed.text)}</span>
+          <ChatMessageContent text={parsed.text} />
         </div>
         <PathVisualization 
           paths={pathData} 

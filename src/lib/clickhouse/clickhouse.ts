@@ -6,7 +6,7 @@ const user = process.env.CLICKHOUSE_USER || 'default';
 const password = process.env.CLICKHOUSE_PASSWORD || 'password';
 
 export const clickhouse = createClient({
-  host: `http://${host}:${port}`,
+  url: `http://${host}:${port}`,
   username: user,
   password: password,
   // You can add more options as needed, e.g. database, compression, etc.

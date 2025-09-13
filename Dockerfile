@@ -32,10 +32,8 @@ ENV NODE_ENV production
 # Install fonts for Sharp text rendering
 RUN apk add --no-cache \
     fontconfig \
-    ttf-dejavu \
-    ttf-liberation \
-    ttf-opensans \
     font-noto \
+    font-noto-emoji \
     && fc-cache -f
 
 RUN addgroup --system --gid 1001 nodejs

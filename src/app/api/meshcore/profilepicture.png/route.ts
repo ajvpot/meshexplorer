@@ -52,7 +52,7 @@ async function generateProfilePicturePNG(backgroundColor: string, label: string)
     y="50%" 
     text-anchor="middle" 
     dominant-baseline="central" 
-    font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" 
+    font-family="Noto Sans, Noto Color Emoji, sans-serif" 
     font-size="${fontSize}" 
     fill="white"
   >${escapeXml(label)}</text>

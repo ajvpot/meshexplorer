@@ -6,6 +6,7 @@ import PathVisualization, { PathData } from "./PathVisualization";
 import NodeLinkWithHover from "./NodeLinkWithHover";
 
 export interface ChatMessage {
+  message_id: string;
   ingest_timestamp: string;
   origins: string[];
   mesh_timestamp: string;
@@ -14,7 +15,7 @@ export interface ChatMessage {
   mac: string;
   encrypted_message: string;
   message_count: number;
-  origin_key_path_array: Array<[string, string, string]>; // Array of [origin, pubkey, path] tuples
+  origin_path_info: Array<[string, string, string, string, string]>; // Array of [origin, origin_pubkey, path, broker, topic] tuples
 }
 
 
@@ -89,19 +90,19 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
   const parsed = decryptionResult?.decrypted || null;
   const error = decryptionResult?.error || null;
 
-  const originKeyPathArray = useMemo(() => 
-    msg.origin_key_path_array && msg.origin_key_path_array.length > 0 ? msg.origin_key_path_array : [],
-    [msg.origin_key_path_array]
+  const originPathInfo = useMemo(() => 
+    msg.origin_path_info && msg.origin_path_info.length > 0 ? msg.origin_path_info : [],
+    [msg.origin_path_info]
   );
 
   // Convert to PathData format for the new component
   const pathData: PathData[] = useMemo(() => 
-    originKeyPathArray.map(([origin, pubkey, path]) => ({
+    originPathInfo.map(([origin, origin_pubkey, path, broker, topic]) => ({
       origin,
-      pubkey,
+      pubkey: origin_pubkey,
       path
     })),
-    [originKeyPathArray]
+    [originPathInfo]
   );
 
 
@@ -179,11 +180,12 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
 export default React.memo(ChatMessageItem, (prevProps, nextProps) => {
   // Only re-render if these key properties change
   return (
+    prevProps.msg.message_id === nextProps.msg.message_id &&
     prevProps.msg.ingest_timestamp === nextProps.msg.ingest_timestamp &&
     prevProps.msg.encrypted_message === nextProps.msg.encrypted_message &&
     prevProps.msg.mac === nextProps.msg.mac &&
     prevProps.msg.channel_hash === nextProps.msg.channel_hash &&
-    prevProps.msg.origin_key_path_array?.length === nextProps.msg.origin_key_path_array?.length &&
+    prevProps.msg.origin_path_info?.length === nextProps.msg.origin_path_info?.length &&
     prevProps.showErrorRow === nextProps.showErrorRow
   );
 }); 

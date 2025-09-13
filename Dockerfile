@@ -29,6 +29,15 @@ ENV NODE_ENV production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
+# Install fonts for Sharp text rendering
+RUN apk add --no-cache \
+    fontconfig \
+    ttf-dejavu \
+    ttf-liberation \
+    ttf-opensans \
+    font-noto \
+    && fc-cache -f
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 

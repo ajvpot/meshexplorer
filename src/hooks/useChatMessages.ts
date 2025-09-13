@@ -114,17 +114,52 @@ export function useChatMessages({
         if (!oldData?.pages?.[0]) return oldData;
         
         const newMessages = autoRefreshQuery.data;
-        const firstPage = oldData.pages[0];
         
-        // Add new messages to the beginning of the first page
-        const updatedFirstPage = {
-          ...firstPage,
-          messages: [...newMessages, ...firstPage.messages]
-        };
+        // Get all existing messages from all pages
+        const allExistingMessages = oldData.pages.flatMap((page: any) => page.messages);
+        
+        // Process new messages: replace duplicates and collect truly new ones
+        const trulyNewMessages: ChatMessage[] = [];
+        const updatedExistingMessages = [...allExistingMessages];
+        
+        for (const newMessage of newMessages) {
+          const existingIndex = updatedExistingMessages.findIndex(
+            (msg: ChatMessage) => msg.message_id === newMessage.message_id
+          );
+          
+          if (existingIndex !== -1) {
+            // Replace existing message with the new one
+            updatedExistingMessages[existingIndex] = newMessage;
+          } else {
+            // This is a truly new message
+            trulyNewMessages.push(newMessage);
+          }
+        }
+        
+        // Combine truly new messages with updated existing messages
+        // Sort by ingest_timestamp to maintain order
+        const allMessages = [...trulyNewMessages, ...updatedExistingMessages]
+          .sort((a, b) => new Date(b.ingest_timestamp).getTime() - new Date(a.ingest_timestamp).getTime());
+        
+        // Redistribute messages back into pages
+        const updatedPages = [];
+        let currentPageMessages = [];
+        
+        for (let i = 0; i < allMessages.length; i++) {
+          currentPageMessages.push(allMessages[i]);
+          
+          if (currentPageMessages.length === PAGE_SIZE || i === allMessages.length - 1) {
+            updatedPages.push({
+              ...oldData.pages[Math.floor(i / PAGE_SIZE)] || { hasMore: false },
+              messages: currentPageMessages,
+            });
+            currentPageMessages = [];
+          }
+        }
         
         return {
           ...oldData,
-          pages: [updatedFirstPage, ...oldData.pages.slice(1)]
+          pages: updatedPages,
         };
       });
     }

@@ -88,10 +88,12 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const openConfig = () => setOpen(true);
   const closeConfig = () => setOpen(false);
 
+  const openKeyModal = () => setKeyModalOpen(true);
+
   return (
-    <ConfigContext.Provider value={{ config, setConfig, openConfig, configButtonRef }}>
+    <ConfigContext.Provider value={{ config, setConfig, openConfig, openKeyModal, configButtonRef }}>
       {children}
-      {open && <ConfigPopover config={config} setConfig={setConfig} onClose={closeConfig} anchorRef={configButtonRef} onOpenKeyModal={() => setKeyModalOpen(true)} />}
+      {open && <ConfigPopover config={config} setConfig={setConfig} onClose={closeConfig} anchorRef={configButtonRef} onOpenKeyModal={openKeyModal} />}
       {keyModalOpen && (
         <MeshcoreKeyModal
           config={config}
@@ -243,7 +245,7 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
           className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
           onClick={onOpenKeyModal}
         >
-          Manage Meshcore Private Keys
+          Manage Channel Keys
         </button>
       </div>
       <div className="mb-2">
@@ -297,7 +299,7 @@ function validateMeshcoreKey(key: string): string | null {
 
 function MeshcoreKeyModal({ config, setConfig, onClose }: { config: Config, setConfig: (c: Config) => void, onClose: () => void }) {
   return (
-    <Modal isOpen={true} onClose={onClose} title="Meshcore Private Keys" maxWidth="90vw">
+    <Modal isOpen={true} onClose={onClose} title="Meshcore Channel Keys" maxWidth="90vw">
       <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
         These keys will be used to decrypt messages. <b>Your keys are never shared with the server</b>, so your messages remain secure.
       </p>
@@ -406,7 +408,7 @@ function MeshcoreKeyModal({ config, setConfig, onClose }: { config: Config, setC
             });
           }}
         >
-          Add Meshcore Key
+          Add Channel Key
         </button>
     </Modal>
   );

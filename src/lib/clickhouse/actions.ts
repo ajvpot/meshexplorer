@@ -1,6 +1,6 @@
 "use server";
 import { clickhouse } from "./clickhouse";
-import { generateRegionWhereClauseFromArray, generateRegionWhereClause } from "@/lib/regionFilters";
+import { generateRegionWhereClauseFromArray, generateRegionWhereClause, detectRegionFromBrokerTopic, detectRegion } from "@/lib/regionFilters";
 import { getRegionConfig } from "@/lib/regions";
 
 export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen }: { minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], lastSeen?: string | null } = {}) {
@@ -78,7 +78,7 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
     }
     
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_key_path_array FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
+    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_info, message_id FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
     const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
     const rows = await resultSet.json();
     return rows as Array<{
@@ -88,7 +88,8 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
       mac: string;
       encrypted_message: string;
       message_count: number;
-      origin_key_path_array: Array<[string, string, string]>; // Array of [origin, pubkey, path] tuples
+      origin_path_info: Array<[string, string, string, string, string]>; // Array of [origin, origin_pubkey, path, broker, topic] tuples
+      message_id: string;
     }>;
   } catch (error) {
     console.error('ClickHouse error in getLatestChatMessages:', error);
@@ -102,41 +103,7 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
  * @param topic Topic string
  * @returns The detected region name or null if no region matches
  */
-function detectRegionFromBrokerTopic(broker: string | null, topic: string | null): string | null {
-  if (!broker || !topic) return null;
-  
-  // Check each region configuration
-  const regions = ['seattle', 'portland', 'boston'];
-  for (const regionName of regions) {
-    const regionConfig = getRegionConfig(regionName);
-    if (!regionConfig) continue;
-    
-    // Check if this topic/broker combination matches the region
-    if (broker === regionConfig.broker && regionConfig.topics.includes(topic)) {
-      return regionName;
-    }
-  }
-  
-  return null;
-}
-
-/**
- * Combined region detection that tries MQTT topics first, then advert data
- * @param mqttTopics Array of MQTT topic information
- * @param advertBroker Broker from advert data
- * @param advertTopic Topic from advert data
- * @returns The detected region name or null if no region matches
- */
-function detectRegion(mqttTopics: Array<{ topic: string; broker: string }>, advertBroker: string | null, advertTopic: string | null): string | null {
-  // First try MQTT topics (more reliable for uplinked nodes)
-  for (const mqttTopic of mqttTopics) {
-    const region = detectRegionFromBrokerTopic(mqttTopic.broker, mqttTopic.topic);
-    if (region) return region;
-  }
-  
-  // Fallback to advert data (works for non-uplinked nodes)
-  return detectRegionFromBrokerTopic(advertBroker, advertTopic);
-}
+// Region detection functions moved to regionFilters.ts
 
 export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50) {
   try {

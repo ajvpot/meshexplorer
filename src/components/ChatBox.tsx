@@ -33,7 +33,7 @@ export default function ChatBox({
   className = "",
   startExpanded = false,
 }: ChatBoxProps) {
-  const { config } = useConfig();
+  const { config, openKeyModal } = useConfig();
   const meshcoreKeys: TabItem[] = [
     { channelName: "Public", privateKey: "izOH6cXN6mrJ5e26oRXNcg==" },
     ...(config?.meshcoreKeys || []),
@@ -79,8 +79,7 @@ export default function ChatBox({
     autoRefreshEnabled: !minimized,
   });
 
-  // Only show tabs if more than one channel (or if we have all messages tab)
-  const showTabs = allTabs.length > 1;
+  // Always show tabs
 
   // Set up intersection observer for infinite scrolling
   const loadMoreTriggerRef = useIntersectionObserver(
@@ -152,29 +151,34 @@ export default function ChatBox({
 
       {!minimized && config?.selectedRegion && (
         <>
-          {showTabs && (
-            <div
-              className={`border-b border-gray-200 dark:border-neutral-800 ${
-                startExpanded ? "px-4 py-2" : "mb-2"
-              }`}
-            >
-              <div className="flex gap-1 overflow-x-auto scrollbar-hide">
-                {allTabs.map((key, idx) => (
-                  <button
-                    key={key.privateKey + idx}
-                    className={`px-2 py-1 text-xs rounded-t font-mono whitespace-nowrap flex-shrink-0 ${
-                      idx === selectedTab
-                        ? "bg-gray-100 dark:bg-neutral-800 text-blue-700 dark:text-blue-400 border-b-2 border-blue-500"
-                        : "bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800"
-                    }`}
-                    onClick={() => setSelectedTab(idx)}
-                  >
-                    {key.channelName || getChannelIdFromKey(key.privateKey).toUpperCase()}
-                  </button>
-                ))}
-              </div>
+          <div
+            className={`border-b border-gray-200 dark:border-neutral-800 ${
+              startExpanded ? "px-4 py-2" : "mb-2"
+            }`}
+          >
+            <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+              {allTabs.map((key, idx) => (
+                <button
+                  key={key.privateKey + idx}
+                  className={`px-2 py-1 text-xs rounded-t font-mono whitespace-nowrap flex-shrink-0 ${
+                    idx === selectedTab
+                      ? "bg-gray-100 dark:bg-neutral-800 text-blue-700 dark:text-blue-400 border-b-2 border-blue-500"
+                      : "bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800"
+                  }`}
+                  onClick={() => setSelectedTab(idx)}
+                >
+                  {key.channelName || getChannelIdFromKey(key.privateKey).toUpperCase()}
+                </button>
+              ))}
+              <button
+                className="px-2 py-1 text-xs rounded-t whitespace-nowrap flex-shrink-0 bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800"
+                onClick={() => openKeyModal()}
+                title="Manage channel keys"
+              >
+                +
+              </button>
             </div>
-          )}
+          </div>
 
            <div
              className={`flex-1 overflow-y-auto text-sm text-gray-700 dark:text-gray-200 ${
@@ -191,7 +195,7 @@ export default function ChatBox({
                {/* Messages */}
                {(startExpanded ? messages : messages.toReversed()).map((msg, i) => (
                  <ChatMessageItem
-                   key={`${msg.ingest_timestamp}-${msg.origin_key_path_array?.length || 0}`}
+                   key={`${msg.message_id}-${msg.origin_path_info?.length || 0}`}
                    msg={msg}
                    showErrorRow={selectedKey.isAllMessages}
                  />

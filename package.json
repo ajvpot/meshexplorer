@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "discord-bot": "tsx scripts/discord-bot.ts",
+    "discord-bot:dev": "tsx watch scripts/discord-bot.ts"
   },
   "dependencies": {
     "@clickhouse/client": "^1.11.2",
@@ -32,6 +34,7 @@
     "react-dom": "^19.1.0",
     "react-leaflet": "^5.0.0",
     "react-tiny-popover": "^8.1.6",
+    "sharp": "^0.34.3",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
@@ -44,6 +47,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
     "tailwindcss": "^4",
+    "tsx": "^4.20.5",
     "tw-animate-css": "^1.3.4",
     "typescript": "^5"
   }

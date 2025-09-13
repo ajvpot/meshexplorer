@@ -1,4 +1,7 @@
-import { getRegionConfig } from "@/lib/regions";
+import { getRegionConfig, generateRegionCondition, generateRegionArrayCondition, detectRegionFromBrokerTopic, detectRegion } from "@/lib/regions";
+
+// Re-export region detection functions for backward compatibility
+export { detectRegionFromBrokerTopic, detectRegion };
 
 /**
  * Generates a ClickHouse WHERE clause for filtering by region using broker and topic fields
@@ -11,36 +14,16 @@ export function generateRegionWhereClause(region?: string, tableAlias: string = 
     return { whereClause: '', params: {} };
   }
 
-  const regionConfig = getRegionConfig(region);
-  if (!regionConfig) {
-    return { whereClause: '', params: {} };
-  }
-
-  const alias = tableAlias ? `${tableAlias}.` : '';
-  
-  if (region === 'seattle') {
-    return {
-      whereClause: `${alias}broker = 'tcp://mqtt.davekeogh.com:1883' AND (${alias}topic = 'meshcore' OR ${alias}topic = 'meshcore/salish')`,
-      params: {}
-    };
-  } else if (region === 'portland') {
-    return {
-      whereClause: `${alias}broker = 'tcp://mqtt.davekeogh.com:1883' AND ${alias}topic = 'meshcore/pdx'`,
-      params: {}
-    };
-  } else if (region === 'boston') {
-    return {
-      whereClause: `${alias}broker = 'tcp://mqtt.davekeogh.com:1883' AND ${alias}topic = 'meshcore/bos'`,
-      params: {}
-    };
-  }
-
-  return { whereClause: '', params: {} };
+  const regionCondition = generateRegionCondition(region, tableAlias);
+  return {
+    whereClause: regionCondition,
+    params: {}
+  };
 }
 
 /**
- * Generates a ClickHouse WHERE clause for filtering by region using topic_broker_array
- * This is for views that already have the topic_broker_array field
+ * Generates a ClickHouse WHERE clause for filtering by region using origin_path_info
+ * This is for views that have the origin_path_info field
  * @param region The region name to filter by
  * @returns Object containing the where clause and parameters
  */
@@ -49,27 +32,29 @@ export function generateRegionWhereClauseFromArray(region?: string) {
     return { whereClause: '', params: {} };
   }
 
-  const regionConfig = getRegionConfig(region);
-  if (!regionConfig) {
-    return { whereClause: '', params: {} };
-  }
+  const arrayCondition = generateRegionArrayCondition(region);
+  return {
+    whereClause: arrayCondition,
+    params: {}
+  };
+}
 
-  if (region === 'seattle') {
-    return {
-      whereClause: "arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND (x.2 = 'meshcore' OR x.2 = 'meshcore/salish'), topic_broker_array)",
-      params: {}
-    };
-  } else if (region === 'portland') {
-    return {
-      whereClause: "arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND x.2 = 'meshcore/pdx', topic_broker_array)",
-      params: {}
-    };
-  } else if (region === 'boston') {
-    return {
-      whereClause: "arrayExists(x -> x.1 = 'tcp://mqtt.davekeogh.com:1883' AND x.2 = 'meshcore/bos', topic_broker_array)",
-      params: {}
-    };
-  }
+/**
+ * Generates a simple region condition string for streaming queries
+ * @param region The region name to filter by
+ * @returns The condition string or empty string if no region specified
+ */
+export function generateRegionConditionForStreaming(region?: string): string {
+  if (!region) return '';
+  return generateRegionCondition(region);
+}
 
-  return { whereClause: '', params: {} };
+/**
+ * Generates a region condition string for streaming queries using origin_path_info
+ * @param region The region name to filter by
+ * @returns The condition string or empty string if no region specified
+ */
+export function generateRegionArrayConditionForStreaming(region?: string): string {
+  if (!region) return '';
+  return generateRegionArrayCondition(region);
 }

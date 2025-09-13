@@ -8,15 +8,50 @@ services:
     ports:
       - "3001:3000"
     environment:
+      # Next.js Configuration
       - NODE_ENV=production
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_PORT=8123
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=password
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      
+      # ClickHouse Database Configuration
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-clickhouse}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-8123}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-password}
+      
+      # Next.js API Configuration
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
     restart: unless-stopped
     init: true
     networks:
       - shared-network
+
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    environment:
+      # Node.js Configuration
+      - NODE_ENV=production
+      
+      # ClickHouse Database Configuration
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-clickhouse}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-8123}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-password}
+      
+      # Discord Bot Configuration
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - MESH_REGION=${MESH_REGION:-seattle}
+      - POLL_INTERVAL=${POLL_INTERVAL:-1000}
+      - MAX_ROWS_PER_POLL=${MAX_ROWS_PER_POLL:-50}
+      - PRIVATE_KEYS=${PRIVATE_KEYS:-}
+    restart: unless-stopped
+    init: true
+    networks:
+      - shared-network
+    depends_on:
+      - meshexplorer
 
 networks:
   shared-network:

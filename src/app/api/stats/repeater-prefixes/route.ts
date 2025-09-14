@@ -17,7 +17,7 @@ export async function GET(req: Request) {
           groupArray(node_name) as node_names
       FROM meshcore_adverts_latest 
       WHERE is_repeater = 1 
-          AND last_seen >= now() - INTERVAL 7 DAY
+          AND last_seen >= now() - INTERVAL 2 DAY
           ${regionWhereClause}
       GROUP BY prefix
       ORDER BY node_count DESC, prefix ASC

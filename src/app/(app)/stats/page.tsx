@@ -128,7 +128,7 @@ export default function StatsPage() {
           <div className="mb-6">
             <h2 className="text-lg font-semibold mb-2">Used Repeater Prefixes</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Shows repeater nodes grouped by the first byte of their public key, seen within the last 7 days.
+              Shows repeater nodes grouped by the first byte of their public key, seen within the last 2 days.
             </p>
             <table className="w-full text-sm border">
               <thead>

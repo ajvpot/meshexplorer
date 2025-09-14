@@ -132,7 +132,7 @@ export default function PathVisualization({
         exact: false,
         limit: 20,
         is_repeater: true, // Filter for repeaters only
-        lastSeen: config?.lastSeen,
+        lastSeen: 60*60*24*2, // 2 days
         region: config?.selectedRegion,
         enabled: showGraph && prefix.length > 0
       }))

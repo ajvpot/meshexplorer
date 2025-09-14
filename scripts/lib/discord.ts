@@ -179,7 +179,7 @@ export function formatMeshcoreMessageForDiscord(
   const content = `${text}\n-# _Heard ${heardCount} times by [MeshExplorer](https://map.w0z.is/messages)_`;
 
   // Generate profile picture URL using the new API
-  const profilePictureUrl = `https://map.w0z.is/api/meshcore/profilepicture.png?name=${encodeURIComponent(sender)}&v=2`;
+  const profilePictureUrl = `https://map.w0z.is/api/meshcore/profilepicture.png?name=${encodeURIComponent(sender)}&v=3`;
 
   return {
     username: sender,

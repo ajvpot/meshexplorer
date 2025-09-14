@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 
 async function generateProfilePicturePNG(backgroundColor: string, label: string): Promise<Buffer> {
   const size = 512; // Square size
-  const fontSize = 192; // Font size for the label
+  const fontSize = 256; // Font size for the label
   
   // Create SVG string with properly centered text
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -52,7 +52,7 @@ async function generateProfilePicturePNG(backgroundColor: string, label: string)
     y="50%" 
     text-anchor="middle" 
     dominant-baseline="central" 
-    font-family="Noto Sans, Noto Color Emoji, sans-serif" 
+    font-family="Noto Sans, Noto Emoji, sans-serif" 
     font-size="${fontSize}" 
     fill="white"
   >${escapeXml(label)}</text>

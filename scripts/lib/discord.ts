@@ -2,6 +2,8 @@
  * Discord webhook integration utilities for posting and updating messages
  */
 
+import { createNodeSearchUrl, processNodeMentionsForMarkdown } from '../../src/lib/node-utils';
+
 export interface DiscordWebhookMessage {
   content?: string;
   username?: string;
@@ -184,13 +186,17 @@ export function formatMeshcoreMessageForDiscord(
   }
 ): DiscordWebhookMessage {
   const sender = decrypted?.sender || 'Unknown';
-  const text = decrypted?.text || '[Encrypted Message]';
+  const rawText = decrypted?.text || '[Encrypted Message]';
+  
+  // Process node mentions (@[Node Name]) and convert to Discord markdown links
+  const processedText = processNodeMentionsForMarkdown(rawText);
   
   // Calculate how many times the message was heard
   const heardCount = message.origin_path_info ? message.origin_path_info.length : 0;
   
-  // Format the message content with the requested format
-  const content = `${text}\n-# _Heard ${heardCount} times by [MeshExplorer](https://map.w0z.is/messages)_`;
+  // Create URL to search page with node name prefilled and exact match enabled
+  const senderSearchUrl = createNodeSearchUrl(sender);
+  const content = `${processedText}\n-# _Heard ${heardCount} times_ | [Node Info](${senderSearchUrl})`;
 
   // Generate profile picture URL using the new API
   const profilePictureUrl = `https://map.w0z.is/api/meshcore/profilepicture.png?name=${encodeURIComponent(sender)}&v=3`;

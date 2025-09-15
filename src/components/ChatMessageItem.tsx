@@ -4,6 +4,7 @@ import { useConfig } from "./ConfigContext";
 import { useMessageDecryption } from "@/hooks/useMessageDecryption";
 import PathVisualization, { PathData } from "./PathVisualization";
 import NodeLinkWithHover from "./NodeLinkWithHover";
+import { findNodeMentions } from "@/lib/node-utils";
 
 export interface ChatMessage {
   message_id: string;
@@ -29,9 +30,39 @@ function formatLocalTime(utcString: string): string {
 }
 
 function ChatMessageContent({ text }: { text: string }) {
-  // Combined regex to match both URLs and @[node_name] patterns
-  const combinedRegex = /(https?:\/\/[^\s]+|@\[[^\]]+\])/g;
+  // Use utility function to find node mentions
+  const nodeMentions = findNodeMentions(text);
   
+  // If no node mentions, handle only URLs
+  if (nodeMentions.length === 0) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return (
+      <>
+        {parts.map((part, index) => {
+          // Check if it's a URL
+          if (/^https?:\/\//.test(part)) {
+            return (
+              <a
+                key={index}
+                href={part}
+                target="_blank"
+                rel="nofollow noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {part}
+              </a>
+            );
+          }
+          return part;
+        })}
+      </>
+    );
+  }
+
+  // Process text with both URLs and node mentions
+  const combinedRegex = /(https?:\/\/[^\s]+|@\[[^\]]+\])/g;
   const parts = text.split(combinedRegex);
   
   return (

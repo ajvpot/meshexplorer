@@ -42,6 +42,7 @@ services:
       
       # Discord Bot Configuration
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - DISCORD_THREAD_ID=${DISCORD_THREAD_ID:-}
       - MESH_REGION=${MESH_REGION:-seattle}
       - POLL_INTERVAL=${POLL_INTERVAL:-1000}
       - MAX_ROWS_PER_POLL=${MAX_ROWS_PER_POLL:-50}

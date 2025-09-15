@@ -16,6 +16,7 @@ import { DiscordWebhookClient, formatMeshcoreMessageForDiscord } from './lib/dis
 
 interface BotConfig {
   webhookUrl: string;
+  threadId?: string;
   region: string;
   pollInterval: number;
   maxRowsPerPoll: number;
@@ -30,7 +31,7 @@ class MeshCoreDiscordBot {
 
   constructor(config: BotConfig) {
     this.config = config;
-    this.discordClient = new DiscordWebhookClient(config.webhookUrl);
+    this.discordClient = new DiscordWebhookClient(config.webhookUrl, config.threadId);
   }
 
   async start() {
@@ -44,6 +45,9 @@ class MeshCoreDiscordBot {
     console.log(`Region: ${this.config.region}`);
     console.log(`Poll interval: ${this.config.pollInterval}ms`);
     console.log(`Max rows per poll: ${this.config.maxRowsPerPoll}`);
+    if (this.config.threadId) {
+      console.log(`Thread ID: ${this.config.threadId}`);
+    }
 
     // Create streaming configuration
     const streamerConfig = createChatMessagesStreamerConfig(undefined, this.config.region);
@@ -130,6 +134,7 @@ class MeshCoreDiscordBot {
 async function main() {
   // Get configuration from environment variables
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  const threadId = process.env.DISCORD_THREAD_ID;
   const region = process.env.MESH_REGION || 'seattle';
   const pollInterval = parseInt(process.env.POLL_INTERVAL || '1000', 10);
   const maxRowsPerPoll = parseInt(process.env.MAX_ROWS_PER_POLL || '50', 10);
@@ -156,6 +161,9 @@ async function main() {
 
   console.log('Configuration:');
   console.log(`  Webhook URL: ${webhookUrl.substring(0, 50)}...`);
+  if (threadId) {
+    console.log(`  Thread ID: ${threadId}`);
+  }
   console.log(`  Region: ${region}`);
   console.log(`  Poll interval: ${pollInterval}ms`);
   console.log(`  Max rows per poll: ${maxRowsPerPoll}`);
@@ -164,6 +172,7 @@ async function main() {
   // Create and start the bot
   const bot = new MeshCoreDiscordBot({
     webhookUrl,
+    threadId,
     region,
     pollInterval,
     maxRowsPerPoll,

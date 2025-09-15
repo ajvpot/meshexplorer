@@ -40,10 +40,12 @@ export interface DiscordWebhookResponse {
 
 export class DiscordWebhookClient {
   private webhookUrl: string;
+  private threadId?: string;
   private messageIdMap: Map<string, string> = new Map(); // message_id -> discord_message_id
 
-  constructor(webhookUrl: string) {
+  constructor(webhookUrl: string, threadId?: string) {
     this.webhookUrl = webhookUrl;
+    this.threadId = threadId;
   }
 
   /**
@@ -53,6 +55,11 @@ export class DiscordWebhookClient {
     // Add wait=true to get the message ID in response
     const url = new URL(this.webhookUrl);
     url.searchParams.set('wait', 'true');
+    
+    // Add thread_id if configured
+    if (this.threadId) {
+      url.searchParams.set('thread_id', this.threadId);
+    }
     
     const response = await fetch(url.toString(), {
       method: 'POST',
@@ -74,7 +81,14 @@ export class DiscordWebhookClient {
    */
   async updateMessage(discordMessageId: string, message: DiscordWebhookMessage): Promise<DiscordWebhookResponse> {
     // Use the correct URL format for updating messages
-    const updateUrl = `${this.webhookUrl}/messages/${discordMessageId}`;
+    let updateUrl = `${this.webhookUrl}/messages/${discordMessageId}`;
+    
+    // Add thread_id parameter if configured
+    if (this.threadId) {
+      const url = new URL(updateUrl);
+      url.searchParams.set('thread_id', this.threadId);
+      updateUrl = url.toString();
+    }
     
     const response = await fetch(updateUrl, {
       method: 'PATCH',

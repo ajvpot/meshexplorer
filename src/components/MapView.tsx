@@ -14,6 +14,7 @@ import { renderToString } from "react-dom/server";
 import { buildApiUrl } from "@/lib/api";
 import { NodePosition } from "@/types/map";
 import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
+import { type AllNeighborsConnection } from "@/hooks/useAllNeighbors";
 import { useQueryParams } from "@/hooks/useQueryParams";
 
 const DEFAULT = {
@@ -68,8 +69,8 @@ const IndividualMarker = React.memo(function IndividualMarker({
     const isSelected = selectedNodeId === node.node_id;
     const icon = L.divIcon({
       className: 'custom-node-marker-container',
-      iconSize: [16, 32],
-      iconAnchor: [8, 8],
+      iconSize: [12, 24],
+      iconAnchor: [6, 6],
       html: renderToString(
         <NodeMarker 
           node={node} 
@@ -109,8 +110,8 @@ const IndividualMarker = React.memo(function IndividualMarker({
       const isSelected = selectedNodeId === node.node_id;
       const icon = L.divIcon({
         className: 'custom-node-marker-container',
-        iconSize: [16, 32],
-        iconAnchor: [8, 8],
+        iconSize: [12, 24],
+        iconAnchor: [6, 6],
         html: renderToString(
           <NodeMarker 
             node={node} 
@@ -172,8 +173,8 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
       return L.divIcon({
         html: renderToString(<ClusterMarker>{children}</ClusterMarker>),
         className: 'custom-cluster-icon',
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
       });
     };
 
@@ -186,8 +187,8 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
       const isSelected = selectedNodeId === node.node_id;
       const icon = L.divIcon({
         className: 'custom-node-marker-container',
-        iconSize: [16, 32],
-        iconAnchor: [8, 8],
+        iconSize: [12, 24],
+        iconAnchor: [6, 6],
         html: renderToString(
           <NodeMarker 
             node={node} 
@@ -353,6 +354,48 @@ function NeighborLines({
   );
 }
 
+// Component to render all neighbor lines for all nodes
+function AllNeighborLines({ 
+  connections, 
+  nodes 
+}: { 
+  connections: AllNeighborsConnection[]; 
+  nodes: NodePosition[];
+}) {
+  if (connections.length === 0) return null;
+
+  // Create a set of visible node IDs for quick lookup
+  const visibleNodeIds = new Set(nodes.map(node => node.node_id));
+
+  // Filter connections to only show lines between nodes that are visible on the map
+  const visibleConnections = connections.filter(connection => 
+    visibleNodeIds.has(connection.source_node) && visibleNodeIds.has(connection.target_node)
+  );
+
+  return (
+    <>
+      {visibleConnections.map((connection) => {
+        const positions: [number, number][] = [
+          [connection.source_latitude, connection.source_longitude],
+          [connection.target_latitude, connection.target_longitude]
+        ];
+        
+        return (
+          <Polyline
+            key={`${connection.source_node}-${connection.target_node}`}
+            positions={positions}
+            pathOptions={{
+              color: '#8b5cf6', // Purple color for all-neighbors view
+              weight: 1,
+              opacity: 0.5,
+            }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
 interface MapViewProps {
   target?: '_blank' | '_self' | '_parent' | '_top';
 }
@@ -379,6 +422,9 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
   
   // Neighbor-related state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showAllNeighbors, setShowAllNeighbors] = useState<boolean>(false);
+  const [allNeighborConnections, setAllNeighborConnections] = useState<AllNeighborsConnection[]>([]);
+  const [allNeighborsLoading, setAllNeighborsLoading] = useState<boolean>(false);
   
   // Use TanStack Query for neighbors data
   const { data: neighbors = [], isLoading: neighborsLoading } = useNeighbors({
@@ -416,13 +462,17 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     // Lines persist on mouseout and when hovering over same node
   }, [selectedNodeId]);
 
-  const fetchNodes = useCallback((bounds?: [[number, number], [number, number]]) => {
+  const fetchNodes = useCallback((bounds?: [[number, number], [number, number]], includeNeighbors: boolean = false) => {
     if (fetchController.current) {
       fetchController.current.abort();
     }
     const controller = new AbortController();
     fetchController.current = controller;
     setLoading(true);
+    if (includeNeighbors) {
+      setAllNeighborsLoading(true);
+    }
+    
     let url = "/api/map";
     const params = [];
     if (bounds) {
@@ -440,21 +490,52 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     if (config?.lastSeen !== null && config?.lastSeen !== undefined) {
       params.push(`lastSeen=${config.lastSeen}`);
     }
+    if (includeNeighbors) {
+      params.push('includeNeighbors=true');
+    }
     if (params.length > 0) {
       url += `?${params.join("&")}`;
     }
+    
     fetch(buildApiUrl(url), { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
+          // Backward compatibility: just nodes array
           setNodePositions(data);
           setLastResultCount(data.length);
+          if (includeNeighbors) {
+            // If we expected neighbors but got just nodes, clear neighbors
+            setAllNeighborConnections([]);
+          }
+        } else if (data && data.nodes && Array.isArray(data.nodes)) {
+          // New format: object with nodes and neighbors
+          setNodePositions(data.nodes);
+          setLastResultCount(data.nodes.length);
+          if (data.neighbors && Array.isArray(data.neighbors)) {
+            setAllNeighborConnections(data.neighbors);
+          } else {
+            setAllNeighborConnections([]);
+          }
+        } else {
+          setNodePositions([]);
+          setAllNeighborConnections([]);
         }
-        if (fetchController.current === controller) setLoading(false);
+        
+        if (fetchController.current === controller) {
+          setLoading(false);
+          setAllNeighborsLoading(false);
+        }
       })
       .catch((err) => {
-        if (err.name !== "AbortError") setNodePositions([]);
-        if (fetchController.current === controller) setLoading(false);
+        if (err.name !== "AbortError") {
+          setNodePositions([]);
+          setAllNeighborConnections([]);
+        }
+        if (fetchController.current === controller) {
+          setLoading(false);
+          setAllNeighborsLoading(false);
+        }
       });
   }, [config?.nodeTypes, config?.lastSeen]);
 
@@ -564,24 +645,47 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
   useEffect(() => {
     fetchController.current?.abort(); // abort any in-flight request on effect cleanup
     if (bounds) {
-      fetchNodes(bounds);
+      fetchNodes(bounds, showAllNeighbors);
       lastRequestedBounds.current = bounds;
     } else {
       // Don't fetch until bounds is set
       setNodePositions([]);
+      setAllNeighborConnections([]);
       lastRequestedBounds.current = null;
     }
     return () => {
       fetchController.current?.abort();
     };
-  }, [bounds, config?.nodeTypes, config?.lastSeen, fetchNodes]);
+  }, [bounds, config?.nodeTypes, config?.lastSeen, fetchNodes, showAllNeighbors]);
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      {/* Only Refresh Button Row */}
-      <div style={{ position: "absolute", top: 16, right: 16, zIndex: 1000, display: 'flex', alignItems: 'center' }}>
+      {/* Button Row */}
+      <div style={{ position: "absolute", top: 16, right: 16, zIndex: 1000, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          onClick={() => {
+            const newShowAllNeighbors = !showAllNeighbors;
+            setShowAllNeighbors(newShowAllNeighbors);
+            if (newShowAllNeighbors && bounds) {
+              // Fetch with neighbors
+              fetchNodes(bounds, true);
+            } else if (!newShowAllNeighbors) {
+              // Clear neighbors when hiding
+              setAllNeighborConnections([]);
+            }
+          }}
+          disabled={allNeighborsLoading}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            showAllNeighbors 
+              ? 'bg-purple-600 text-white hover:bg-purple-700' 
+              : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+          } ${allNeighborsLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          title={showAllNeighbors ? "Hide all neighbors" : "Show all neighbors"}
+        >
+          {allNeighborsLoading ? 'Loading...' : showAllNeighbors ? 'Hide All Neighbors' : 'Show All Neighbors'}
+        </button>
         <RefreshButton
-          onClick={() => bounds && fetchNodes(bounds)}
+          onClick={() => bounds && fetchNodes(bounds, showAllNeighbors)}
           loading={loading || !bounds}
           title="Refresh map nodes"
           ariaLabel="Refresh map nodes"
@@ -625,6 +729,12 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           neighbors={neighbors}
           nodes={nodePositions}
         />
+        {showAllNeighbors && (
+          <AllNeighborLines 
+            connections={allNeighborConnections}
+            nodes={nodePositions}
+          />
+        )}
       </MapContainer>
     </div>
   );

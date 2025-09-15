@@ -278,6 +278,144 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
   }
 }
 
+export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[]) {
+  try {
+    // Build where conditions for visible nodes
+    let visibleNodeWhereConditions = [
+      "latitude IS NOT NULL",
+      "longitude IS NOT NULL"
+    ];
+    const params: Record<string, any> = {};
+    
+    // Add location bounds for visible nodes
+    if (minLat !== null && minLat !== undefined && minLat !== "") {
+      visibleNodeWhereConditions.push("latitude >= {minLat:Float64}");
+      params.minLat = Number(minLat);
+    }
+    if (maxLat !== null && maxLat !== undefined && maxLat !== "") {
+      visibleNodeWhereConditions.push("latitude <= {maxLat:Float64}");
+      params.maxLat = Number(maxLat);
+    }
+    if (minLng !== null && minLng !== undefined && minLng !== "") {
+      visibleNodeWhereConditions.push("longitude >= {minLng:Float64}");
+      params.minLng = Number(minLng);
+    }
+    if (maxLng !== null && maxLng !== undefined && maxLng !== "") {
+      visibleNodeWhereConditions.push("longitude <= {maxLng:Float64}");
+      params.maxLng = Number(maxLng);
+    }
+    if (nodeTypes && nodeTypes.length > 0) {
+      visibleNodeWhereConditions.push("type IN {nodeTypes:Array(String)}");
+      params.nodeTypes = nodeTypes;
+    }
+    if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
+      visibleNodeWhereConditions.push("last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND");
+      params.lastSeen = Number(lastSeen);
+    }
+
+    // Build where conditions for meshcore adverts
+    let meshcoreWhereConditions = [];
+    if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
+      meshcoreWhereConditions.push("ingest_timestamp >= now() - INTERVAL {lastSeen:UInt32} SECOND");
+    }
+
+    const meshcoreWhere = meshcoreWhereConditions.length > 0 ? `AND ${meshcoreWhereConditions.join(" AND ")}` : '';
+
+    const allNeighborsQuery = `
+      WITH visible_nodes AS (
+        -- Get only nodes visible on the current map view
+        SELECT 
+          node_id,
+          name,
+          short_name,
+          latitude,
+          longitude,
+          last_seen,
+          first_seen,
+          type
+        FROM unified_latest_nodeinfo 
+        WHERE ${visibleNodeWhereConditions.join(" AND ")}
+      ),
+      visible_node_details AS (
+        -- Get latest attributes for visible nodes from meshcore_adverts
+        SELECT 
+          public_key,
+          argMax(node_name, ingest_timestamp) as node_name,
+          argMax(latitude, ingest_timestamp) as latitude,
+          argMax(longitude, ingest_timestamp) as longitude,
+          argMax(has_location, ingest_timestamp) as has_location,
+          argMax(is_repeater, ingest_timestamp) as is_repeater,
+          argMax(is_chat_node, ingest_timestamp) as is_chat_node,
+          argMax(is_room_server, ingest_timestamp) as is_room_server,
+          argMax(has_name, ingest_timestamp) as has_name
+        FROM meshcore_adverts 
+        WHERE public_key IN (SELECT node_id FROM visible_nodes)
+          ${meshcoreWhere}
+        GROUP BY public_key
+      ),
+      neighbor_connections AS (
+        -- Get all direct connections (path_len = 0) but only between visible nodes
+        SELECT DISTINCT
+          hex(origin_pubkey) as source_node,
+          public_key as target_node
+        FROM meshcore_adverts 
+        WHERE path_len = 0
+          AND hex(origin_pubkey) != public_key
+          -- Only include connections where both nodes are visible
+          AND hex(origin_pubkey) IN (SELECT node_id FROM visible_nodes)
+          AND public_key IN (SELECT node_id FROM visible_nodes)
+          ${meshcoreWhere}
+      )
+      SELECT 
+        connections.source_node,
+        connections.target_node,
+        source_details.node_name as source_name,
+        source_details.latitude as source_latitude,
+        source_details.longitude as source_longitude,
+        source_details.has_location as source_has_location,
+        target_details.node_name as target_name,
+        target_details.latitude as target_latitude,
+        target_details.longitude as target_longitude,
+        target_details.has_location as target_has_location
+      FROM neighbor_connections AS connections
+      LEFT JOIN visible_node_details AS source_details ON connections.source_node = source_details.public_key
+      LEFT JOIN visible_node_details AS target_details ON connections.target_node = target_details.public_key
+      WHERE source_details.public_key IS NOT NULL 
+        AND target_details.public_key IS NOT NULL
+        AND source_details.has_location = 1 
+        AND target_details.has_location = 1
+        AND source_details.latitude IS NOT NULL 
+        AND source_details.longitude IS NOT NULL
+        AND target_details.latitude IS NOT NULL 
+        AND target_details.longitude IS NOT NULL
+      ORDER BY connections.source_node, connections.target_node
+    `;
+    
+    const neighborsResult = await clickhouse.query({ 
+      query: allNeighborsQuery, 
+      query_params: params, 
+      format: 'JSONEachRow' 
+    });
+    const neighbors = await neighborsResult.json();
+    
+    return neighbors as Array<{
+      source_node: string;
+      target_node: string;
+      source_name: string;
+      source_latitude: number;
+      source_longitude: number;
+      source_has_location: number;
+      target_name: string;
+      target_latitude: number;
+      target_longitude: number;
+      target_has_location: number;
+    }>;
+  } catch (error) {
+    console.error('ClickHouse error in getAllNodeNeighbors:', error);
+    throw error;
+  }
+}
+
 export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: string | null = null) {
   try {
     // Build base where conditions for both directions

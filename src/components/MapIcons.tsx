@@ -70,7 +70,7 @@ export function ClusterMarker({ children }: ClusterMarkerProps) {
   const percentMeshtastic = total ? meshtasticCount / total : 0;
 
   // Pie chart SVG calculations
-  const r = 18;
+  const r = 13.5;
   const c = 2 * Math.PI * r;
   const meshcoreArc = percentMeshcore * c;
   const meshtasticArc = percentMeshtastic * c;
@@ -78,49 +78,49 @@ export function ClusterMarker({ children }: ClusterMarkerProps) {
   return (
     <div style={{
       position: "relative",
-      width: "40px",
-      height: "40px",
+      width: "30px",
+      height: "30px",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       borderRadius: "50%",
       background: "transparent"
     }}>
-      <svg width="40" height="40" viewBox="0 0 40 40" style={{
+      <svg width="30" height="30" viewBox="0 0 30 30" style={{
         borderRadius: "50%",
         background: "transparent"
       }}>
         <circle
-          r="18"
-          cx="20"
-          cy="20"
+          r="13.5"
+          cx="15"
+          cy="15"
           fill="#fff"
           stroke="#fff"
-          strokeWidth="4"
+          strokeWidth="3"
           opacity="0.7"
         />
         <circle
-          r="18"
-          cx="20"
-          cy="20"
+          r="13.5"
+          cx="15"
+          cy="15"
           fill="transparent"
           stroke="#2563eb"
-          strokeWidth="36"
+          strokeWidth="27"
           strokeDasharray={`${meshcoreArc} ${c - meshcoreArc}`}
           strokeDashoffset="0"
-          transform="rotate(-90 20 20)"
+          transform="rotate(-90 15 15)"
           opacity="0.7"
         />
         <circle
-          r="18"
-          cx="20"
-          cy="20"
+          r="13.5"
+          cx="15"
+          cy="15"
           fill="transparent"
           stroke="#22c55e"
-          strokeWidth="36"
+          strokeWidth="27"
           strokeDasharray={`${meshtasticArc} ${c - meshtasticArc}`}
           strokeDashoffset={`-${meshcoreArc}`}
-          transform="rotate(-90 20 20)"
+          transform="rotate(-90 15 15)"
           opacity="0.7"
         />
       </svg>
@@ -131,7 +131,7 @@ export function ClusterMarker({ children }: ClusterMarkerProps) {
         transform: "translate(-50%, -50%)",
         color: "#111",
         fontWeight: "bold",
-        fontSize: "15px",
+        fontSize: "11px",
         lineHeight: "1",
         textShadow: "0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff",
         background: "none",

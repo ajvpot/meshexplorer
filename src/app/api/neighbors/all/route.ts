@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getNodePositions, getAllNodeNeighbors } from "@/lib/clickhouse/actions";
+import { getAllNodeNeighbors } from "@/lib/clickhouse/actions";
 
 export async function GET(req: Request) {
   try {
@@ -10,22 +10,12 @@ export async function GET(req: Request) {
     const maxLng = searchParams.get("maxLng");
     const nodeTypes = searchParams.getAll("nodeTypes");
     const lastSeen = searchParams.get("lastSeen");
-    const includeNeighbors = searchParams.get("includeNeighbors") === "true";
+
+    const neighbors = await getAllNodeNeighbors(lastSeen, minLat, maxLat, minLng, maxLng, nodeTypes);
     
-    const positions = await getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen });
-    
-    if (includeNeighbors) {
-      const neighbors = await getAllNodeNeighbors(lastSeen, minLat, maxLat, minLng, maxLng, nodeTypes);
-      return NextResponse.json({
-        nodes: positions,
-        neighbors: neighbors
-      });
-    }
-    
-    // Return just the positions array for backward compatibility
-    return NextResponse.json(positions);
+    return NextResponse.json(neighbors);
   } catch (error) {
-    console.error("Error fetching map data:", error);
+    console.error("Error fetching all node neighbors:", error);
     
     // Check if it's a ClickHouse connection error
     if (error instanceof Error && error.message.includes('ClickHouse')) {
@@ -36,8 +26,9 @@ export async function GET(req: Request) {
     }
     
     return NextResponse.json({ 
-      error: "Failed to fetch map data",
+      error: "Failed to fetch all neighbors",
       code: "INTERNAL_ERROR"
     }, { status: 500 });
   }
-} 
+}
+

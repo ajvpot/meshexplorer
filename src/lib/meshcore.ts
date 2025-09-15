@@ -1,6 +1,31 @@
 import { createHash, createHmac } from "crypto";
 import aesjs from "aes-js";
 
+/**
+ * Derives a 128-bit encryption key from a channel name that starts with '#'.
+ * Applies filtering: converts to lowercase and keeps only a-z, 0-9, and hyphen.
+ * Uses SHA256 hash of the filtered channel name (including '#') as ASCII bytes, 
+ * then truncates to first 128 bits (16 bytes) and returns as hex.
+ */
+export function deriveKeyFromChannelName(channelName: string): string {
+  if (!channelName.startsWith('#')) {
+    throw new Error('Channel name must start with #');
+  }
+  
+  // Apply filtering: lowercase and keep only a-z, 0-9, hyphen
+  const filteredName = '#' + channelName.slice(1)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '');
+  
+  // Convert filtered channel name to ASCII bytes and hash with SHA256
+  const nameBytes = Buffer.from(filteredName, 'ascii');
+  const hash = createHash('sha256').update(nameBytes).digest();
+  
+  // Truncate to first 128 bits (16 bytes) and return as hex
+  const key128bit = hash.slice(0, 16);
+  return key128bit.toString('hex');
+}
+
 // Module-level cache for channel IDs
 const channelIdCache: Record<string, string> = {};
 

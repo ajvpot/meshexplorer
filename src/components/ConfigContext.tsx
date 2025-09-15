@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
-import { getChannelIdFromKey } from "@/lib/meshcore";
+import { getChannelIdFromKey, deriveKeyFromChannelName } from "@/lib/meshcore";
 import { getRegionFriendlyNames } from "@/lib/regions";
 import Modal from "./Modal";
 
@@ -353,7 +353,19 @@ function MeshcoreKeyModal({ config, setConfig, onClose }: { config: Config, setC
                   value={key.channelName}
                   onChange={e => {
                     const updated = [...(config.meshcoreKeys || [])];
-                    updated[idx] = { ...updated[idx], channelName: e.target.value };
+                    const newChannelName = e.target.value;
+                    const updatedKey = { ...updated[idx], channelName: newChannelName };
+                    
+                    // Auto-populate private key for # channels
+                    if (newChannelName.startsWith('#') && newChannelName.length > 1) {
+                      try {
+                        updatedKey.privateKey = deriveKeyFromChannelName(newChannelName);
+                      } catch (error) {
+                        // If derivation fails, leave the key as is
+                      }
+                    }
+                    
+                    updated[idx] = updatedKey;
                     setConfig({ ...config, meshcoreKeys: updated });
                   }}
                 />
@@ -373,7 +385,7 @@ function MeshcoreKeyModal({ config, setConfig, onClose }: { config: Config, setC
                 <input
                   className={`flex-1 p-1 border rounded font-mono ${keyError ? 'border-red-500' : ''}`}
                   type="text"
-                  placeholder="Base64 or Hex Private Key"
+                  placeholder="Base64 or Hex Private Key (auto-filled for # channels)"
                   value={key.privateKey}
                   onChange={e => {
                     const updated = [...(config.meshcoreKeys || [])];

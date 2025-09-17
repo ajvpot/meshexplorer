@@ -184,7 +184,7 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
             </span>
           </label>
 
-          {/* Show meshcore coverage overlay */}
+          {/* Show meshcore coverage overlay 
           <label className="flex items-center gap-2 mb-3 cursor-pointer">
             <input
               type="checkbox"
@@ -194,6 +194,7 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
             />
             <span className="text-sm text-gray-700 dark:text-gray-300">Show meshcore coverage overlay</span>
           </label>
+          */}
         </div>
       )}
     </div>

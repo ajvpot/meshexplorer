@@ -12,6 +12,7 @@ export interface MapLayerSettings {
   useColors: boolean;
   nodeTypes: NodeType[];
   showMeshcoreCoverageOverlay: boolean;
+  minPacketCount: number;
 }
 
 const DEFAULT_MAP_LAYER_SETTINGS: MapLayerSettings = {
@@ -23,6 +24,7 @@ const DEFAULT_MAP_LAYER_SETTINGS: MapLayerSettings = {
   useColors: true,
   nodeTypes: ["meshcore"],
   showMeshcoreCoverageOverlay: false,
+  minPacketCount: 1,
 };
 
 export function useMapLayerSettings() {

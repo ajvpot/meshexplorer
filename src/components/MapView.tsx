@@ -367,11 +367,13 @@ function NeighborLines({
 function AllNeighborLines({ 
   connections, 
   nodes,
-  useColors = true
+  useColors = true,
+  minPacketCount = 1
 }: { 
   connections: AllNeighborsConnection[]; 
   nodes: NodePosition[];
   useColors?: boolean;
+  minPacketCount?: number;
 }) {
   if (connections.length === 0) return null;
 
@@ -379,8 +381,11 @@ function AllNeighborLines({
   const visibleNodeIds = new Set(nodes.map(node => node.node_id));
 
   // Filter connections to only show lines between nodes that are visible on the map
+  // and meet the minimum packet count threshold
   const visibleConnections = connections.filter(connection => 
-    visibleNodeIds.has(connection.source_node) && visibleNodeIds.has(connection.target_node)
+    visibleNodeIds.has(connection.source_node) && 
+    visibleNodeIds.has(connection.target_node) &&
+    connection.packet_count >= minPacketCount
   );
 
   // Calculate logarithmic thresholds based on packet counts for path connections
@@ -492,6 +497,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     useColors: true,
     nodeTypes: ["meshcore"],
     showMeshcoreCoverageOverlay: false,
+    minPacketCount: 1,
   });
   
   // Use query params to persist map position
@@ -811,6 +817,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
             connections={allNeighborConnections}
             nodes={nodePositions}
             useColors={mapLayerSettings.useColors}
+            minPacketCount={mapLayerSettings.minPacketCount}
           />
         )}
       </MapContainer>

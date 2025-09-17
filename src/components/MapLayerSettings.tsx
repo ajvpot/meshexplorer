@@ -165,6 +165,37 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
             </span>
           </label>
 
+          {/* Minimum packet count - indented sub-option */}
+          <div className="ml-6 mb-3">
+            <label className={`block text-sm ${
+              settings.showAllNeighbors 
+                ? 'text-gray-700 dark:text-gray-300' 
+                : 'text-gray-400 dark:text-gray-500'
+            } mb-1`}>
+              Min packet count threshold
+            </label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={settings.minPacketCount}
+              onChange={(e) => updateSetting('minPacketCount', Math.max(1, parseInt(e.target.value) || 1))}
+              disabled={!settings.showAllNeighbors}
+              className={`w-full p-2 border border-gray-300 dark:border-neutral-600 rounded text-sm ${
+                settings.showAllNeighbors 
+                  ? 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300' 
+                  : 'bg-gray-100 dark:bg-neutral-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+              }`}
+            />
+            <p className={`text-xs mt-1 ${
+              settings.showAllNeighbors 
+                ? 'text-gray-500 dark:text-gray-400' 
+                : 'text-gray-400 dark:text-gray-500'
+            }`}>
+              Only show path neighbors with at least this many packets
+            </p>
+          </div>
+
           {/* Tile layer */}
           <div className="mb-3">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

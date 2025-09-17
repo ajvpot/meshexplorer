@@ -372,6 +372,42 @@ function AllNeighborLines({
     visibleNodeIds.has(connection.source_node) && visibleNodeIds.has(connection.target_node)
   );
 
+  // Calculate logarithmic thresholds based on packet counts for path connections
+  const pathConnections = visibleConnections.filter(conn => conn.connection_type === 'path');
+  const packetCounts = pathConnections.map(conn => conn.packet_count).sort((a, b) => a - b);
+  
+  const getLogThresholds = (counts: number[]) => {
+    if (counts.length === 0) return { min: 1, t1: 1, t2: 1, t3: 1, t4: 1, max: 1 };
+    
+    const min = Math.max(1, counts[0]); // Ensure minimum is at least 1 for log calculation
+    const max = counts[counts.length - 1];
+    
+    if (min === max) {
+      return { min, t1: min, t2: min, t3: min, t4: min, max };
+    }
+    
+    // Use logarithmic scale to create thresholds
+    const logMin = Math.log10(min);
+    const logMax = Math.log10(max);
+    const logRange = logMax - logMin;
+    
+    const t1 = Math.pow(10, logMin + logRange * 0.2);
+    const t2 = Math.pow(10, logMin + logRange * 0.4);
+    const t3 = Math.pow(10, logMin + logRange * 0.6);
+    const t4 = Math.pow(10, logMin + logRange * 0.8);
+    
+    return { 
+      min, 
+      t1: Math.round(t1), 
+      t2: Math.round(t2), 
+      t3: Math.round(t3), 
+      t4: Math.round(t4), 
+      max 
+    };
+  };
+  
+  const thresholds = getLogThresholds(packetCounts);
+
   return (
     <>
       {visibleConnections.map((connection) => {
@@ -380,14 +416,34 @@ function AllNeighborLines({
           [connection.target_latitude, connection.target_longitude]
         ];
         
+        // Different colors based on connection type and logarithmic packet count
+        const getConnectionColor = (connectionType: string, packetCount: number) => {
+          if (connectionType === 'direct') {
+            return '#8b5cf6'; // Purple for direct connections
+          }
+          
+          // For path connections, use logarithmic thresholds for color intensity
+          if (packetCount >= thresholds.t4) return '#dc2626'; // Red for highest log range
+          if (packetCount >= thresholds.t3) return '#ea580c'; // Dark orange 
+          if (packetCount >= thresholds.t2) return '#f59e0b'; // Orange
+          if (packetCount >= thresholds.t1) return '#eab308'; // Yellow
+          if (packetCount > thresholds.min) return '#84cc16';  // Light green for above minimum
+          return '#6b7280'; // Gray for minimum traffic
+        };
+        
+        const lineColor = getConnectionColor(connection.connection_type, connection.packet_count);
+        
+        // Consistent line weight for all connections
+        const lineWeight = connection.connection_type === 'direct' ? 2 : 1;
+        
         return (
           <Polyline
-            key={`${connection.source_node}-${connection.target_node}`}
+            key={`${connection.source_node}-${connection.target_node}-${connection.connection_type}`}
             positions={positions}
             pathOptions={{
-              color: '#8b5cf6', // Purple color for all-neighbors view
-              weight: 1,
-              opacity: 0.5,
+              color: lineColor,
+              weight: lineWeight,
+              opacity: 0.7,
             }}
           />
         );
@@ -489,6 +545,9 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     }
     if (config?.lastSeen !== null && config?.lastSeen !== undefined) {
       params.push(`lastSeen=${config.lastSeen}`);
+    }
+    if (config?.selectedRegion) {
+      params.push(`region=${encodeURIComponent(config.selectedRegion)}`);
     }
     if (includeNeighbors) {
       params.push('includeNeighbors=true');
@@ -656,7 +715,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     return () => {
       fetchController.current?.abort();
     };
-  }, [bounds, config?.nodeTypes, config?.lastSeen, fetchNodes, showAllNeighbors]);
+  }, [bounds, config?.nodeTypes, config?.lastSeen, config?.selectedRegion, fetchNodes, showAllNeighbors]);
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
@@ -736,6 +795,83 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           />
         )}
       </MapContainer>
+      
+      {/* Traffic Legend */}
+      {showAllNeighbors && allNeighborConnections.length > 0 && (() => {
+        // Calculate logarithmic thresholds for legend display
+        const pathConnections = allNeighborConnections.filter(conn => conn.connection_type === 'path');
+        const packetCounts = pathConnections.map(conn => conn.packet_count).sort((a, b) => a - b);
+        const legendThresholds = packetCounts.length > 0 ? (() => {
+          const min = Math.max(1, packetCounts[0]);
+          const max = packetCounts[packetCounts.length - 1];
+          
+          if (min === max) {
+            return { min, t1: min, t2: min, t3: min, t4: min, max };
+          }
+          
+          const logMin = Math.log10(min);
+          const logMax = Math.log10(max);
+          const logRange = logMax - logMin;
+          
+          return {
+            min,
+            t1: Math.round(Math.pow(10, logMin + logRange * 0.2)),
+            t2: Math.round(Math.pow(10, logMin + logRange * 0.4)),
+            t3: Math.round(Math.pow(10, logMin + logRange * 0.6)),
+            t4: Math.round(Math.pow(10, logMin + logRange * 0.8)),
+            max
+          };
+        })() : null;
+
+        return legendThresholds && (
+          <div style={{ 
+            position: "absolute", 
+            bottom: 16, 
+            left: 16, 
+            zIndex: 1000, 
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            padding: '12px',
+            borderRadius: '8px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            fontSize: '12px',
+            fontFamily: 'monospace'
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+              Path Traffic - Log Scale ({pathConnections.length} connections)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '2px', backgroundColor: '#dc2626' }}></div>
+                <span>High: {legendThresholds.t4}+ packets</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '2px', backgroundColor: '#ea580c' }}></div>
+                <span>Med-High: {legendThresholds.t3}-{legendThresholds.t4 - 1}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '2px', backgroundColor: '#f59e0b' }}></div>
+                <span>Medium: {legendThresholds.t2}-{legendThresholds.t3 - 1}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '2px', backgroundColor: '#eab308' }}></div>
+                <span>Low-Med: {legendThresholds.t1}-{legendThresholds.t2 - 1}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '2px', backgroundColor: '#84cc16' }}></div>
+                <span>Low: {legendThresholds.min + 1}-{legendThresholds.t1 - 1}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '2px', backgroundColor: '#6b7280' }}></div>
+                <span>Minimal: {legendThresholds.min}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', paddingTop: '4px', borderTop: '1px solid #e5e7eb' }}>
+                <div style={{ width: '20px', height: '2px', backgroundColor: '#8b5cf6' }}></div>
+                <span>Direct connections</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 } 

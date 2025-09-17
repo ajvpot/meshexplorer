@@ -278,7 +278,7 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
   }
 }
 
-export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[]) {
+export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], region?: string) {
   try {
     // Build where conditions for visible nodes
     let visibleNodeWhereConditions = [
@@ -321,6 +321,10 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
 
     const meshcoreWhere = meshcoreWhereConditions.length > 0 ? `AND ${meshcoreWhereConditions.join(" AND ")}` : '';
 
+    // Build region filtering for meshcore_packets
+    const regionFilter = generateRegionWhereClause(region);
+    const packetsRegionWhere = regionFilter.whereClause ? `AND ${regionFilter.whereClause}` : '';
+
     const allNeighborsQuery = `
       WITH visible_nodes AS (
         -- Get only nodes visible on the current map view
@@ -353,11 +357,28 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
           ${meshcoreWhere}
         GROUP BY public_key
       ),
-      neighbor_connections AS (
+      repeater_prefixes AS (
+        -- Get repeater prefixes info, excluding collisions (multiple repeaters per prefix)
+        -- Only include repeaters from the selected region
+        SELECT 
+          substring(public_key, 1, 2) as prefix,
+          count() as node_count,
+          any(public_key) as representative_key,
+          any(node_name) as representative_name
+        FROM meshcore_adverts_latest 
+        WHERE is_repeater = 1 
+          AND last_seen >= now() - INTERVAL 2 DAY
+          ${regionFilter.whereClause ? `AND ${regionFilter.whereClause}` : ''}
+        GROUP BY prefix
+        HAVING node_count = 1  -- Only include prefixes with exactly one repeater
+      ),
+      direct_connections AS (
         -- Get all direct connections (path_len = 0) but only between visible nodes
         SELECT DISTINCT
           hex(origin_pubkey) as source_node,
-          public_key as target_node
+          public_key as target_node,
+          'direct' as connection_type,
+          1 as packet_count  -- Direct connections don't have packet counts, use 1 as default
         FROM meshcore_adverts 
         WHERE path_len = 0
           AND hex(origin_pubkey) != public_key
@@ -365,10 +386,82 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
           AND hex(origin_pubkey) IN (SELECT node_id FROM visible_nodes)
           AND public_key IN (SELECT node_id FROM visible_nodes)
           ${meshcoreWhere}
+      ),
+      path_neighbors AS (
+        -- Extract neighbors from routing paths with packet counts
+        SELECT 
+          source_prefix,
+          target_prefix,
+          'path' as connection_type,
+          count() as packet_count
+        FROM (
+          SELECT 
+            upper(hex(substring(path, i, 1))) as source_prefix,
+            upper(hex(substring(path, i + 1, 1))) as target_prefix
+          FROM (
+            SELECT 
+              path,
+              path_len
+            FROM meshcore_packets 
+            WHERE path_len >= 2
+              AND ingest_timestamp >= now() - INTERVAL 1 DAY
+              ${packetsRegionWhere}
+          ) p
+          ARRAY JOIN range(1, path_len) as i
+          WHERE i < path_len
+        ) path_pairs
+        WHERE source_prefix IN (SELECT prefix FROM repeater_prefixes)
+          AND target_prefix IN (SELECT prefix FROM repeater_prefixes)
+          AND source_prefix != target_prefix
+        GROUP BY source_prefix, target_prefix
+      ),
+      prefix_to_key_map AS (
+        -- Map prefixes back to full public keys for visible nodes
+        SELECT 
+          rp.prefix,
+          rp.representative_key as public_key,
+          rp.representative_name as node_name
+        FROM repeater_prefixes rp
+        WHERE rp.representative_key IN (SELECT node_id FROM visible_nodes)
+      ),
+      path_connections AS (
+        -- Convert prefix-based path neighbors to public key connections
+        -- Include all path connections (no exclusion of direct connections)
+        SELECT 
+          source_map.public_key as source_node,
+          target_map.public_key as target_node,
+          'path' as connection_type,
+          pn.packet_count
+        FROM path_neighbors pn
+        JOIN prefix_to_key_map source_map ON pn.source_prefix = source_map.prefix
+        JOIN prefix_to_key_map target_map ON pn.target_prefix = target_map.prefix
+      ),
+      direct_connections_filtered AS (
+        -- Get direct connections but exclude pairs that already have path connections
+        SELECT 
+          source_node,
+          target_node,
+          connection_type,
+          packet_count
+        FROM direct_connections
+        WHERE (source_node, target_node) NOT IN (
+          SELECT source_node, target_node FROM path_connections
+        )
+        AND (target_node, source_node) NOT IN (
+          SELECT source_node, target_node FROM path_connections
+        )
+      ),
+      neighbor_connections AS (
+        -- Combine path connections and filtered direct connections (path connections take precedence)
+        SELECT source_node, target_node, connection_type, packet_count FROM path_connections
+        UNION ALL
+        SELECT source_node, target_node, connection_type, packet_count FROM direct_connections_filtered
       )
       SELECT 
         connections.source_node,
         connections.target_node,
+        connections.connection_type,
+        connections.packet_count,
         source_details.node_name as source_name,
         source_details.latitude as source_latitude,
         source_details.longitude as source_longitude,
@@ -388,7 +481,7 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
         AND source_details.longitude IS NOT NULL
         AND target_details.latitude IS NOT NULL 
         AND target_details.longitude IS NOT NULL
-      ORDER BY connections.source_node, connections.target_node
+      ORDER BY connections.connection_type, connections.source_node, connections.target_node
     `;
     
     const neighborsResult = await clickhouse.query({ 
@@ -401,6 +494,8 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
     return neighbors as Array<{
       source_node: string;
       target_node: string;
+      connection_type: string;
+      packet_count: number;
       source_name: string;
       source_latitude: number;
       source_longitude: number;

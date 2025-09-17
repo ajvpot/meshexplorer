@@ -4,6 +4,8 @@ import { buildApiUrl } from '@/lib/api';
 export interface AllNeighborsConnection {
   source_node: string;
   target_node: string;
+  connection_type: string;
+  packet_count: number;
   source_name: string;
   source_latitude: number;
   source_longitude: number;
@@ -21,6 +23,7 @@ interface UseAllNeighborsParams {
   maxLng?: number | null;
   nodeTypes?: string[];
   lastSeen?: number | null;
+  region?: string;
   enabled?: boolean;
 }
 
@@ -31,10 +34,11 @@ export function useAllNeighbors({
   maxLng, 
   nodeTypes, 
   lastSeen, 
+  region,
   enabled = true 
 }: UseAllNeighborsParams) {
   return useQuery({
-    queryKey: ['allNeighbors', minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen],
+    queryKey: ['allNeighbors', minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen, region],
     queryFn: async (): Promise<AllNeighborsConnection[]> => {
       const params = new URLSearchParams();
       
@@ -55,6 +59,9 @@ export function useAllNeighbors({
       }
       if (lastSeen !== null && lastSeen !== undefined) {
         params.append('lastSeen', lastSeen.toString());
+      }
+      if (region) {
+        params.append('region', region);
       }
       
       const url = `/api/neighbors/all${params.toString() ? `?${params.toString()}` : ''}`;

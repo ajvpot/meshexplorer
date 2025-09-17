@@ -2,39 +2,24 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
 import { getChannelIdFromKey, deriveKeyFromChannelName } from "@/lib/meshcore";
 import { getRegionFriendlyNames } from "@/lib/regions";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Modal from "./Modal";
 
 // Config shape
-type NodeType = "meshcore" | "meshtastic";
 export type MeshcoreKey = {
   channelName: string;
   privateKey: string;
 };
 export type Config = {
-  nodeTypes: NodeType[]; // which node types to show
   lastSeen: number | null; // seconds, or null for forever
-  tileLayer: string; // add tileLayer selection
-  clustering?: boolean; // add clustering toggle
-  showNodeNames?: boolean; // add show node names toggle
   meshcoreKeys?: MeshcoreKey[]; // meshcore private keys
-  showMeshcoreCoverageOverlay?: boolean; // meshcore overlay toggle
   selectedRegion?: string; // selected region for chat messages
 };
 
-const TILE_LAYERS = [
-  { key: "openstreetmap", label: "OpenStreetMap" },
-  { key: "opentopomap", label: "OpenTopoMap" },
-  { key: "esri", label: "Esri World Imagery" },
-];
 
 const DEFAULT_CONFIG: Config = {
-  nodeTypes: ["meshcore"],
   lastSeen: 604800, // 1 week by default
-  tileLayer: "openstreetmap", // default
-  clustering: true, // default to clustering enabled
-  showNodeNames: true, // default to show node names
   meshcoreKeys: [], // default empty
-  showMeshcoreCoverageOverlay: false, // meshcore overlay default
   selectedRegion: undefined, // no region selected by default
 };
 
@@ -57,32 +42,10 @@ const PUBLIC_MESHCORE_KEY = {
 const ConfigContext = createContext<any>(null);
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
-  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
+  const [config, setConfig] = useLocalStorage<Config>("meshExplorerConfig", DEFAULT_CONFIG);
   const [open, setOpen] = useState(false);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const configButtonRef = useRef<HTMLElement | null>(null);
-  const firstRender = useRef(true);
-
-  // Load from localStorage
-  // todo: this causes a flash of the default config before the local storage is loaded. use suspense?
-  //       also causes race condition on the stats page if the defaults take longer to load than the selected region.
-  useEffect(() => {
-    const stored = localStorage.getItem("meshExplorerConfig");
-    if (stored) {
-      try {
-        setConfig({ ...DEFAULT_CONFIG, ...JSON.parse(stored) });
-      } catch {}
-    }
-  }, []);
-
-  // Save to localStorage
-  useEffect(() => {
-    if (!firstRender.current) {
-      localStorage.setItem("meshExplorerConfig", JSON.stringify(config));
-    } else {
-      firstRender.current = false;
-    }
-  }, [config]);
 
   // Expose openConfig for header button
   const openConfig = () => setOpen(true);
@@ -148,40 +111,7 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
       >
         <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
-      <h2 className="text-lg font-semibold mb-4">Map Filters</h2>
-      <div className="mb-4">
-        <div className="font-medium mb-2">Node Types</div>
-        <label className="flex items-center gap-2 mb-1">
-          <input
-            type="checkbox"
-            checked={config.nodeTypes.includes("meshcore")}
-            onChange={e => {
-              setConfig({
-                ...config,
-                nodeTypes: e.target.checked
-                  ? Array.from(new Set([...config.nodeTypes, "meshcore"]))
-                  : config.nodeTypes.filter(t => t !== "meshcore"),
-              });
-            }}
-          />
-          <span className="text-blue-700 dark:text-blue-400">Meshcore</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={config.nodeTypes.includes("meshtastic")}
-            onChange={e => {
-              setConfig({
-                ...config,
-                nodeTypes: e.target.checked
-                  ? Array.from(new Set([...config.nodeTypes, "meshtastic"]))
-                  : config.nodeTypes.filter(t => t !== "meshtastic"),
-              });
-            }}
-          />
-          <span className="text-green-600 dark:text-green-400">Meshtastic</span>
-        </label>
-      </div>
+      <h2 className="text-lg font-semibold mb-4">Settings</h2>
       <div className="mb-2">
         <div className="font-medium mb-2">Last Seen</div>
         <select
@@ -197,48 +127,6 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
             </option>
           ))}
         </select>
-      </div>
-      <div className="mb-2">
-        <div className="font-medium mb-2">Tile Layer</div>
-        <select
-          className="w-full p-2 border rounded"
-          value={config.tileLayer}
-          onChange={e => setConfig({ ...config, tileLayer: e.target.value })}
-        >
-          {TILE_LAYERS.map(opt => (
-            <option key={opt.key} value={opt.key}>{opt.label}</option>
-          ))}
-        </select>
-      </div>
-      <div className="mb-2">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={config.clustering !== false}
-            onChange={e => setConfig({ ...config, clustering: e.target.checked })}
-          />
-          <span>Enable marker clustering</span>
-        </label>
-      </div>
-      <div className="mb-2">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={config.showNodeNames !== false}
-            onChange={e => setConfig({ ...config, showNodeNames: e.target.checked })}
-          />
-          <span>Show node names</span>
-        </label>
-      </div>
-      <div className="mb-2">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={config.showMeshcoreCoverageOverlay === true}
-            onChange={e => setConfig({ ...config, showMeshcoreCoverageOverlay: e.target.checked })}
-          />
-          <span>Show meshcore coverage overlay</span>
-        </label>
       </div>
       <div className="mb-2">
         <button

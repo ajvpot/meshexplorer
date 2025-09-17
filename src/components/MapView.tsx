@@ -9,6 +9,8 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useConfig } from "./ConfigContext";
 import RefreshButton from "@/components/RefreshButton";
+import MapLayerSettingsComponent from "@/components/MapLayerSettings";
+import { type MapLayerSettings } from "@/hooks/useMapLayerSettings";
 import { NodeMarker, ClusterMarker, PopupContent } from "./MapIcons";
 import { renderToString } from "react-dom/server";
 import { buildApiUrl } from "@/lib/api";
@@ -36,6 +38,8 @@ type ClusteredMarkersProps = {
   onNodeClick: (nodeId: string | null) => void;
   isLoadingNeighbors?: boolean;
   target?: '_blank' | '_self' | '_parent' | '_top';
+  showNodeNames?: boolean;
+  enableClustering?: boolean;
 };
 
 // Individual marker component
@@ -254,12 +258,17 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
   return null;
 });
 
-const ClusteredMarkers = React.memo(function ClusteredMarkers({ nodes, selectedNodeId, onNodeClick, isLoadingNeighbors = false, target = '_self' }: ClusteredMarkersProps) {
-  const configResult = useConfig();
-  const config = configResult?.config;
-  const showNodeNames = config?.showNodeNames !== false;
+const ClusteredMarkers = React.memo(function ClusteredMarkers({ 
+  nodes, 
+  selectedNodeId, 
+  onNodeClick, 
+  isLoadingNeighbors = false, 
+  target = '_self',
+  showNodeNames = true,
+  enableClustering = true
+}: ClusteredMarkersProps) {
 
-  if (config?.clustering === false) {
+  if (!enableClustering) {
     // Render individual marker components
     return (
       <>
@@ -357,10 +366,12 @@ function NeighborLines({
 // Component to render all neighbor lines for all nodes
 function AllNeighborLines({ 
   connections, 
-  nodes 
+  nodes,
+  useColors = true
 }: { 
   connections: AllNeighborsConnection[]; 
   nodes: NodePosition[];
+  useColors?: boolean;
 }) {
   if (connections.length === 0) return null;
 
@@ -418,6 +429,11 @@ function AllNeighborLines({
         
         // Different colors based on connection type and logarithmic packet count
         const getConnectionColor = (connectionType: string, packetCount: number) => {
+          if (!useColors) {
+            // If colors are disabled, use consistent colors based on connection type
+            return connectionType === 'direct' ? '#8b5cf6' : '#6b7280'; // Purple for direct, gray for path
+          }
+          
           if (connectionType === 'direct') {
             return '#8b5cf6'; // Purple for direct connections
           }
@@ -466,6 +482,18 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
   const configResult = useConfig();
   const config = configResult?.config;
   
+  // Map layer settings state
+  const [mapLayerSettings, setMapLayerSettings] = useState<MapLayerSettings>({
+    showNodes: true,
+    showNodeNames: true,
+    enableClustering: true,
+    tileLayer: "openstreetmap",
+    showAllNeighbors: false,
+    useColors: true,
+    nodeTypes: ["meshcore"],
+    showMeshcoreCoverageOverlay: false,
+  });
+  
   // Use query params to persist map position
   const { query: mapQuery, updateQuery: updateMapQuery } = useQueryParams<MapQuery>({
     lat: DEFAULT.lat,
@@ -481,6 +509,11 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
   const [showAllNeighbors, setShowAllNeighbors] = useState<boolean>(false);
   const [allNeighborConnections, setAllNeighborConnections] = useState<AllNeighborsConnection[]>([]);
   const [allNeighborsLoading, setAllNeighborsLoading] = useState<boolean>(false);
+
+  // Update showAllNeighbors when mapLayerSettings changes
+  useEffect(() => {
+    setShowAllNeighbors(mapLayerSettings.showAllNeighbors);
+  }, [mapLayerSettings.showAllNeighbors]);
   
   // Use TanStack Query for neighbors data
   const { data: neighbors = [], isLoading: neighborsLoading } = useNeighbors({
@@ -507,7 +540,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
       maxZoom: 21,
     },
   };
-  const selectedTileLayer = tileLayerOptions[(config?.tileLayer as TileLayerKey) || 'openstreetmap'];
+  const selectedTileLayer = tileLayerOptions[(mapLayerSettings.tileLayer as TileLayerKey) || 'openstreetmap'];
 
   // Handle node hover
   const handleNodeClick = useCallback((nodeId: string | null) => {
@@ -538,8 +571,8 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
       params.push(`minLng=${minLng}`);
       params.push(`maxLng=${maxLng}`);
     }
-    if (config?.nodeTypes && config.nodeTypes.length > 0) {
-      for (const type of config.nodeTypes) {
+    if (mapLayerSettings.nodeTypes && mapLayerSettings.nodeTypes.length > 0) {
+      for (const type of mapLayerSettings.nodeTypes) {
         params.push(`nodeTypes=${encodeURIComponent(type)}`);
       }
     }
@@ -596,7 +629,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           setAllNeighborsLoading(false);
         }
       });
-  }, [config?.nodeTypes, config?.lastSeen]);
+  }, [mapLayerSettings.nodeTypes, config?.lastSeen]);
 
   function isBoundsInside(inner: [[number, number], [number, number]], outer: [[number, number], [number, number]]) {
     // inner: [[minLat, minLng], [maxLat, maxLng]]
@@ -639,7 +672,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
         ];
         // Only always refetch if we have too many nodes depending on clustering setting.
         if (
-          (lastResultCount > (config?.clustering ? 5000: 1000)) ||
+          (lastResultCount > (mapLayerSettings.enableClustering ? 5000: 1000)) ||
           !lastRequestedBounds.current ||
           !isBoundsInside(newBounds, lastRequestedBounds.current)
         ) {
@@ -674,7 +707,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
         ];
         // Only always refetch if clustering is disabled and lastResultCount > 1000
         if (
-          (config?.clustering === false && lastResultCount > 1000) ||
+          (!mapLayerSettings.enableClustering && lastResultCount > 1000) ||
           !lastRequestedBounds.current ||
           !isBoundsInside(newBounds, lastRequestedBounds.current)
         ) {
@@ -715,39 +748,20 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     return () => {
       fetchController.current?.abort();
     };
-  }, [bounds, config?.nodeTypes, config?.lastSeen, config?.selectedRegion, fetchNodes, showAllNeighbors]);
+  }, [bounds, mapLayerSettings.nodeTypes, config?.lastSeen, config?.selectedRegion, fetchNodes, showAllNeighbors]);
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      {/* Button Row */}
-      <div style={{ position: "absolute", top: 16, right: 16, zIndex: 1000, display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <button
-          onClick={() => {
-            const newShowAllNeighbors = !showAllNeighbors;
-            setShowAllNeighbors(newShowAllNeighbors);
-            if (newShowAllNeighbors && bounds) {
-              // Fetch with neighbors
-              fetchNodes(bounds, true);
-            } else if (!newShowAllNeighbors) {
-              // Clear neighbors when hiding
-              setAllNeighborConnections([]);
-            }
-          }}
-          disabled={allNeighborsLoading}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            showAllNeighbors 
-              ? 'bg-purple-600 text-white hover:bg-purple-700' 
-              : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-          } ${allNeighborsLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          title={showAllNeighbors ? "Hide all neighbors" : "Show all neighbors"}
-        >
-          {allNeighborsLoading ? 'Loading...' : showAllNeighbors ? 'Hide All Neighbors' : 'Show All Neighbors'}
-        </button>
+      {/* Button Column */}
+      <div style={{ position: "absolute", top: 16, right: 16, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
         <RefreshButton
           onClick={() => bounds && fetchNodes(bounds, showAllNeighbors)}
           loading={loading || !bounds}
           title="Refresh map nodes"
           ariaLabel="Refresh map nodes"
+        />
+        <MapLayerSettingsComponent
+          onSettingsChange={setMapLayerSettings}
         />
       </div>
         <MapContainer
@@ -764,7 +778,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           maxZoom={selectedTileLayer.maxZoom}
           {...(selectedTileLayer.subdomains ? { subdomains: selectedTileLayer.subdomains } : {})}
         />
-        {config?.showMeshcoreCoverageOverlay && (
+        {mapLayerSettings.showMeshcoreCoverageOverlay && (
           <TileLayer
             url="https://tiles.w0z.is/tiles/{z}/{x}/{y}.png"
             attribution="Meshcore Coverage &copy; <a href='https://w0z.is/'>w0z.is</a>"
@@ -776,13 +790,17 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
             opacity={0.7}
           />
         )}
-        <ClusteredMarkers 
-          nodes={nodePositions} 
-          selectedNodeId={selectedNodeId}
-          onNodeClick={handleNodeClick}
-          isLoadingNeighbors={neighborsLoading}
-          target={target}
-        />
+        {mapLayerSettings.showNodes && (
+          <ClusteredMarkers 
+            nodes={nodePositions} 
+            selectedNodeId={selectedNodeId}
+            onNodeClick={handleNodeClick}
+            isLoadingNeighbors={neighborsLoading}
+            target={target}
+            showNodeNames={mapLayerSettings.showNodeNames}
+            enableClustering={mapLayerSettings.enableClustering}
+          />
+        )}
         <NeighborLines 
           selectedNodeId={selectedNodeId}
           neighbors={neighbors}
@@ -792,12 +810,13 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           <AllNeighborLines 
             connections={allNeighborConnections}
             nodes={nodePositions}
+            useColors={mapLayerSettings.useColors}
           />
         )}
       </MapContainer>
       
       {/* Traffic Legend */}
-      {showAllNeighbors && allNeighborConnections.length > 0 && (() => {
+      {showAllNeighbors && mapLayerSettings.useColors && allNeighborConnections.length > 0 && (() => {
         // Calculate logarithmic thresholds for legend display
         const pathConnections = allNeighborConnections.filter(conn => conn.connection_type === 'path');
         const packetCounts = pathConnections.map(conn => conn.packet_count).sort((a, b) => a - b);

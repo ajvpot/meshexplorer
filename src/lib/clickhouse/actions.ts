@@ -388,18 +388,21 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
           ${meshcoreWhere}
       ),
       path_neighbors AS (
-        -- Extract neighbors from routing paths with packet counts
+        -- Extract neighbors from routing paths with unique payload counts
+        -- Group by payload first to avoid double counting same message propagation
         SELECT 
           source_prefix,
           target_prefix,
           'path' as connection_type,
           count() as packet_count
         FROM (
-          SELECT 
+          SELECT DISTINCT
+            payload,
             upper(hex(substring(path, i, 1))) as source_prefix,
             upper(hex(substring(path, i + 1, 1))) as target_prefix
           FROM (
-            SELECT 
+            SELECT DISTINCT
+              payload,
               path,
               path_len
             FROM meshcore_packets 

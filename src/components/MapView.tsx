@@ -856,7 +856,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
             fontFamily: 'monospace'
           }}>
             <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
-              Path Traffic - Log Scale ({pathConnections.length} connections)
+              Path Traffic
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -885,7 +885,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', paddingTop: '4px', borderTop: '1px solid #e5e7eb' }}>
                 <div style={{ width: '20px', height: '2px', backgroundColor: '#8b5cf6' }}></div>
-                <span>Direct connections</span>
+                <span>MQTT connections</span>
               </div>
             </div>
           </div>

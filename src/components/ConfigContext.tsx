@@ -129,14 +129,6 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
         </select>
       </div>
       <div className="mb-2">
-        <button
-          className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
-          onClick={onOpenKeyModal}
-        >
-          Manage Channel Keys
-        </button>
-      </div>
-      <div className="mb-2">
         <div className="font-medium mb-2">Region</div>
         <select
           className="w-full p-2 border rounded"
@@ -151,6 +143,14 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
         <p className="text-xs text-gray-500 mt-1">
           Select a region to filter chat messages and stats
         </p>
+      </div>
+      <div className="mb-2">
+        <button
+          className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
+          onClick={onOpenKeyModal}
+        >
+          Manage Channel Keys
+        </button>
       </div>
     </div>
   );

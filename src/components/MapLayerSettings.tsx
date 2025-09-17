@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
 import { useMapLayerSettings, TILE_LAYERS, NODE_TYPE_OPTIONS, type MapLayerSettings } from '@/hooks/useMapLayerSettings';
+import { Square3Stack3DIcon } from '@heroicons/react/24/outline';
 
 interface MapLayerSettingsProps {
   onSettingsChange?: (settings: MapLayerSettings) => void;
@@ -50,9 +51,7 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
         aria-label="Map layer settings"
       >
         {/* Layers icon */}
-        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <Square3Stack3DIcon className="w-5 h-5" />
       </button>
 
       {isOpen && (
@@ -137,24 +136,6 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
             </span>
           </label>
 
-          {/* Tile layer */}
-          <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Tile layer
-            </label>
-            <select
-              value={settings.tileLayer}
-              onChange={(e) => updateSetting('tileLayer', e.target.value)}
-              className="w-full p-2 border border-gray-300 dark:border-neutral-600 rounded text-sm bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300"
-            >
-              {TILE_LAYERS.map(layer => (
-                <option key={layer.key} value={layer.key}>
-                  {layer.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Show all neighbors */}
           <label className="flex items-center gap-2 mb-2 cursor-pointer">
             <input
@@ -183,6 +164,24 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
               Use colors
             </span>
           </label>
+
+          {/* Tile layer */}
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Tile layer
+            </label>
+            <select
+              value={settings.tileLayer}
+              onChange={(e) => updateSetting('tileLayer', e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-neutral-600 rounded text-sm bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300"
+            >
+              {TILE_LAYERS.map(layer => (
+                <option key={layer.key} value={layer.key}>
+                  {layer.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Show meshcore coverage overlay 
           <label className="flex items-center gap-2 mb-3 cursor-pointer">

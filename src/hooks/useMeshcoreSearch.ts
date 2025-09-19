@@ -38,7 +38,7 @@ export interface SearchQuery {
 const searchBatcher = create({
   fetcher: async (queries: SearchQuery[]) => {
     const normalizedQueries = queries.map(q => ({
-      query: q.query?.trim() || "",
+      query: (typeof q.query === 'string' ? q.query.trim() : String(q.query || '').trim()) || "",
       region: q.region || undefined,
       lastSeen: q.lastSeen !== null && q.lastSeen !== undefined ? q.lastSeen : undefined,
       limit: q.limit || 50,
@@ -101,7 +101,7 @@ export function useMeshcoreSearch({
   enabled = true 
 }: UseMeshcoreSearchParams) {
   // Stabilize the search query object to prevent unnecessary re-renders
-  const trimmedQuery = query.trim();
+  const trimmedQuery = typeof query === 'string' ? query.trim() : String(query || '').trim();
   const searchQuery: SearchQuery = useMemo(() => ({
     query: trimmedQuery,
     region,
@@ -134,7 +134,7 @@ export function useMeshcoreSearch({
         signal?.removeEventListener('abort', handleAbort);
       }
     },
-    enabled: enabled && query.trim().length > 0,
+    enabled: enabled && (typeof query === 'string' ? query.trim() : String(query || '').trim()).length > 0,
     staleTime: 1000, // Reduce stale time to be more responsive to typing
     gcTime: 30 * 1000, // Reduce garbage collection time
     retry: 1,
@@ -169,7 +169,7 @@ export function useMeshcoreSearches({ searches }: UseMeshcoreSearchesParams) {
         enabled = true
       } = searchParams;
 
-      const trimmedQuery = query.trim();
+      const trimmedQuery = typeof query === 'string' ? query.trim() : String(query || '').trim();
       const searchQuery: SearchQuery = {
         query: trimmedQuery,
         region,

@@ -13,7 +13,8 @@ export function useQueryParams<T extends Record<string, any>>(defaultValues: T =
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       urlParams.forEach((value, key) => {
-        if (!isNaN(Number(value)) && value !== '') {
+        // Don't auto-convert 'q' (query) parameter to number since it should always be a string
+        if (key !== 'q' && !isNaN(Number(value)) && value !== '') {
           result[key as keyof T] = Number(value) as T[keyof T];
         } else {
           result[key as keyof T] = value as T[keyof T];
@@ -33,7 +34,8 @@ export function useQueryParams<T extends Record<string, any>>(defaultValues: T =
     const newState = { ...defaultValues };
     
     searchParams.forEach((value, key) => {
-      if (!isNaN(Number(value)) && value !== '') {
+      // Don't auto-convert 'q' (query) parameter to number since it should always be a string
+      if (key !== 'q' && !isNaN(Number(value)) && value !== '') {
         newState[key as keyof T] = Number(value) as T[keyof T];
       } else {
         newState[key as keyof T] = value as T[keyof T];

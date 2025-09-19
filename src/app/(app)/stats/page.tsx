@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useConfig } from "@/components/ConfigContext";
 import { getRegionConfig } from "@/lib/regions";
 import { 
@@ -9,6 +10,19 @@ import {
   useRepeaterPrefixes, 
   useUnusedPrefixes 
 } from "@/hooks/useStats";
+import Link from "next/link";
+
+// Component for anchor links next to section headings
+function AnchorLink({ id }: { id: string }) {
+  return (
+    <Link
+      href={`#${id}`}
+      className="ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+    >
+      #
+    </Link>
+  );
+}
 
 export default function StatsPage() {
   const { config } = useConfig();
@@ -45,6 +59,24 @@ export default function StatsPage() {
     ? getRegionConfig(config.selectedRegion)?.friendlyName || config.selectedRegion
     : null;
 
+  // Handle scrolling to anchor after data loads
+  useEffect(() => {
+    if (!isLoading && !error) {
+      // Small delay to ensure DOM is fully rendered
+      const timer = setTimeout(() => {
+        const hash = window.location.hash;
+        if (hash) {
+          const element = document.getElementById(hash.substring(1));
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+          }
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, error]);
+
   return (
     <div className="max-w-2xl w-full mx-auto my-4 py-2 px-4 text-gray-800 dark:text-gray-200 bg-white dark:bg-neutral-900 rounded-lg shadow-lg">
       <div className="flex items-center justify-between mb-6">
@@ -68,12 +100,18 @@ export default function StatsPage() {
       ) : (
         <>
           <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">Total Unique Nodes</h2>
+            <div className="group flex items-center">
+              <h2 id="total-nodes" className="text-lg font-semibold mb-2">Total Unique Nodes</h2>
+              <AnchorLink id="total-nodes" />
+            </div>
             <div className="text-3xl font-mono">{totalNodes}</div>
           </div>
 
           <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">Nodes Heard Over Time</h2>
+            <div className="group flex items-center">
+              <h2 id="nodes-over-time" className="text-lg font-semibold mb-2">Nodes Heard Over Time</h2>
+              <AnchorLink id="nodes-over-time" />
+            </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Shows nodes heard within the last 7 days by date.
             </p>
@@ -106,7 +144,10 @@ export default function StatsPage() {
           </div>
 
           <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">Most Popular Channels</h2>
+            <div className="group flex items-center">
+              <h2 id="popular-channels" className="text-lg font-semibold mb-2">Most Popular Channels</h2>
+              <AnchorLink id="popular-channels" />
+            </div>
             <table className="w-full text-sm border">
               <thead>
                 <tr>
@@ -126,7 +167,10 @@ export default function StatsPage() {
           </div>
 
           <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">Used Repeater Prefixes</h2>
+            <div className="group flex items-center">
+              <h2 id="used-prefixes" className="text-lg font-semibold mb-2">Used Repeater Prefixes</h2>
+              <AnchorLink id="used-prefixes" />
+            </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Shows repeater nodes grouped by the first byte of their public key, seen within the last 2 days.
             </p>
@@ -161,7 +205,10 @@ export default function StatsPage() {
           </div>
 
           <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">Unused Repeater Prefixes</h2>
+            <div className="group flex items-center">
+              <h2 id="unused-prefixes" className="text-lg font-semibold mb-2">Unused Repeater Prefixes</h2>
+              <AnchorLink id="unused-prefixes" />
+            </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Public key prefixes that are not currently used by any repeater nodes. Click to generate a key.
             </p>

@@ -250,7 +250,11 @@ export function formatMeshcoreMessageForDiscord(
   
   // Create URL to search page with node name prefilled and exact match enabled
   const senderSearchUrl = createNodeSearchUrl(sender);
-  const content = `${processedText}\n-# _Heard ${heardCount} times_ | [Node Info](${senderSearchUrl})`;
+  
+  // Create analyze link for message packets
+  const analyzeUrl = `https://analyzer.letsme.sh/packets?packet_hash=${message.message_id}`;
+  
+  const content = `${processedText}\n-# _Heard ${heardCount} times_ | [Node Info](${senderSearchUrl}) | [Analyze](${analyzeUrl})`;
 
   // Generate profile picture URL using the new API
   const profilePictureUrl = `https://map.w0z.is/api/meshcore/profilepicture.png?name=${encodeURIComponent(sender)}&v=3`;

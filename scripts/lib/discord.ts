@@ -44,6 +44,7 @@ export class DiscordWebhookClient {
   private webhookUrl: string;
   private threadId?: string;
   private messageIdMap: Map<string, string> = new Map(); // message_id -> discord_message_id
+  private processingPromises: Map<string, Promise<DiscordWebhookResponse>> = new Map(); // Track ongoing operations
 
   constructor(webhookUrl: string, threadId?: string) {
     this.webhookUrl = webhookUrl;
@@ -115,6 +116,51 @@ export class DiscordWebhookClient {
     messageId: string, 
     message: DiscordWebhookMessage
   ): Promise<DiscordWebhookResponse> {
+    // Check if this message is already being processed
+    const existingPromise = this.processingPromises.get(messageId);
+    if (existingPromise) {
+      console.log(`Message ${messageId} is already being processed, awaiting existing operation`);
+      try {
+        // Wait for the existing operation to complete
+        const result = await existingPromise;
+        console.log(`Awaited existing operation for message ${messageId}, result: ${result.id}`);
+        
+        // After the first operation completes, we might need to update with new content
+        const discordId = this.messageIdMap.get(messageId);
+        if (discordId) {
+          console.log(`Updating Discord message ${discordId} with new content for message ${messageId}`);
+          return await this.updateMessage(discordId, message);
+        }
+        
+        return result;
+      } catch (error) {
+        console.warn(`Existing operation for message ${messageId} failed, will retry:`, error);
+        // If the existing operation failed, we'll fall through to create a new one
+      }
+    }
+
+    // Create a new operation promise
+    const operationPromise = this.performPostOrUpdate(messageId, message);
+    
+    // Store the promise to prevent concurrent operations
+    this.processingPromises.set(messageId, operationPromise);
+    
+    try {
+      const result = await operationPromise;
+      return result;
+    } finally {
+      // Clean up the promise from the map
+      this.processingPromises.delete(messageId);
+    }
+  }
+
+  /**
+   * Internal method to perform the actual post or update operation
+   */
+  private async performPostOrUpdate(
+    messageId: string, 
+    message: DiscordWebhookMessage
+  ): Promise<DiscordWebhookResponse> {
     const existingDiscordId = this.messageIdMap.get(messageId);
     
     if (existingDiscordId) {
@@ -165,10 +211,18 @@ export class DiscordWebhookClient {
   }
 
   /**
-   * Clear all message ID mappings
+   * Clear all message ID mappings and processing state
    */
   clearMappings(): void {
     this.messageIdMap.clear();
+    this.processingPromises.clear();
+  }
+
+  /**
+   * Get the current processing state (for debugging)
+   */
+  getProcessingMessages(): Set<string> {
+    return new Set(this.processingPromises.keys());
   }
 }
 

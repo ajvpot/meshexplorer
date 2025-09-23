@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import moment from "moment";
-import PathVisualization, { PathData } from "./PathVisualization";
+import PathVisualization from "./PathVisualization";
+import { PathData } from "@/lib/pathUtils";
 
 interface AdvertDetailsProps {
   advert: {

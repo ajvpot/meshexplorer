@@ -13,11 +13,14 @@ import { ChevronDownIcon } from '@heroicons/react/24/outline';
 
 function SearchPageContent() {
   const { config } = useConfig();
-  const { query, setQuery, setLimit, setExact } = useSearchQuery();
+  const { query, setQuery, setLimit, setExact, setIsRepeater } = useSearchQuery();
   const [showFilters, setShowFilters] = useState(false);
 
   // Helper function to check if exact search is enabled
   const isExactEnabled = query.exact === true || (typeof query.exact === 'string' && (query.exact === 'true' || query.exact === ''));
+  
+  // Helper function to check if is_repeater search is enabled
+  const isRepeaterEnabled = query.is_repeater === true || (typeof query.is_repeater === 'string' && (query.is_repeater === 'true' || query.is_repeater === ''));
 
   // Always use config values for region and lastSeen
   const searchParams = {
@@ -26,6 +29,7 @@ function SearchPageContent() {
     lastSeen: config.lastSeen,
     limit: query.limit || 50,
     exact: isExactEnabled,
+    is_repeater: isRepeaterEnabled,
   };
 
   const { data, isLoading, error } = useMeshcoreSearch({
@@ -82,7 +86,7 @@ function SearchPageContent() {
 
           {showFilters && (
             <div className="mt-4 p-4 bg-white dark:bg-neutral-800 rounded-lg border border-gray-200 dark:border-neutral-700">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {/* Region Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -151,6 +155,25 @@ function SearchPageContent() {
                     />
                     <label htmlFor="exact-match" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                       Exact match only
+                    </label>
+                  </div>
+                </div>
+
+                {/* Repeater Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Node Type
+                  </label>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="is-repeater"
+                      checked={isRepeaterEnabled}
+                      onChange={(e) => setIsRepeater(e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="is-repeater" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      Repeaters only
                     </label>
                   </div>
                 </div>

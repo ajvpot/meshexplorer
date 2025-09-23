@@ -5,7 +5,6 @@ import Link from "next/link";
 import moment from "moment";
 import { formatPublicKey } from "@/lib/meshcore";
 import { getNameIconLabel } from "@/lib/meshcore-map-nodeutils";
-import PathDisplay from "@/components/PathDisplay";
 import AdvertDetails from "@/components/AdvertDetails";
 import ContactQRCode from "@/components/ContactQRCode";
 import { useConfig, LAST_SEEN_OPTIONS } from "@/components/ConfigContext";

@@ -11,11 +11,15 @@ import NodeCard from '@/components/NodeCard';
 interface NodeLinkWithHoverProps {
   nodeName: string;
   children: React.ReactNode;
+  exact?: boolean;
+  is_repeater?: boolean;
 }
 
 export default function NodeLinkWithHover({ 
   nodeName, 
-  children 
+  children,
+  exact = false,
+  is_repeater = false
 }: NodeLinkWithHoverProps) {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isWaitingForSearch, setIsWaitingForSearch] = useState(false);
@@ -32,7 +36,8 @@ export default function NodeLinkWithHover({
     region: config.selectedRegion,
     lastSeen: config.lastSeen,
     limit: 10,
-    exact: true,
+    exact: exact,
+    is_repeater: is_repeater,
     enabled: !!nodeName
   });
 
@@ -49,7 +54,11 @@ export default function NodeLinkWithHover({
     if (foundNode) return `/meshcore/node/${foundNode.public_key}`;
     
     // If no results or multiple results, link to search page
-    return `/search?q=${encodeURIComponent(nodeName)}&exact`;
+    const searchUrl = `/search?q=${encodeURIComponent(nodeName)}`;
+    const params = [];
+    if (exact) params.push('exact');
+    if (is_repeater) params.push('is_repeater');
+    return searchUrl + (params.length > 0 ? '&' + params.join('&') : '');
   })();
 
   // Handle click behavior
@@ -75,11 +84,17 @@ export default function NodeLinkWithHover({
       // Calculate navigation URL directly here since linkHref might still be "#"
       const navigationUrl = foundNode 
         ? `/meshcore/node/${foundNode.public_key}`
-        : `/search?q=${encodeURIComponent(nodeName)}&exact`;
+        : (() => {
+            const searchUrl = `/search?q=${encodeURIComponent(nodeName)}`;
+            const params = [];
+            if (exact) params.push('exact');
+            if (is_repeater) params.push('is_repeater');
+            return searchUrl + (params.length > 0 ? '&' + params.join('&') : '');
+          })();
       
       router.push(navigationUrl);
     }
-  }, [isWaitingForSearch, isSearchLoading, foundNode, router, nodeName, searchData]);
+  }, [isWaitingForSearch, isSearchLoading, foundNode, router, nodeName, searchData, exact, is_repeater]);
 
   // Popover content component
   const PopoverContent = () => {

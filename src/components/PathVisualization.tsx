@@ -6,27 +6,18 @@ import Link from "next/link";
 import Tree from 'react-d3-tree';
 import { ArrowsPointingOutIcon, ArrowsPointingInIcon } from "@heroicons/react/24/outline";
 import { ExternalLink } from "lucide-react";
-import PathDisplay from "./PathDisplay";
+import NodeLinkWithHover from "./NodeLinkWithHover";
 import { useMeshcoreSearches } from "@/hooks/useMeshcoreSearch";
 import type { MeshcoreSearchResult } from "@/hooks/useMeshcoreSearch";
 import { useConfigWithRegion } from "@/hooks/useConfigWithRegion";
-
-export interface PathData {
-  origin: string;
-  pubkey: string;
-  path: string;
-}
-
-interface PathGroup {
-  path: string;
-  pathSlices: string[];
-  indices: number[];
-}
-
-interface TreeNode {
-  name: string;
-  children?: TreeNode[];
-}
+import { 
+  PathData, 
+  PathGroup, 
+  TreeNode, 
+  groupPathsByStructure, 
+  buildTreeFromPathGroups, 
+  extractUniquePrefixes 
+} from "@/lib/pathUtils";
 
 interface PathVisualizationProps {
   paths: PathData[];
@@ -53,77 +44,23 @@ export default function PathVisualization({
   const { config } = useConfigWithRegion();
   const pathsCount = paths.length;
 
+  // Group paths by structure
+  const pathGroups = useMemo(() => 
+    groupPathsByStructure(paths), 
+    [paths]
+  );
+
   // Process data for tree visualization
   const treeData = useMemo(() => {
     if (!showGraph || pathsCount === 0) return null;
-
-    // Group messages by path similarity
-    const pathGroups: PathGroup[] = [];
-    
-    paths.forEach(({ origin, pubkey, path }, index) => {
-      // Parse path into 2-character slices and include pubkey as final hop
-      const pathSlices = path.match(/.{1,2}/g) || [];
-      const pubkeyPrefix = pubkey.substring(0, 2);
-      const fullPathSlices = [...pathSlices, pubkeyPrefix];
-      
-      // Find existing group with same path structure
-      const existingGroup = pathGroups.find(group => 
-        group.pathSlices.length === fullPathSlices.length &&
-        group.pathSlices.every((slice, i) => slice === fullPathSlices[i])
-      );
-      
-      if (existingGroup) {
-        existingGroup.indices.push(index);
-      } else {
-        pathGroups.push({
-          path: path + pubkeyPrefix,
-          pathSlices: fullPathSlices,
-          indices: [index]
-        });
-      }
-    });
-
-    // Build tree structure for react-d3-tree
-    const buildTree = (): TreeNode => {
-      const rootName = initiatingNodeKey ? initiatingNodeKey.substring(0, 2) : "??";
-      const root: TreeNode = { name: rootName, children: [] };
-      
-      pathGroups.forEach(group => {
-        let currentNode = root;
-        
-        group.pathSlices.forEach((slice, level) => {
-          let child = currentNode.children?.find(c => c.name === slice);
-          
-          if (!child) {
-            child = { name: slice, children: [] };
-            if (!currentNode.children) currentNode.children = [];
-            currentNode.children.push(child);
-          }
-          
-          currentNode = child;
-        });
-      });
-      
-      return root;
-    };
-
-    return buildTree();
-  }, [showGraph, paths, pathsCount, initiatingNodeKey]);
+    return buildTreeFromPathGroups(pathGroups, initiatingNodeKey);
+  }, [showGraph, pathsCount, pathGroups, initiatingNodeKey]);
 
   // Extract unique prefixes from tree data for name lookups
-  const uniquePrefixes = useMemo(() => {
-    if (!treeData) return [];
-    
-    const prefixes = new Set<string>();
-    
-    const extractPrefixes = (node: TreeNode) => {
-      prefixes.add(node.name);
-      node.children?.forEach(extractPrefixes);
-    };
-    
-    extractPrefixes(treeData);
-    return Array.from(prefixes);
-  }, [treeData]);
+  const uniquePrefixes = useMemo(() => 
+    extractUniquePrefixes(treeData), 
+    [treeData]
+  );
 
   // Use the new useMeshcoreSearches hook to handle multiple prefix searches
   // Filter out "??" prefix and only search for valid hex prefixes
@@ -187,23 +124,27 @@ export default function PathVisualization({
 
   const PathsList = useCallback(() => (
     <div className="mt-1 p-2 bg-gray-100 dark:bg-neutral-700 rounded text-xs break-all text-gray-800 dark:text-gray-200">
-      {paths.map(({ origin, pubkey, path }, index) => (
-        <div key={index} className="flex items-center gap-2">
-          <Link 
-            href={`/meshcore/node/${pubkey}`}
-            className="hover:underline cursor-pointer"
-          >
-            {origin}
-          </Link>
-          <PathDisplay 
-            path={path} 
-            origin_pubkey={pubkey} 
-            className="text-xs"
-          />
+      {pathGroups.map((group, groupIndex) => (
+        <div key={groupIndex} className="mb-2 last:mb-0">
+          <div className="flex flex-wrap gap-1 ml-2 items-center">
+            {group.pathSlices.map((slice, sliceIndex) => (
+              <NodeLinkWithHover key={sliceIndex} nodeName={slice} exact={false} is_repeater={true}>
+                <span className="text-gray-800 dark:text-gray-200 text-xs">
+                  {slice}
+                </span>
+              </NodeLinkWithHover>
+            ))}
+            {group.count > 1 && (
+              <span className="text-gray-500 dark:text-gray-400 text-xs ml-1">
+                (x{group.count})
+                {/* TODO: this doesnt work? */}
+              </span>
+            )}
+          </div>
         </div>
       ))}
     </div>
-  ), [paths]);
+  ), [pathGroups]);
 
   // Memoize the render function to prevent unnecessary re-renders
   const renderCustomNodeElement = useCallback(({ nodeDatum, toggleNode }: any) => {
@@ -333,7 +274,7 @@ export default function PathVisualization({
       <div className={className}>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-sm text-gray-600 dark:text-gray-300">
-            {pathsCount} path{pathsCount !== 1 ? 's' : ''}
+            Heard {pathsCount} time{pathsCount !== 1 ? 's' : ''}
           </span>
           {pathsCount > 0 && (
             <button
@@ -368,7 +309,7 @@ export default function PathVisualization({
           onClick={handleToggle}
           className="flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
         >
-          <span>{pathsCount} path{pathsCount !== 1 ? 's' : ''}</span>
+          <span>Heard {pathsCount} time{pathsCount !== 1 ? 's' : ''}</span>
           <svg
             className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
             fill="none"

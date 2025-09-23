@@ -109,16 +109,18 @@ export interface SearchQuery {
   q: string;
   limit?: number;
   exact?: boolean;
+  is_repeater?: boolean;
 }
 
 export function useSearchQuery() {
-  const { query, setParam } = useQueryParams<SearchQuery>({ q: '', limit: 50, exact: false });
+  const { query, setParam } = useQueryParams<SearchQuery>({ q: '', limit: 50, exact: false, is_repeater: false });
   
   return {
     query,
     setQuery: (q: string) => setParam('q', q),
     setLimit: (limit: number) => setParam('limit', limit),
     setExact: (exact: boolean) => setParam('exact', exact),
+    setIsRepeater: (is_repeater: boolean) => setParam('is_repeater', is_repeater),
     updateQuery: (updates: Partial<SearchQuery>) => {
       Object.entries(updates).forEach(([key, value]) => {
         setParam(key as keyof SearchQuery, value as any);

@@ -30,9 +30,9 @@ export async function POST(req: Request) {
       });
     }
     
-    if (body.queries.length > 50) {
+    if (body.queries.length > 500) {
       return NextResponse.json({ 
-        error: "Maximum 50 queries allowed per batch",
+        error: "Maximum 500 queries allowed per batch",
         code: "TOO_MANY_QUERIES"
       }, { status: 400 });
     }

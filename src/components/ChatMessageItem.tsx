@@ -2,7 +2,8 @@
 import React, { useMemo } from "react";
 import { useConfig } from "./ConfigContext";
 import { useMessageDecryption } from "@/hooks/useMessageDecryption";
-import PathVisualization, { PathData } from "./PathVisualization";
+import PathVisualization from "./PathVisualization";
+import { PathData } from "@/lib/pathUtils";
 import NodeLinkWithHover from "./NodeLinkWithHover";
 import { findNodeMentions } from "@/lib/node-utils";
 
@@ -90,6 +91,7 @@ function ChatMessageContent({ text }: { text: string }) {
             <NodeLinkWithHover 
               key={index}
               nodeName={nodeName}
+              exact={true}
             >
               @{nodeName}
             </NodeLinkWithHover>
@@ -149,6 +151,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
           {parsed.sender ? (
             <NodeLinkWithHover 
               nodeName={parsed.sender}
+              exact={true}
             >
               {parsed.sender}
             </NodeLinkWithHover>

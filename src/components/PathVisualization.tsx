@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Tree from 'react-d3-tree';
 import { ArrowsPointingOutIcon, ArrowsPointingInIcon } from "@heroicons/react/24/outline";
+import { ExternalLink } from "lucide-react";
 import PathDisplay from "./PathDisplay";
 import { useMeshcoreSearches } from "@/hooks/useMeshcoreSearch";
 import type { MeshcoreSearchResult } from "@/hooks/useMeshcoreSearch";
@@ -33,6 +34,7 @@ interface PathVisualizationProps {
   className?: string;
   showDropdown?: boolean;
   initiatingNodeKey?: string;
+  packetHash?: string;
 }
 
 
@@ -41,7 +43,8 @@ export default function PathVisualization({
   title = "Paths", 
   className = "",
   showDropdown = true,
-  initiatingNodeKey
+  initiatingNodeKey,
+  packetHash
 }: PathVisualizationProps) {
   const [expanded, setExpanded] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
@@ -340,6 +343,17 @@ export default function PathVisualization({
               <span>{showGraph ? 'Hide Graph' : 'Show Graph'}</span>
             </button>
           )}
+          {packetHash && (
+            <a
+              href={`https://analyzer.letsme.sh/packets?packet_hash=${packetHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-100 transition-colors text-sm"
+            >
+              <span>Analyze</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
         </div>
         <PathsList />
         {showGraph && <GraphView />}
@@ -372,6 +386,18 @@ export default function PathVisualization({
           >
             <span>{showGraph ? 'Hide Graph' : 'Show Graph'}</span>
           </button>
+        )}
+        
+        {packetHash && (
+          <a
+            href={`https://analyzer.letsme.sh/packets?packet_hash=${packetHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
+          >
+            <span>Analyze</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
         )}
       </div>
       

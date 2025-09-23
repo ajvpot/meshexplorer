@@ -157,7 +157,7 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
     // Get recent adverts grouped by adv_timestamp with origin_path_pubkey tuples
     const advertsQuery = `
       SELECT 
-        adv_timestamp,
+        argMax(adv_timestamp, ingest_timestamp) as adv_timestamp,
         groupArray((origin, path, origin_pubkey)) as origin_path_pubkey_tuples,
         count() as advert_count,
         min(ingest_timestamp) as earliest_timestamp,
@@ -167,7 +167,8 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
         argMax(is_repeater, ingest_timestamp) as is_repeater,
         argMax(is_chat_node, ingest_timestamp) as is_chat_node,
         argMax(is_room_server, ingest_timestamp) as is_room_server,
-        argMax(has_location, ingest_timestamp) as has_location
+        argMax(has_location, ingest_timestamp) as has_location,
+        packet_hash
       FROM (
         SELECT 
           ingest_timestamp,
@@ -182,12 +183,13 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
           is_room_server,
           has_location,
           hex(origin_pubkey) as origin_pubkey,
-          origin
+          origin,
+          packet_hash
         FROM meshcore_adverts 
         WHERE public_key = {publicKey:String}
         ORDER BY ingest_timestamp DESC
       )
-      GROUP BY adv_timestamp
+      GROUP BY packet_hash
       ORDER BY max(ingest_timestamp) DESC
       LIMIT {limit:UInt32}
     `;

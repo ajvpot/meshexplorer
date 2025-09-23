@@ -29,6 +29,7 @@ export interface Advert {
   is_chat_node: number;
   is_room_server: number;
   has_location: number;
+  packet_hash: string;
 }
 
 export interface LocationHistory {

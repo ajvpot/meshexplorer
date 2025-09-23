@@ -17,6 +17,7 @@ interface AdvertDetailsProps {
     is_chat_node: number;
     is_room_server: number;
     has_location: number;
+    packet_hash: string;
   };
   initiatingNodeKey?: string;
 }
@@ -97,6 +98,7 @@ export default function AdvertDetails({ advert, initiatingNodeKey }: AdvertDetai
                 }))}
                 className="text-sm"
                 initiatingNodeKey={initiatingNodeKey}
+                packetHash={advert.packet_hash}
               />
             </div>
 

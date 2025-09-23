@@ -160,6 +160,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
           paths={pathData} 
           title={`Heard ${pathData.length} repeat${pathData.length !== 1 ? 's' : ''}`}
           className="text-xs"
+          packetHash={msg.message_id}
         />
       </div>
     );
@@ -180,6 +181,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
             paths={pathData} 
             title={`Heard ${pathData.length} repeat${pathData.length !== 1 ? 's' : ''}`}
             className="text-xs"
+            packetHash={msg.message_id}
           />
         </div>
       );
@@ -200,6 +202,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
           paths={pathData} 
           title={`Heard ${pathData.length} repeat${pathData.length !== 1 ? 's' : ''}`}
           className="text-xs"
+          packetHash={msg.message_id}
         />
       </div>
     );

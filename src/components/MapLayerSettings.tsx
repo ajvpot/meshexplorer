@@ -147,6 +147,30 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
             <span className="text-sm text-gray-700 dark:text-gray-300">Show all neighbors</span>
           </label>
 
+          {/* Path stroke width */}
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Path stroke width
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="8"
+              step="1"
+              value={settings.strokeWidth}
+              onChange={(e) => updateSetting('strokeWidth', parseInt(e.target.value))}
+              className="w-full h-2 bg-gray-200 dark:bg-neutral-600 rounded-lg appearance-none cursor-pointer slider"
+            />
+            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <span>1px</span>
+              <span className="font-medium">{settings.strokeWidth}px</span>
+              <span>8px</span>
+            </div>
+            <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">
+              Controls the thickness of neighbor connection lines
+            </p>
+          </div>
+
           {/* Use colors - indented sub-option */}
           <label className="flex items-center gap-2 ml-6 cursor-pointer">
             <input

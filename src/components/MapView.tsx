@@ -18,18 +18,14 @@ import { NodePosition } from "@/types/map";
 import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
 import { type AllNeighborsConnection } from "@/hooks/useAllNeighbors";
 import { useQueryParams } from "@/hooks/useQueryParams";
-
-const DEFAULT = {
-  lat: 46.56, // Center between Seattle and Portland
-  lng: -122.51,
-  zoom: 7, // Zoom level to show both cities
-};
+import { useMapPosition } from "@/hooks/useMapPosition";
 
 interface MapQuery {
   lat?: number;
   lng?: number;
   zoom?: number;
 }
+
 
 
 type ClusteredMarkersProps = { 
@@ -304,11 +300,13 @@ const ClusteredMarkers = React.memo(function ClusteredMarkers({
 function NeighborLines({ 
   selectedNodeId, 
   neighbors, 
-  nodes 
+  nodes,
+  strokeWidth = 2
 }: { 
   selectedNodeId: string | null; 
   neighbors: Neighbor[]; 
   nodes: NodePosition[];
+  strokeWidth?: number;
 }) {
   if (!selectedNodeId || neighbors.length === 0) return null;
 
@@ -352,7 +350,7 @@ function NeighborLines({
             positions={positions}
             pathOptions={{
               color: lineColor,
-              weight: isBidirectional ? 3 : 2,
+              weight: isBidirectional ? strokeWidth + 1 : strokeWidth,
               opacity: 0.7,
               dashArray: isNeighborVisible ? undefined : '5, 5'
             }}
@@ -368,12 +366,14 @@ function AllNeighborLines({
   connections, 
   nodes,
   useColors = true,
-  minPacketCount = 1
+  minPacketCount = 1,
+  strokeWidth = 2
 }: { 
   connections: AllNeighborsConnection[]; 
   nodes: NodePosition[];
   useColors?: boolean;
   minPacketCount?: number;
+  strokeWidth?: number;
 }) {
   if (connections.length === 0) return null;
 
@@ -454,8 +454,8 @@ function AllNeighborLines({
         
         const lineColor = getConnectionColor(connection.connection_type, connection.packet_count);
         
-        // Consistent line weight for all connections
-        const lineWeight = connection.connection_type === 'direct' ? 2 : 1;
+        // Use strokeWidth setting for line weight
+        const lineWeight = connection.connection_type === 'direct' ? strokeWidth : Math.max(1, strokeWidth - 1);
         
         return (
           <Polyline
@@ -498,17 +498,21 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     nodeTypes: ["meshcore"],
     showMeshcoreCoverageOverlay: false,
     minPacketCount: 1,
+    strokeWidth: 2,
   });
   
-  // Use query params to persist map position
-  const { query: mapQuery, updateQuery: updateMapQuery } = useQueryParams<MapQuery>({
-    lat: DEFAULT.lat,
-    lng: DEFAULT.lng,
-    zoom: DEFAULT.zoom,
-  });
+  // Use localStorage to persist map position
+  const [mapPosition, setMapPosition] = useMapPosition();
   
-  const mapCenter: [number, number] = [mapQuery.lat ?? DEFAULT.lat, mapQuery.lng ?? DEFAULT.lng];
-  const mapZoom = mapQuery.zoom ?? DEFAULT.zoom;
+  // Use query params for map position (for sharing URLs)
+  const { query: mapQuery, updateQuery: updateMapQuery } = useQueryParams<MapQuery>({});
+  
+  // Determine map center and zoom: query params take priority over localStorage
+  const mapCenter: [number, number] = [
+    mapQuery.lat ?? mapPosition.lat,
+    mapQuery.lng ?? mapPosition.lng
+  ];
+  const mapZoom = mapQuery.zoom ?? mapPosition.zoom;
   
   // Neighbor-related state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -655,7 +659,14 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
         const center = map.getCenter();
         const zoom = map.getZoom();
         
-        // Update URL with new map position
+        // Update localStorage with new map position
+        setMapPosition({
+          lat: Math.round(center.lat * 100000) / 100000, // Round to 5 decimal places
+          lng: Math.round(center.lng * 100000) / 100000,
+          zoom: zoom
+        });
+        
+        // Update URL with new map position for sharing
         updateMapQuery({
           lat: Math.round(center.lat * 100000) / 100000, // Round to 5 decimal places
           lng: Math.round(center.lng * 100000) / 100000,
@@ -690,7 +701,14 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
         const center = map.getCenter();
         const zoom = map.getZoom();
         
-        // Update URL with new map position
+        // Update localStorage with new map position
+        setMapPosition({
+          lat: Math.round(center.lat * 100000) / 100000, // Round to 5 decimal places
+          lng: Math.round(center.lng * 100000) / 100000,
+          zoom: zoom
+        });
+        
+        // Update URL with new map position for sharing
         updateMapQuery({
           lat: Math.round(center.lat * 100000) / 100000, // Round to 5 decimal places
           lng: Math.round(center.lng * 100000) / 100000,
@@ -811,6 +829,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           selectedNodeId={selectedNodeId}
           neighbors={neighbors}
           nodes={nodePositions}
+          strokeWidth={mapLayerSettings.strokeWidth}
         />
         {showAllNeighbors && (
           <AllNeighborLines 
@@ -818,6 +837,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
             nodes={nodePositions}
             useColors={mapLayerSettings.useColors}
             minPacketCount={mapLayerSettings.minPacketCount}
+            strokeWidth={mapLayerSettings.strokeWidth}
           />
         )}
       </MapContainer>

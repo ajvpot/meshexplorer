@@ -13,6 +13,7 @@ export interface MapLayerSettings {
   nodeTypes: NodeType[];
   showMeshcoreCoverageOverlay: boolean;
   minPacketCount: number;
+  strokeWidth: number;
 }
 
 const DEFAULT_MAP_LAYER_SETTINGS: MapLayerSettings = {
@@ -25,6 +26,7 @@ const DEFAULT_MAP_LAYER_SETTINGS: MapLayerSettings = {
   nodeTypes: ["meshcore"],
   showMeshcoreCoverageOverlay: false,
   minPacketCount: 1,
+  strokeWidth: 2,
 };
 
 export function useMapLayerSettings() {

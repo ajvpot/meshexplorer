@@ -8,24 +8,29 @@ import { useState, useEffect, useRef } from 'react';
  * @returns A tuple of [value, setValue] similar to useState
  */
 export function useLocalStorage<T>(key: string, defaultValue: T): [T, (value: T | ((prev: T) => T)) => void] {
-  const [value, setValue] = useState<T>(defaultValue);
-  const firstRender = useRef(true);
-
-  // Load from localStorage on mount
-  useEffect(() => {
+  // Load from localStorage synchronously on first render
+  const getInitialValue = (): T => {
+    if (typeof window === 'undefined') {
+      return defaultValue;
+    }
+    
     try {
       const stored = localStorage.getItem(key);
       if (stored !== null) {
         const parsed = JSON.parse(stored);
-        setValue(typeof defaultValue === 'object' && defaultValue !== null 
+        return typeof defaultValue === 'object' && defaultValue !== null 
           ? { ...defaultValue, ...parsed } 
-          : parsed
-        );
+          : parsed;
       }
     } catch (error) {
       console.warn(`Failed to load from localStorage key "${key}":`, error);
     }
-  }, [key, defaultValue]);
+    
+    return defaultValue;
+  };
+
+  const [value, setValue] = useState<T>(getInitialValue);
+  const firstRender = useRef(true);
 
   // Save to localStorage when value changes (except on first render)
   useEffect(() => {

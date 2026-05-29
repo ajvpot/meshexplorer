@@ -2,6 +2,7 @@
 import { clickhouse } from "./clickhouse";
 import { generateRegionWhereClauseFromArray, generateRegionWhereClause, detectRegionFromBrokerTopic, detectRegion } from "@/lib/regionFilters";
 import { getRegionConfig } from "@/lib/regions";
+import { publicChannelMessagesSubquery } from "./chatMessages";
 
 export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen }: { minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], lastSeen?: string | null } = {}) {
   try {
@@ -55,30 +56,40 @@ export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTyp
 
 export async function getLatestChatMessages({ limit = 20, before, after, channelId, region }: { limit?: number, before?: string, after?: string, channelId?: string, region?: string } = {}) {
   try {
-    let where = [];
+    // Filters that can be pushed into the inner meshcore_packets scan so the
+    // ingest_timestamp primary key / partition pruning applies. See
+    // publicChannelMessagesSubquery for why this avoids a full-history scan.
+    const innerWhere: string[] = [];
+    // Filters that must run after aggregation (origin_path_info only exists on
+    // the grouped output).
+    const outerWhere: string[] = [];
     const params: Record<string, any> = { limit };
-    
+
+    // ingest_timestamp must be table-qualified: unqualified, the analyzer binds
+    // it to the `max(ingest_timestamp) AS ingest_timestamp` output alias and
+    // rejects the WHERE (ILLEGAL_AGGREGATION).
     if (before) {
-      where.push('ingest_timestamp < {before:DateTime64}');
+      innerWhere.push('meshcore_packets.ingest_timestamp < {before:DateTime64}');
       params.before = before;
     }
     if (after) {
-      where.push('ingest_timestamp > {after:DateTime64}');
+      innerWhere.push('meshcore_packets.ingest_timestamp > {after:DateTime64}');
       params.after = after;
     }
     if (channelId) {
-      where.push('channel_hash = {channelId:String}');
+      // channel_hash == hex(substring(payload, 1, 1)); push to the raw scan.
+      innerWhere.push('hex(substring(payload, 1, 1)) = {channelId:String}');
       params.channelId = channelId;
     }
-    
-    // Add region filtering if specified
+
+    // Region filtering keys off origin_path_info, which only exists post-group.
     const regionFilter = generateRegionWhereClauseFromArray(region);
     if (regionFilter.whereClause) {
-      where.push(regionFilter.whereClause);
+      outerWhere.push(regionFilter.whereClause);
     }
-    
-    const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_info, message_id FROM meshcore_public_channel_messages ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
+
+    const whereClause = outerWhere.length > 0 ? `WHERE ${outerWhere.join(' AND ')}` : '';
+    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_info, message_id FROM ${publicChannelMessagesSubquery(innerWhere)} ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
     const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
     const rows = await resultSet.json();
     return rows as Array<{

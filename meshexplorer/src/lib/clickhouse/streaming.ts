@@ -1,5 +1,6 @@
 import { clickhouse } from './clickhouse';
 import { generateRegionConditionForStreaming, generateRegionArrayConditionForStreaming } from '../regionFilters';
+import { publicChannelMessagesSubquery } from './chatMessages';
 
 /**
  * Configuration for the ClickHouse streaming poller
@@ -257,9 +258,14 @@ export function createChatMessagesStreamerConfig(
     }
   }
 
+  // Push the poll cursor into the inner meshcore_packets scan so partition /
+  // primary-key pruning limits it to the last few seconds of packets, instead
+  // of re-aggregating the entire payload_type=5 history every 250ms. The outer
+  // WHERE keeps the same predicate so the streamer can still splice in
+  // channel_hash / region filters (origin_path_info only exists post-group).
   return {
     queryTemplate: `
-      SELECT 
+      SELECT
         ingest_timestamp,
         mesh_timestamp,
         channel_hash,
@@ -268,7 +274,7 @@ export function createChatMessagesStreamerConfig(
         message_count,
         origin_path_info,
         message_id
-      FROM meshcore_public_channel_messages 
+      FROM ${publicChannelMessagesSubquery(['meshcore_packets.ingest_timestamp > {lastTimestamp:DateTime64}'])}
       WHERE ingest_timestamp > {lastTimestamp:DateTime64}
       ORDER BY ingest_timestamp DESC
       LIMIT {maxRows:UInt32}

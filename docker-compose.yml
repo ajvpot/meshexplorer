@@ -128,7 +128,7 @@ services:
 
   # Grafana dashboards, wired to ClickHouse via the read-only user.
   grafana:
-    image: grafana/grafana:11.0.0
+    image: grafana/grafana:12.1.1
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource

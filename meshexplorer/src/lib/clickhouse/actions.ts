@@ -282,211 +282,59 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
 
 export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], region?: string) {
   try {
-    // Build where conditions for visible nodes
-    let visibleNodeWhereConditions = [
-      "latitude IS NOT NULL",
-      "longitude IS NOT NULL"
+    // Reads the precomputed (hourly-refreshed) neighbor edge graph and filters it
+    // by region + bounding box + lastSeen. The heavy graph computation lives in the
+    // refreshable materialized view meshcore_all_neighbor_edges.
+    const params: Record<string, any> = { region: region || 'seattle' };
+    const whereConditions = [
+      "region = {region:String}",
+      "source_has_location = 1",
+      "target_has_location = 1",
+      "source_latitude IS NOT NULL",
+      "source_longitude IS NOT NULL",
+      "target_latitude IS NOT NULL",
+      "target_longitude IS NOT NULL",
     ];
-    const params: Record<string, any> = {};
-    
-    // Add location bounds for visible nodes
+
+    // Bounding box: both endpoints must be within view (matches the old visible_nodes behavior)
     if (minLat !== null && minLat !== undefined && minLat !== "") {
-      visibleNodeWhereConditions.push("latitude >= {minLat:Float64}");
+      whereConditions.push("source_latitude >= {minLat:Float64} AND target_latitude >= {minLat:Float64}");
       params.minLat = Number(minLat);
     }
     if (maxLat !== null && maxLat !== undefined && maxLat !== "") {
-      visibleNodeWhereConditions.push("latitude <= {maxLat:Float64}");
+      whereConditions.push("source_latitude <= {maxLat:Float64} AND target_latitude <= {maxLat:Float64}");
       params.maxLat = Number(maxLat);
     }
     if (minLng !== null && minLng !== undefined && minLng !== "") {
-      visibleNodeWhereConditions.push("longitude >= {minLng:Float64}");
+      whereConditions.push("source_longitude >= {minLng:Float64} AND target_longitude >= {minLng:Float64}");
       params.minLng = Number(minLng);
     }
     if (maxLng !== null && maxLng !== undefined && maxLng !== "") {
-      visibleNodeWhereConditions.push("longitude <= {maxLng:Float64}");
+      whereConditions.push("source_longitude <= {maxLng:Float64} AND target_longitude <= {maxLng:Float64}");
       params.maxLng = Number(maxLng);
     }
-    if (nodeTypes && nodeTypes.length > 0) {
-      visibleNodeWhereConditions.push("type IN {nodeTypes:Array(String)}");
-      params.nodeTypes = nodeTypes;
-    }
     if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
-      visibleNodeWhereConditions.push("last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND");
+      whereConditions.push("source_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND AND target_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND");
       params.lastSeen = Number(lastSeen);
     }
 
-    // Build where conditions for meshcore adverts
-    let meshcoreWhereConditions = [];
-    if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
-      meshcoreWhereConditions.push("ingest_timestamp >= now() - INTERVAL {lastSeen:UInt32} SECOND");
-    }
-
-    const meshcoreWhere = meshcoreWhereConditions.length > 0 ? `AND ${meshcoreWhereConditions.join(" AND ")}` : '';
-
-    // Build region filtering for meshcore_packets
-    const regionFilter = generateRegionWhereClause(region);
-    const packetsRegionWhere = regionFilter.whereClause ? `AND ${regionFilter.whereClause}` : '';
-
     const allNeighborsQuery = `
-      WITH visible_nodes AS (
-        -- Get only nodes visible on the current map view
-        SELECT 
-          node_id,
-          name,
-          short_name,
-          latitude,
-          longitude,
-          last_seen,
-          first_seen,
-          type
-        FROM unified_latest_nodeinfo 
-        WHERE ${visibleNodeWhereConditions.join(" AND ")}
-      ),
-      visible_node_details AS (
-        -- Get latest attributes for visible nodes from meshcore_adverts
-        SELECT 
-          public_key,
-          argMax(node_name, ingest_timestamp) as node_name,
-          argMax(latitude, ingest_timestamp) as latitude,
-          argMax(longitude, ingest_timestamp) as longitude,
-          argMax(has_location, ingest_timestamp) as has_location,
-          argMax(is_repeater, ingest_timestamp) as is_repeater,
-          argMax(is_chat_node, ingest_timestamp) as is_chat_node,
-          argMax(is_room_server, ingest_timestamp) as is_room_server,
-          argMax(has_name, ingest_timestamp) as has_name
-        FROM meshcore_adverts 
-        WHERE public_key IN (SELECT node_id FROM visible_nodes)
-          ${meshcoreWhere}
-        GROUP BY public_key
-      ),
-      repeater_prefixes AS (
-        -- Get repeater prefixes info, excluding collisions (multiple repeaters per prefix)
-        -- Only include repeaters from the selected region
-        SELECT 
-          substring(public_key, 1, 2) as prefix,
-          count() as node_count,
-          any(public_key) as representative_key,
-          any(node_name) as representative_name
-        FROM meshcore_adverts_latest 
-        WHERE is_repeater = 1 
-          AND last_seen >= now() - INTERVAL 2 DAY
-          ${regionFilter.whereClause ? `AND ${regionFilter.whereClause}` : ''}
-        GROUP BY prefix
-        HAVING node_count = 1  -- Only include prefixes with exactly one repeater
-      ),
-      direct_connections AS (
-        -- Get all direct connections (path_len = 0) but only between visible nodes
-        SELECT DISTINCT
-          hex(origin_pubkey) as source_node,
-          public_key as target_node,
-          'direct' as connection_type,
-          1 as packet_count  -- Direct connections don't have packet counts, use 1 as default
-        FROM meshcore_adverts 
-        WHERE path_len = 0
-          AND hex(origin_pubkey) != public_key
-          -- Only include connections where both nodes are visible
-          AND hex(origin_pubkey) IN (SELECT node_id FROM visible_nodes)
-          AND public_key IN (SELECT node_id FROM visible_nodes)
-          ${meshcoreWhere}
-      ),
-      path_neighbors AS (
-        -- Extract neighbors from routing paths with unique payload counts
-        -- Group by payload first to avoid double counting same message propagation
-        SELECT 
-          source_prefix,
-          target_prefix,
-          'path' as connection_type,
-          count() as packet_count
-        FROM (
-          SELECT DISTINCT
-            payload,
-            upper(hex(substring(path, i, 1))) as source_prefix,
-            upper(hex(substring(path, i + 1, 1))) as target_prefix
-          FROM (
-            SELECT DISTINCT
-              payload,
-              path,
-              path_len
-            FROM meshcore_packets 
-            WHERE path_len >= 2
-              AND ingest_timestamp >= now() - INTERVAL 1 DAY
-              ${packetsRegionWhere}
-          ) p
-          ARRAY JOIN range(1, path_len) as i
-          WHERE i < path_len
-        ) path_pairs
-        WHERE source_prefix IN (SELECT prefix FROM repeater_prefixes)
-          AND target_prefix IN (SELECT prefix FROM repeater_prefixes)
-          AND source_prefix != target_prefix
-        GROUP BY source_prefix, target_prefix
-      ),
-      prefix_to_key_map AS (
-        -- Map prefixes back to full public keys for visible nodes
-        SELECT 
-          rp.prefix,
-          rp.representative_key as public_key,
-          rp.representative_name as node_name
-        FROM repeater_prefixes rp
-        WHERE rp.representative_key IN (SELECT node_id FROM visible_nodes)
-      ),
-      path_connections AS (
-        -- Convert prefix-based path neighbors to public key connections
-        -- Include all path connections (no exclusion of direct connections)
-        SELECT 
-          source_map.public_key as source_node,
-          target_map.public_key as target_node,
-          'path' as connection_type,
-          pn.packet_count
-        FROM path_neighbors pn
-        JOIN prefix_to_key_map source_map ON pn.source_prefix = source_map.prefix
-        JOIN prefix_to_key_map target_map ON pn.target_prefix = target_map.prefix
-      ),
-      direct_connections_filtered AS (
-        -- Get direct connections but exclude pairs that already have path connections
-        SELECT 
-          source_node,
-          target_node,
-          connection_type,
-          packet_count
-        FROM direct_connections
-        WHERE (source_node, target_node) NOT IN (
-          SELECT source_node, target_node FROM path_connections
-        )
-        AND (target_node, source_node) NOT IN (
-          SELECT source_node, target_node FROM path_connections
-        )
-      ),
-      neighbor_connections AS (
-        -- Combine path connections and filtered direct connections (path connections take precedence)
-        SELECT source_node, target_node, connection_type, packet_count FROM path_connections
-        UNION ALL
-        SELECT source_node, target_node, connection_type, packet_count FROM direct_connections_filtered
-      )
-      SELECT 
-        connections.source_node,
-        connections.target_node,
-        connections.connection_type,
-        connections.packet_count,
-        source_details.node_name as source_name,
-        source_details.latitude as source_latitude,
-        source_details.longitude as source_longitude,
-        source_details.has_location as source_has_location,
-        target_details.node_name as target_name,
-        target_details.latitude as target_latitude,
-        target_details.longitude as target_longitude,
-        target_details.has_location as target_has_location
-      FROM neighbor_connections AS connections
-      LEFT JOIN visible_node_details AS source_details ON connections.source_node = source_details.public_key
-      LEFT JOIN visible_node_details AS target_details ON connections.target_node = target_details.public_key
-      WHERE source_details.public_key IS NOT NULL 
-        AND target_details.public_key IS NOT NULL
-        AND source_details.has_location = 1 
-        AND target_details.has_location = 1
-        AND source_details.latitude IS NOT NULL 
-        AND source_details.longitude IS NOT NULL
-        AND target_details.latitude IS NOT NULL 
-        AND target_details.longitude IS NOT NULL
-      ORDER BY connections.connection_type, connections.source_node, connections.target_node
+      SELECT
+        source_node,
+        target_node,
+        connection_type,
+        packet_count,
+        source_name,
+        source_latitude,
+        source_longitude,
+        source_has_location,
+        target_name,
+        target_latitude,
+        target_longitude,
+        target_has_location
+      FROM meshcore_all_neighbor_edges
+      WHERE ${whereConditions.join(" AND ")}
+      ORDER BY connection_type, source_node, target_node
     `;
     
     const neighborsResult = await clickhouse.query({ 
@@ -518,77 +366,31 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
 
 export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: string | null = null) {
   try {
-    // Build base where conditions for both directions
-    let baseWhereConditions = [];
+    // Reads the precomputed (hourly-refreshed) per-node direct adjacency from the
+    // refreshable materialized view meshcore_node_direct_neighbors.
     const params: Record<string, any> = { publicKey };
-    
-    // Add lastSeen filter if provided
+    const whereConditions = ["node_public_key = {publicKey:String}"];
     if (lastSeen !== null) {
-      baseWhereConditions.push("ingest_timestamp >= now() - INTERVAL {lastSeen:UInt32} SECOND");
+      whereConditions.push("neighbor_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND");
       params.lastSeen = Number(lastSeen);
     }
-    
-    const baseWhere = baseWhereConditions.length > 0 ? `AND ${baseWhereConditions.join(" AND ")}` : '';
-    
+
     const neighborsQuery = `
-      WITH neighbor_details AS (
-        -- Get latest attributes for all nodes based on ingest_timestamp
-        SELECT 
-          public_key,
-          argMax(node_name, ingest_timestamp) as node_name,
-          argMax(latitude, ingest_timestamp) as latitude,
-          argMax(longitude, ingest_timestamp) as longitude,
-          argMax(has_location, ingest_timestamp) as has_location,
-          argMax(is_repeater, ingest_timestamp) as is_repeater,
-          argMax(is_chat_node, ingest_timestamp) as is_chat_node,
-          argMax(is_room_server, ingest_timestamp) as is_room_server,
-          argMax(has_name, ingest_timestamp) as has_name
-        FROM meshcore_adverts 
-        GROUP BY public_key
-      ),
-      neighbor_directions AS (
-        -- Direction 1: Adverts heard directly by the queried node
-        -- (hex(origin_pubkey) is the queried node, public_key is the neighbor)
-        SELECT DISTINCT
-          public_key as neighbor_public_key,
-          'incoming' as direction
-        FROM meshcore_adverts 
-        WHERE hex(origin_pubkey) = {publicKey:String}
-          AND path_len = 0
-          AND public_key != {publicKey:String}
-          ${baseWhere}
-        
-        UNION ALL
-        
-        -- Direction 2: Adverts from the queried node heard by other nodes
-        -- (public_key is the queried node, origin_pubkey is the neighbor)
-        SELECT DISTINCT
-          hex(origin_pubkey) as neighbor_public_key,
-          'outgoing' as direction
-        FROM meshcore_adverts 
-        WHERE public_key = {publicKey:String}
-          AND path_len = 0
-          AND hex(origin_pubkey) != {publicKey:String}
-          ${baseWhere}
-      )
-      SELECT 
-        neighbors.neighbor_public_key as public_key,
-        details.node_name,
-        details.latitude,
-        details.longitude,
-        details.has_location,
-        details.is_repeater,
-        details.is_chat_node,
-        details.is_room_server,
-        details.has_name,
-        groupUniqArray(neighbors.direction) as directions
-      FROM neighbor_directions AS neighbors
-      LEFT JOIN neighbor_details AS details ON neighbors.neighbor_public_key = details.public_key
-      WHERE details.public_key IS NOT NULL
-      GROUP BY neighbors.neighbor_public_key, details.node_name, details.latitude, details.longitude, 
-               details.has_location, details.is_repeater, details.is_chat_node, 
-               details.is_room_server, details.has_name
-      ORDER BY neighbors.neighbor_public_key
+      SELECT
+        neighbor_public_key AS public_key,
+        any(neighbor_name) AS node_name,
+        any(neighbor_latitude) AS latitude,
+        any(neighbor_longitude) AS longitude,
+        any(neighbor_has_location) AS has_location,
+        any(neighbor_is_repeater) AS is_repeater,
+        any(neighbor_is_chat_node) AS is_chat_node,
+        any(neighbor_is_room_server) AS is_room_server,
+        any(neighbor_has_name) AS has_name,
+        groupUniqArray(direction) AS directions
+      FROM meshcore_node_direct_neighbors
+      WHERE ${whereConditions.join(" AND ")}
+      GROUP BY neighbor_public_key
+      ORDER BY neighbor_public_key
     `;
     
     const neighborsResult = await clickhouse.query({ 

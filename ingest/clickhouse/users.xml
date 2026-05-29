@@ -13,6 +13,12 @@
     </users>
     
     <profiles>
+        <!-- Disable the query profiler for the default profile so trace_log stays empty
+             (it otherwise samples every query every 1s -> billions of rows over time). -->
+        <default>
+            <query_profiler_real_time_period_ns>0</query_profiler_real_time_period_ns>
+            <query_profiler_cpu_time_period_ns>0</query_profiler_cpu_time_period_ns>
+        </default>
         <!-- Profile for readonly user -->
         <readonly>
             <readonly>1</readonly>
@@ -21,6 +27,8 @@
             <max_execution_time>300</max_execution_time>
             <max_rows_to_read>10000000</max_rows_to_read>
             <max_bytes_to_read>500000000</max_bytes_to_read>
+            <query_profiler_real_time_period_ns>0</query_profiler_real_time_period_ns>
+            <query_profiler_cpu_time_period_ns>0</query_profiler_cpu_time_period_ns>
             <constraints>
                 <max_execution_time>
                     <changeable_in_readonly/>

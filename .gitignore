@@ -1,0 +1,14 @@
+# Local environment configuration (never commit real secrets)
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+
+# Go build artifacts from the ingest module
+/ingest/meshcoreingest
+/ingest/migrate
+/ingest/clickhouse-meshingest
+*.test
+*.out

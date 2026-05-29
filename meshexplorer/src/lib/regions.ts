@@ -9,8 +9,8 @@ export const REGIONS: RegionConfig[] = [
   {
     name: "seattle",
     friendlyName: "Seattle (PugetMesh, SalishMesh)",
-    broker: "tcp://mqtt.davekeogh.com:1883",
-    topics: ["meshcore", "meshcore/salish", "meshcore/SEA"]
+    broker: "wss://mqtt-us-v1.letsmesh.net:443",
+    topics: ["meshcore/SEA"]
   },
   {
     name: "portland",

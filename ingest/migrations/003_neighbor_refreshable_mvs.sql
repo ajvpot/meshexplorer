@@ -17,7 +17,7 @@ ORDER BY (region, source_node, target_node)
 AS
 WITH
   regions_topics AS (
-    SELECT 'seattle'  AS region, 'tcp://mqtt.davekeogh.com:1883' AS broker, arrayJoin(['meshcore', 'meshcore/salish', 'meshcore/SEA']) AS topic
+    SELECT 'seattle'  AS region, 'wss://mqtt-us-v1.letsmesh.net:443' AS broker, arrayJoin(['meshcore/SEA']) AS topic
     UNION ALL SELECT 'portland', 'tcp://mqtt.davekeogh.com:1883', 'meshcore/pdx'
     UNION ALL SELECT 'boston',   'tcp://mqtt.davekeogh.com:1883', 'meshcore/bos'
   ),
@@ -48,8 +48,11 @@ WITH
     SELECT DISTINCT
       rt.region AS region,
       payload,
-      upper(hex(substring(path, i, 1)))     AS source_prefix,
-      upper(hex(substring(path, i + 1, 1))) AS target_prefix
+      -- path is a hex string of 1-byte hop prefixes; take 2 hex chars per hop.
+      -- (The original query used hex(substring(path,i,1)), which re-hexed a single
+      -- hex char and never matched the 2-char repeater prefixes -> no path edges.)
+      upper(substring(path, 2 * i - 1, 2)) AS source_prefix,
+      upper(substring(path, 2 * i + 1, 2)) AS target_prefix
     FROM path_src AS p
     INNER JOIN regions_topics AS rt ON p.broker = rt.broker AND p.topic = rt.topic
     ARRAY JOIN range(1, path_len) AS i

@@ -43,18 +43,20 @@ export const packetsServiceImpl: ServiceImpl<typeof PacketsService> = {
     for await (const result of streamer(params)) {
       const row = result.row;
       yield {
-        ingestTimestamp: row.ingest_timestamp,
-        meshTimestamp: row.mesh_timestamp,
-        broker: row.broker,
-        topic: row.topic,
-        packet: row.packet,
-        pathLen: num(row.path_len),
-        path: row.path,
-        routeType: num(row.route_type),
-        payloadType: num(row.payload_type),
-        payloadVersion: num(row.payload_version),
-        header: num(row.header),
-        originPubkey: row.origin_pubkey,
+        packet: {
+          ingestTimestamp: row.ingest_timestamp,
+          meshTimestamp: row.mesh_timestamp,
+          broker: row.broker,
+          topic: row.topic,
+          packet: row.packet,
+          pathLen: num(row.path_len),
+          path: row.path,
+          routeType: num(row.route_type),
+          payloadType: num(row.payload_type),
+          payloadVersion: num(row.payload_version),
+          header: num(row.header),
+          originPubkey: row.origin_pubkey,
+        },
       };
     }
   },

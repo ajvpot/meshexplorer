@@ -4,30 +4,18 @@ import { useState } from "react";
 import moment from "moment";
 import PathVisualization from "./PathVisualization";
 import { PathData } from "@/lib/pathUtils";
+import type { Advert } from "@/gen/meshexplorer/v1/node_pb";
 
 interface AdvertDetailsProps {
-  advert: {
-    group_id: number;
-    origin_path_pubkey_tuples: Array<[string, string, string]>;
-    advert_count: number;
-    earliest_timestamp: string;
-    latest_timestamp: string;
-    latitude: number | null;
-    longitude: number | null;
-    is_repeater: number;
-    is_chat_node: number;
-    is_room_server: number;
-    has_location: number;
-    packet_hash: string;
-  };
+  advert: Advert;
   initiatingNodeKey?: string;
 }
 
 export default function AdvertDetails({ advert, initiatingNodeKey }: AdvertDetailsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const timeRange = advert.earliest_timestamp !== advert.latest_timestamp 
-    ? `to ${moment.utc(advert.latest_timestamp).format('HH:mm:ss')}` : '';
+  const timeRange = advert.earliestTimestamp !== advert.latestTimestamp 
+    ? `to ${moment.utc(advert.latestTimestamp).format('HH:mm:ss')}` : '';
 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -39,28 +27,28 @@ export default function AdvertDetails({ advert, initiatingNodeKey }: AdvertDetai
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {moment.utc(advert.earliest_timestamp).format('MM-DD HH:mm:ss')}
+              {moment.utc(advert.earliestTimestamp).format('MM-DD HH:mm:ss')}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
               {timeRange}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              Heard {advert.advert_count} time{advert.advert_count !== 1 ? 's' : ''}
+              Heard {advert.advertCount} time{advert.advertCount !== 1 ? 's' : ''}
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <div className="flex space-x-1">
-              {advert.is_repeater && (
+              {advert.isRepeater && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                   R
                 </span>
               ) || null}
-              {advert.is_chat_node && (
+              {advert.isChatNode && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                   C
                 </span>
               ) || null}
-              {advert.is_room_server && (
+              {advert.isRoomServer && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                   S
                 </span>
@@ -92,19 +80,19 @@ export default function AdvertDetails({ advert, initiatingNodeKey }: AdvertDetai
             {/* Path details */}
             <div>
               <PathVisualization 
-                paths={advert.origin_path_pubkey_tuples.map(([origin, path, origin_pubkey], index) => ({
-                  origin: origin || origin_pubkey.substring(0, 8), // Use origin name if available, fallback to pubkey
-                  pubkey: origin_pubkey,
-                  path: path
+                paths={advert.originPathPubkeyTuples.map((t) => ({
+                  origin: t.origin || t.originPubkey.substring(0, 8), // Use origin name if available, fallback to pubkey
+                  pubkey: t.originPubkey,
+                  path: t.path
                 }))}
                 className="text-sm"
                 initiatingNodeKey={initiatingNodeKey}
-                packetHash={advert.packet_hash}
+                packetHash={advert.packetHash}
               />
             </div>
 
             {/* Location details */}
-            {advert.has_location && advert.latitude && advert.longitude && (
+            {advert.hasLocation && advert.latitude && advert.longitude && (
               <div>
                 <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
                   Location
@@ -122,14 +110,14 @@ export default function AdvertDetails({ advert, initiatingNodeKey }: AdvertDetai
               </h4>
               <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
                 <div>
-                  <span className="font-medium">Earliest:</span> {moment.utc(advert.earliest_timestamp).format('YYYY-MM-DD HH:mm:ss')} UTC
+                  <span className="font-medium">Earliest:</span> {moment.utc(advert.earliestTimestamp).format('YYYY-MM-DD HH:mm:ss')} UTC
                 </div>
                 <div>
-                  <span className="font-medium">Latest:</span> {moment.utc(advert.latest_timestamp).format('YYYY-MM-DD HH:mm:ss')} UTC
+                  <span className="font-medium">Latest:</span> {moment.utc(advert.latestTimestamp).format('YYYY-MM-DD HH:mm:ss')} UTC
                 </div>
-                {advert.earliest_timestamp !== advert.latest_timestamp && (
+                {advert.earliestTimestamp !== advert.latestTimestamp && (
                   <div>
-                    <span className="font-medium">Duration:</span> {moment.utc(advert.latest_timestamp).diff(moment.utc(advert.earliest_timestamp), 'seconds')} seconds
+                    <span className="font-medium">Duration:</span> {moment.utc(advert.latestTimestamp).diff(moment.utc(advert.earliestTimestamp), 'seconds')} seconds
                   </div>
                 )}
               </div>
@@ -141,22 +129,22 @@ export default function AdvertDetails({ advert, initiatingNodeKey }: AdvertDetai
                 Node Capabilities
               </h4>
               <div className="flex flex-wrap gap-2">
-                {advert.is_repeater && (
+                {advert.isRepeater && (
                   <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                     Repeater
                   </span>
                 ) || null}
-                {advert.is_chat_node && (
+                {advert.isChatNode && (
                   <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                     Companion
                   </span>
                 ) || null}
-                {advert.is_room_server && (
+                {advert.isRoomServer && (
                   <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                     Room Server
                   </span>
                 ) || null}
-                {!advert.is_repeater && !advert.is_chat_node && !advert.is_room_server && (
+                {!advert.isRepeater && !advert.isChatNode && !advert.isRoomServer && (
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     Unknown
                   </span>

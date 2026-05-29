@@ -1,11 +1,11 @@
 "use client";
 
-import { MeshcoreSearchResult } from '@/hooks/useMeshcoreSearch';
+import type { SearchResult } from '@/gen/meshexplorer/v1/node_pb';
 import { WifiIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import NodeCard from '@/components/NodeCard';
 
 interface SearchResultsProps {
-  results: MeshcoreSearchResult[];
+  results: SearchResult[];
   isLoading: boolean;
   error: Error | null;
   query: string;
@@ -84,7 +84,7 @@ export default function SearchResults({ results, isLoading, error, query, total 
 
       <div className="space-y-3">
         {results.map((node) => (
-          <NodeCard key={node.public_key} node={node} />
+          <NodeCard key={node.publicKey} node={node} />
         ))}
       </div>
     </div>

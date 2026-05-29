@@ -15,9 +15,10 @@ import { NodeMarker, ClusterMarker, PopupContent } from "./MapIcons";
 import { renderToString } from "react-dom/server";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { mapClient } from "@/lib/connect/client";
-import { NodePosition } from "@/types/map";
-import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
-import { type AllNeighborsConnection } from "@/hooks/useAllNeighbors";
+import type { NodePosition } from "@/gen/meshexplorer/v1/map_pb";
+import type { Neighbor } from "@/gen/meshexplorer/v1/node_pb";
+import type { NeighborEdge } from "@/gen/meshexplorer/v1/common_pb";
+import { useNeighbors } from "@/hooks/useNeighbors";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useMapPosition } from "@/hooks/useMapPosition";
 
@@ -67,7 +68,7 @@ const IndividualMarker = React.memo(function IndividualMarker({
   useEffect(() => {
     if (!map) return;
 
-    const isSelected = selectedNodeId === node.node_id;
+    const isSelected = selectedNodeId === node.nodeId;
     const icon = L.divIcon({
       className: 'custom-node-marker-container',
       iconSize: [12, 24],
@@ -89,7 +90,7 @@ const IndividualMarker = React.memo(function IndividualMarker({
     // Add hover handler for meshcore nodes
     if (node.type === "meshcore") {
       marker.on('mouseover', () => {
-        onNodeClickRef.current(node.node_id);
+        onNodeClickRef.current(node.nodeId);
       });
     }
     
@@ -102,13 +103,13 @@ const IndividualMarker = React.memo(function IndividualMarker({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omitting selectedNodeId, showNodeNames, isLoadingNeighbors to prevent marker recreation
-  }, [map, node.node_id, node.latitude, node.longitude, node.type, target]);
+  }, [map, node.nodeId, node.latitude, node.longitude, node.type, target]);
 
   // Update marker when visual properties change (but don't recreate marker)
   useEffect(() => {
     if (markerRef.current) {
       // Update icon and popup content only
-      const isSelected = selectedNodeId === node.node_id;
+      const isSelected = selectedNodeId === node.nodeId;
       const icon = L.divIcon({
         className: 'custom-node-marker-container',
         iconSize: [12, 24],
@@ -185,7 +186,7 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
     });
 
     nodes.forEach((node: NodePosition) => {
-      const isSelected = selectedNodeId === node.node_id;
+      const isSelected = selectedNodeId === node.nodeId;
       const icon = L.divIcon({
         className: 'custom-node-marker-container',
         iconSize: [12, 24],
@@ -206,7 +207,7 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
       // Add hover handler for meshcore nodes
       if (node.type === "meshcore") {
         marker.on('mouseover', () => {
-          onNodeClickRef.current(node.node_id);
+          onNodeClickRef.current(node.nodeId);
         });
       }
       
@@ -232,7 +233,7 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
     clusterGroupRef.current.eachLayer((marker: any) => {
       const nodeData = marker.options.nodeData;
       if (nodeData) {
-        const isSelected = selectedNodeId === nodeData.node_id;
+        const isSelected = selectedNodeId === nodeData.nodeId;
         const icon = L.divIcon({
           className: 'custom-node-marker-container',
           iconSize: [16, 32],
@@ -271,7 +272,7 @@ const ClusteredMarkers = React.memo(function ClusteredMarkers({
       <>
         {nodes.map((node) => (
           <IndividualMarker 
-            key={node.node_id} 
+            key={node.nodeId} 
             node={node} 
             showNodeNames={showNodeNames}
             selectedNodeId={selectedNodeId}
@@ -312,15 +313,15 @@ function NeighborLines({
   if (!selectedNodeId || neighbors.length === 0) return null;
 
   // Find the selected node's position
-  const selectedNode = nodes.find(node => node.node_id === selectedNodeId);
+  const selectedNode = nodes.find(node => node.nodeId === selectedNodeId);
   if (!selectedNode) return null;
 
   // Create lines to neighbors that have location data and are visible on the map
   const lines = neighbors
-    .filter(neighbor => neighbor.has_location && neighbor.latitude && neighbor.longitude)
+    .filter(neighbor => neighbor.hasLocation && neighbor.latitude && neighbor.longitude)
     .map(neighbor => {
       // Check if the neighbor is also visible on the map
-      const neighborOnMap = nodes.find(node => node.node_id === neighbor.public_key);
+      const neighborOnMap = nodes.find(node => node.nodeId === neighbor.publicKey);
       
       const hasIncoming = neighbor.directions?.includes('incoming') || false;
       const hasOutgoing = neighbor.directions?.includes('outgoing') || false;
@@ -347,7 +348,7 @@ function NeighborLines({
         
         return (
           <Polyline
-            key={`${selectedNodeId}-${neighbor.public_key}`}
+            key={`${selectedNodeId}-${neighbor.publicKey}`}
             positions={positions}
             pathOptions={{
               color: lineColor,
@@ -370,7 +371,7 @@ function AllNeighborLines({
   minPacketCount = 1,
   strokeWidth = 2
 }: { 
-  connections: AllNeighborsConnection[]; 
+  connections: NeighborEdge[]; 
   nodes: NodePosition[];
   useColors?: boolean;
   minPacketCount?: number;
@@ -379,19 +380,19 @@ function AllNeighborLines({
   if (connections.length === 0) return null;
 
   // Create a set of visible node IDs for quick lookup
-  const visibleNodeIds = new Set(nodes.map(node => node.node_id));
+  const visibleNodeIds = new Set(nodes.map(node => node.nodeId));
 
   // Filter connections to only show lines between nodes that are visible on the map
   // and meet the minimum packet count threshold
   const visibleConnections = connections.filter(connection => 
-    visibleNodeIds.has(connection.source_node) && 
-    visibleNodeIds.has(connection.target_node) &&
-    connection.packet_count >= minPacketCount
+    visibleNodeIds.has(connection.sourceNode) && 
+    visibleNodeIds.has(connection.targetNode) &&
+    connection.packetCount >= minPacketCount
   );
 
   // Calculate logarithmic thresholds based on packet counts for path connections
-  const pathConnections = visibleConnections.filter(conn => conn.connection_type === 'path');
-  const packetCounts = pathConnections.map(conn => conn.packet_count).sort((a, b) => a - b);
+  const pathConnections = visibleConnections.filter(conn => conn.connectionType === 'path');
+  const packetCounts = pathConnections.map(conn => conn.packetCount).sort((a, b) => a - b);
   
   const getLogThresholds = (counts: number[]) => {
     if (counts.length === 0) return { min: 1, t1: 1, t2: 1, t3: 1, t4: 1, max: 1 };
@@ -429,8 +430,8 @@ function AllNeighborLines({
     <>
       {visibleConnections.map((connection) => {
         const positions: [number, number][] = [
-          [connection.source_latitude, connection.source_longitude],
-          [connection.target_latitude, connection.target_longitude]
+          [connection.sourceLatitude, connection.sourceLongitude],
+          [connection.targetLatitude, connection.targetLongitude]
         ];
         
         // Different colors based on connection type and logarithmic packet count
@@ -453,14 +454,14 @@ function AllNeighborLines({
           return '#6b7280'; // Gray for minimum traffic
         };
         
-        const lineColor = getConnectionColor(connection.connection_type, connection.packet_count);
+        const lineColor = getConnectionColor(connection.connectionType, connection.packetCount);
         
         // Use strokeWidth setting for line weight
-        const lineWeight = connection.connection_type === 'direct' ? strokeWidth : Math.max(1, strokeWidth - 1);
+        const lineWeight = connection.connectionType === 'direct' ? strokeWidth : Math.max(1, strokeWidth - 1);
         
         return (
           <Polyline
-            key={`${connection.source_node}-${connection.target_node}-${connection.connection_type}`}
+            key={`${connection.sourceNode}-${connection.targetNode}-${connection.connectionType}`}
             positions={positions}
             pathOptions={{
               color: lineColor,
@@ -518,7 +519,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
   // Neighbor-related state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showAllNeighbors, setShowAllNeighbors] = useState<boolean>(false);
-  const [allNeighborConnections, setAllNeighborConnections] = useState<AllNeighborsConnection[]>([]);
+  const [allNeighborConnections, setAllNeighborConnections] = useState<NeighborEdge[]>([]);
   const [allNeighborsLoading, setAllNeighborsLoading] = useState<boolean>(false);
 
   // Update showAllNeighbors when mapLayerSettings changes
@@ -598,39 +599,9 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     mapClient
       .getMap(request, { signal: controller.signal })
       .then((res) => {
-        setNodePositions(
-          res.nodes.map((n) => ({
-            node_id: n.nodeId,
-            latitude: n.latitude,
-            longitude: n.longitude,
-            last_seen: n.lastSeen,
-            first_seen: n.firstSeen,
-            type: n.type,
-            short_name: n.shortName,
-            name: n.name ?? null,
-          })),
-        );
+        setNodePositions(res.nodes);
         setLastResultCount(res.nodes.length);
-        if (includeNeighbors) {
-          setAllNeighborConnections(
-            res.neighbors.map((e) => ({
-              source_node: e.sourceNode,
-              target_node: e.targetNode,
-              connection_type: e.connectionType,
-              packet_count: e.packetCount,
-              source_name: e.sourceName,
-              source_latitude: e.sourceLatitude,
-              source_longitude: e.sourceLongitude,
-              source_has_location: e.sourceHasLocation,
-              target_name: e.targetName,
-              target_latitude: e.targetLatitude,
-              target_longitude: e.targetLongitude,
-              target_has_location: e.targetHasLocation,
-            })),
-          );
-        } else {
-          setAllNeighborConnections([]);
-        }
+        setAllNeighborConnections(includeNeighbors ? res.neighbors : []);
 
         if (fetchController.current === controller) {
           setLoading(false);
@@ -856,8 +827,8 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
       {/* Traffic Legend */}
       {showAllNeighbors && mapLayerSettings.useColors && allNeighborConnections.length > 0 && (() => {
         // Calculate logarithmic thresholds for legend display
-        const pathConnections = allNeighborConnections.filter(conn => conn.connection_type === 'path');
-        const packetCounts = pathConnections.map(conn => conn.packet_count).sort((a, b) => a - b);
+        const pathConnections = allNeighborConnections.filter(conn => conn.connectionType === 'path');
+        const packetCounts = pathConnections.map(conn => conn.packetCount).sort((a, b) => a - b);
         const legendThresholds = packetCounts.length > 0 ? (() => {
           const min = Math.max(1, packetCounts[0]);
           const max = packetCounts[packetCounts.length - 1];

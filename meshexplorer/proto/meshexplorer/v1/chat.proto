@@ -37,7 +37,10 @@ message ChatMessage {
 }
 
 message GetChatRequest {
-  optional int32 limit = 1 [(buf.validate.field).int32 = {gte: 1, lte: 1000}];
+  optional int32 limit = 1 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 1000
+  }];
   optional string before = 2;
   optional string after = 3;
   optional string channel_id = 4 [(buf.validate.field).string.pattern = "^[0-9A-Fa-f]+$"];
@@ -56,13 +59,23 @@ message StreamChatRequest {
   bool decrypt = 3;
   repeated string private_keys = 4;
   // Poll interval in ms (clamped 100..10000, default 1000).
-  optional int32 poll_interval = 5 [(buf.validate.field).int32 = {gte: 100, lte: 10000}];
+  optional int32 poll_interval = 5 [(buf.validate.field).int32 = {
+    gte: 100
+    lte: 10000
+  }];
   // Max rows per poll (clamped 10..1000, default 500).
-  optional int32 max_rows = 6 [(buf.validate.field).int32 = {gte: 10, lte: 1000}];
+  optional int32 max_rows = 6 [(buf.validate.field).int32 = {
+    gte: 10
+    lte: 1000
+  }];
   bool skip_initial_messages = 7;
+}
+
+message StreamChatResponse {
+  ChatMessage message = 1;
 }
 
 service ChatService {
   rpc GetChat(GetChatRequest) returns (GetChatResponse);
-  rpc StreamChat(StreamChatRequest) returns (stream ChatMessage);
+  rpc StreamChat(StreamChatRequest) returns (stream StreamChatResponse);
 }

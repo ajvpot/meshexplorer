@@ -20,10 +20,22 @@ message NodePosition {
 
 message GetMapRequest {
   // Bounding box (decimal degrees). Unset fields mean "unbounded" on that edge.
-  optional double min_lat = 1 [(buf.validate.field).double = {gte: -90, lte: 90}];
-  optional double max_lat = 2 [(buf.validate.field).double = {gte: -90, lte: 90}];
-  optional double min_lng = 3 [(buf.validate.field).double = {gte: -180, lte: 180}];
-  optional double max_lng = 4 [(buf.validate.field).double = {gte: -180, lte: 180}];
+  optional double min_lat = 1 [(buf.validate.field).double = {
+    gte: -90
+    lte: 90
+  }];
+  optional double max_lat = 2 [(buf.validate.field).double = {
+    gte: -90
+    lte: 90
+  }];
+  optional double min_lng = 3 [(buf.validate.field).double = {
+    gte: -180
+    lte: 180
+  }];
+  optional double max_lng = 4 [(buf.validate.field).double = {
+    gte: -180
+    lte: 180
+  }];
   repeated string node_types = 5;
   // Only include nodes seen within this many seconds.
   optional int32 last_seen = 6 [(buf.validate.field).int32.gte = 0];

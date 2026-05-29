@@ -4,8 +4,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { chatClient } from '@/lib/connect/client';
-import type { ChatMessage as GenChatMessage } from '@/gen/meshexplorer/v1/chat_pb';
-import { ChatMessage } from '@/components/ChatMessageItem';
+import type { ChatMessage } from '@/gen/meshexplorer/v1/chat_pb';
 
 interface ChatMessagesParams {
   channelId?: string;
@@ -22,38 +21,13 @@ interface ChatMessagesPage {
 
 const PAGE_SIZE = 20;
 
-// Maps the generated (camelCase) ChatMessage to the snake_case shape the chat
-// components consume. `origins`/`path_len` were never populated by the REST API
-// and are unused by the renderer, so they're intentionally omitted.
-function toChatMessage(m: GenChatMessage): ChatMessage {
-  return {
-    message_id: m.messageId,
-    ingest_timestamp: m.ingestTimestamp,
-    mesh_timestamp: m.meshTimestamp,
-    channel_hash: m.channelHash,
-    mac: m.mac,
-    encrypted_message: m.encryptedMessage,
-    message_count: m.messageCount,
-    origin_path_info: m.originPathInfo.map(
-      (o) =>
-        [o.origin, o.originPubkey, o.path, o.broker, o.topic] as [
-          string,
-          string,
-          string,
-          string,
-          string,
-        ],
-    ),
-  } as ChatMessage;
-}
-
 // Inserts a single streamed message into the infinite-query cache, de-duping by
-// message_id, keeping newest-first order, and re-paginating into PAGE_SIZE pages.
+// messageId, keeping newest-first order, and re-paginating into PAGE_SIZE pages.
 function mergeStreamedMessage(oldData: any, newMessage: ChatMessage) {
   if (!oldData?.pages?.[0]) return oldData;
 
   const all = oldData.pages.flatMap((p: ChatMessagesPage) => p.messages) as ChatMessage[];
-  const existingIndex = all.findIndex((m) => m.message_id === newMessage.message_id);
+  const existingIndex = all.findIndex((m) => m.messageId === newMessage.messageId);
 
   let merged: ChatMessage[];
   if (existingIndex !== -1) {
@@ -64,7 +38,7 @@ function mergeStreamedMessage(oldData: any, newMessage: ChatMessage) {
   }
 
   merged.sort(
-    (a, b) => new Date(b.ingest_timestamp).getTime() - new Date(a.ingest_timestamp).getTime(),
+    (a, b) => new Date(b.ingestTimestamp).getTime() - new Date(a.ingestTimestamp).getTime(),
   );
 
   const pages = [];
@@ -111,13 +85,13 @@ export function useChatMessages({
         { signal },
       );
 
-      const messages = res.messages.map(toChatMessage);
+      const messages = res.messages;
 
       return {
         messages,
         hasMore: messages.length === PAGE_SIZE,
         oldestTimestamp:
-          messages.length > 0 ? messages[messages.length - 1].ingest_timestamp : undefined,
+          messages.length > 0 ? messages[messages.length - 1].ingestTimestamp : undefined,
       };
     },
     getNextPageParam: (lastPage) => {
@@ -152,9 +126,10 @@ export function useChatMessages({
           { signal: controller.signal },
         );
 
-        for await (const genMsg of stream) {
+        for await (const resp of stream) {
           if (cancelled) break;
-          const msg = toChatMessage(genMsg);
+          if (!resp.message) continue;
+          const msg = resp.message;
           queryClient.setQueryData(baseQueryKey, (oldData: any) =>
             mergeStreamedMessage(oldData, msg),
           );

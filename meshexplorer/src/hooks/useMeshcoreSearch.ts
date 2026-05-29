@@ -4,43 +4,8 @@ import { nodeClient } from '@/lib/connect/client';
 import type { SearchResult } from '@/gen/meshexplorer/v1/node_pb';
 import { useMemo } from 'react';
 
-export interface MeshcoreSearchResult {
-  public_key: string;
-  node_name: string;
-  latitude: number | null;
-  longitude: number | null;
-  has_location: number;
-  is_repeater: number;
-  is_chat_node: number;
-  is_room_server: number;
-  has_name: number;
-  first_heard: string;
-  last_seen: string;
-  broker: string;
-  topic: string;
-}
-
-// Maps a generated (camelCase) SearchResult to the snake_case shape consumers use.
-function toSearchResult(r: SearchResult): MeshcoreSearchResult {
-  return {
-    public_key: r.publicKey,
-    node_name: r.nodeName,
-    latitude: r.latitude ?? null,
-    longitude: r.longitude ?? null,
-    has_location: r.hasLocation,
-    is_repeater: r.isRepeater,
-    is_chat_node: r.isChatNode,
-    is_room_server: r.isRoomServer,
-    has_name: r.hasName,
-    first_heard: r.firstHeard,
-    last_seen: r.lastSeen,
-    broker: r.broker,
-    topic: r.topic,
-  };
-}
-
 export interface MeshcoreSearchResponse {
-  results: MeshcoreSearchResult[];
+  results: SearchResult[];
   total: number;
 }
 
@@ -88,12 +53,12 @@ const searchBatcher = create({
 
     // Return results with batch context for resolver (array-of-arrays, one per query)
     return {
-      results: response.results.map((list) => list.results.map(toSearchResult)),
+      results: response.results.map((list) => list.results),
       queries: queries
     };
   },
-  
-  resolver: (batchData: {results: MeshcoreSearchResult[][], queries: SearchQuery[]}, query: SearchQuery) => {
+
+  resolver: (batchData: {results: SearchResult[][], queries: SearchQuery[]}, query: SearchQuery) => {
     const index = batchData.queries.findIndex(q => JSON.stringify(q) === JSON.stringify(query));
     return batchData.results[index] || [];
   },
@@ -146,7 +111,7 @@ export function useMeshcoreSearch({
       signal?.addEventListener('abort', handleAbort);
       
       try {
-        const queryResults = await searchBatcher.fetch(searchQuery) as MeshcoreSearchResult[] || [];
+        const queryResults = await searchBatcher.fetch(searchQuery) as SearchResult[] || [];
         return {
           results: queryResults,
           total: queryResults.length
@@ -214,7 +179,7 @@ export function useMeshcoreSearches({ searches }: UseMeshcoreSearchesParams) {
           signal?.addEventListener('abort', handleAbort);
           
           try {
-            const queryResults = await searchBatcher.fetch(searchQuery) as MeshcoreSearchResult[] || [];
+            const queryResults = await searchBatcher.fetch(searchQuery) as SearchResult[] || [];
             return {
               results: queryResults,
               total: queryResults.length

@@ -2,7 +2,7 @@ import React from 'react';
 import moment from "moment";
 import { formatPublicKey } from '@/lib/meshcore';
 import { getNameIconLabel } from '@/lib/meshcore-map-nodeutils';
-import { NodePosition } from '@/types/map';
+import type { NodePosition } from '@/gen/meshexplorer/v1/map_pb';
 
 interface NodeMarkerProps {
   node: NodePosition;
@@ -35,9 +35,9 @@ export function NodeMarker({ node, showNodeNames = true, isSelected = false, isL
 
   return (
     <div className="custom-node-marker-container">
-      {showNodeNames && node.short_name && (
+      {showNodeNames && node.shortName && (
         <div className="custom-node-label">
-          {getNameIconLabel(node.name || node.short_name)}
+          {getNameIconLabel(node.name || node.shortName)}
         </div>
       )}
       <div className={getMarkerClass()}></div>
@@ -101,32 +101,31 @@ export function ClusterMarker({ children }: ClusterMarkerProps) {
 export function PopupContent({ node, target = '_self' }: PopupContentProps) {
   return (
     <div>
-      <div><b>ID:</b> {formatPublicKey(node.node_id)}</div>
+      <div><b>ID:</b> {formatPublicKey(node.nodeId)}</div>
       <div><b>Full Name:</b> {node.name ?? "-"}</div>
-      <div><b>Short Name:</b> {node.short_name ? getNameIconLabel(node.name || node.short_name) : "-"}</div>
+      <div><b>Short Name:</b> {node.shortName ? getNameIconLabel(node.name || node.shortName) : "-"}</div>
       <div><b>Type:</b> {node.type ?? "-"}</div>
       <div><b>Lat:</b> {node.latitude}</div>
       <div><b>Lng:</b> {node.longitude}</div>
-      <div><b>Alt:</b> {node.altitude !== undefined ? node.altitude : "-"}</div>
-      {node.last_seen ? (
+      {node.lastSeen ? (
         <div>
-          <b>Last seen:</b> {moment.utc(node.last_seen).format('YYYY-MM-DD HH:mm:ss')} <span style={{color: '#888'}}>(UTC)</span><br/>
-          <span style={{color: '#888'}}>{moment.utc(node.last_seen).local().fromNow()}</span>
+          <b>Last seen:</b> {moment.utc(node.lastSeen).format('YYYY-MM-DD HH:mm:ss')} <span style={{color: '#888'}}>(UTC)</span><br/>
+          <span style={{color: '#888'}}>{moment.utc(node.lastSeen).local().fromNow()}</span>
         </div>
       ) : (
         <div><b>Last seen:</b> -</div>
       )}
-      {node.first_seen ? (
+      {node.firstSeen ? (
         <div>
-          <b>First seen:</b> {moment.utc(node.first_seen).format('YYYY-MM-DD HH:mm:ss')} <span style={{color: '#888'}}>(UTC)</span><br/>
-          <span style={{color: '#888'}}>{moment.utc(node.first_seen).local().fromNow()}</span>
+          <b>First seen:</b> {moment.utc(node.firstSeen).format('YYYY-MM-DD HH:mm:ss')} <span style={{color: '#888'}}>(UTC)</span><br/>
+          <span style={{color: '#888'}}>{moment.utc(node.firstSeen).local().fromNow()}</span>
         </div>
       ) : (
         <div><b>First seen:</b> -</div>
       )}
       <div style={{marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb'}}>
         <a
-          href={`/meshcore/node/${node.node_id}`}
+          href={`/meshcore/node/${node.nodeId}`}
           target={target}
           style={{
             display: 'inline-block',

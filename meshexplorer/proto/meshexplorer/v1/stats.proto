@@ -2,7 +2,19 @@ syntax = "proto3";
 
 package meshexplorer.v1;
 
-message StatsRequest {
+message GetTotalNodesRequest {
+  optional string region = 1;
+}
+
+message GetNodesOverTimeRequest {
+  optional string region = 1;
+}
+
+message GetPopularChannelsRequest {
+  optional string region = 1;
+}
+
+message GetRepeaterPrefixesRequest {
   optional string region = 1;
 }
 
@@ -42,8 +54,8 @@ message GetRepeaterPrefixesResponse {
 }
 
 service StatsService {
-  rpc GetTotalNodes(StatsRequest) returns (GetTotalNodesResponse);
-  rpc GetNodesOverTime(StatsRequest) returns (GetNodesOverTimeResponse);
-  rpc GetPopularChannels(StatsRequest) returns (GetPopularChannelsResponse);
-  rpc GetRepeaterPrefixes(StatsRequest) returns (GetRepeaterPrefixesResponse);
+  rpc GetTotalNodes(GetTotalNodesRequest) returns (GetTotalNodesResponse);
+  rpc GetNodesOverTime(GetNodesOverTimeRequest) returns (GetNodesOverTimeResponse);
+  rpc GetPopularChannels(GetPopularChannelsRequest) returns (GetPopularChannelsResponse);
+  rpc GetRepeaterPrefixes(GetRepeaterPrefixesRequest) returns (GetRepeaterPrefixesResponse);
 }

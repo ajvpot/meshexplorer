@@ -4,44 +4,30 @@ import { MapPinIcon, WifiIcon, ChatBubbleLeftRightIcon, ServerIcon } from '@hero
 import Link from 'next/link';
 import moment from 'moment';
 import { formatPublicKey } from '@/lib/meshcore';
-import { MeshcoreSearchResult } from '@/hooks/useMeshcoreSearch';
-
-export interface NodeCardData {
-  public_key: string;
-  node_name: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  has_location: number;
-  is_repeater: number;
-  is_chat_node: number;
-  is_room_server: number;
-  last_seen: string;
-  topic?: string;
-  broker?: string;
-}
+import type { SearchResult } from '@/gen/meshexplorer/v1/node_pb';
 
 interface NodeCardProps {
-  node: NodeCardData | MeshcoreSearchResult;
+  node: SearchResult;
   className?: string;
   showTopicInfo?: boolean;
 }
 
 export default function NodeCard({ node, className = "", showTopicInfo = true }: NodeCardProps) {
-  const hasLocation = node.has_location === 1;
-  const isRepeater = node.is_repeater === 1;
-  const isChatNode = node.is_chat_node === 1;
-  const isRoomServer = node.is_room_server === 1;
+  const hasLocation = node.hasLocation === 1;
+  const isRepeater = node.isRepeater === 1;
+  const isChatNode = node.isChatNode === 1;
+  const isRoomServer = node.isRoomServer === 1;
 
   return (
     <Link
-      href={`/meshcore/node/${node.public_key}`}
+      href={`/meshcore/node/${node.publicKey}`}
       className={`block bg-white dark:bg-neutral-800 rounded-lg border border-gray-200 dark:border-neutral-700 p-4 hover:shadow-md dark:hover:shadow-lg transition-shadow ${className}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
             <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 truncate">
-              {node.node_name || 'Unnamed Node'}
+              {node.nodeName || 'Unnamed Node'}
             </h4>
             <div className="flex items-center gap-1">
               {isRepeater && (
@@ -76,9 +62,9 @@ export default function NodeCard({ node, className = "", showTopicInfo = true }:
             )}
             
             <div className="flex items-center gap-4">
-              <span>Last seen: {moment.utc(node.last_seen).local().fromNow()}</span>
+              <span>Last seen: {moment.utc(node.lastSeen).local().fromNow()}</span>
               <span className="text-xs font-mono text-gray-500 dark:text-gray-500">
-                {formatPublicKey(node.public_key)}
+                {formatPublicKey(node.publicKey)}
               </span>
             </div>
 

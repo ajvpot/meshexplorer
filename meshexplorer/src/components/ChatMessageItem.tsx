@@ -6,19 +6,7 @@ import PathVisualization from "./PathVisualization";
 import { PathData } from "@/lib/pathUtils";
 import NodeLinkWithHover from "./NodeLinkWithHover";
 import { findNodeMentions } from "@/lib/node-utils";
-
-export interface ChatMessage {
-  message_id: string;
-  ingest_timestamp: string;
-  origins: string[];
-  mesh_timestamp: string;
-  path_len: number;
-  channel_hash: string;
-  mac: string;
-  encrypted_message: string;
-  message_count: number;
-  origin_path_info: Array<[string, string, string, string, string]>; // Array of [origin, origin_pubkey, path, broker, topic] tuples
-}
+import type { ChatMessage } from "@/gen/meshexplorer/v1/chat_pb";
 
 
 function formatHex(hex: string): string {
@@ -113,9 +101,9 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
   ], [config?.meshcoreKeys]);
 
   const { data: decryptionResult, isLoading } = useMessageDecryption({
-    encrypted_message: msg.encrypted_message,
+    encrypted_message: msg.encryptedMessage,
     mac: msg.mac,
-    channel_hash: msg.channel_hash,
+    channel_hash: msg.channelHash,
     knownKeys,
     parse: true,
   });
@@ -123,17 +111,17 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
   const parsed = decryptionResult?.decrypted || null;
   const error = decryptionResult?.error || null;
 
-  const originPathInfo = useMemo(() => 
-    msg.origin_path_info && msg.origin_path_info.length > 0 ? msg.origin_path_info : [],
-    [msg.origin_path_info]
+  const originPathInfo = useMemo(() =>
+    msg.originPathInfo && msg.originPathInfo.length > 0 ? msg.originPathInfo : [],
+    [msg.originPathInfo]
   );
 
   // Convert to PathData format for the new component
-  const pathData: PathData[] = useMemo(() => 
-    originPathInfo.map(([origin, origin_pubkey, path, broker, topic]) => ({
-      origin,
-      pubkey: origin_pubkey,
-      path
+  const pathData: PathData[] = useMemo(() =>
+    originPathInfo.map((o) => ({
+      origin: o.origin,
+      pubkey: o.originPubkey,
+      path: o.path
     })),
     [originPathInfo]
   );
@@ -145,7 +133,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
         <div className="text-xs text-gray-400 flex items-center gap-2">
           {formatLocalTime(new Date(parsed.timestamp * 1000).toISOString())}
           <span className="text-xs text-gray-500">type: {parsed.msgType}</span>
-          <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
+          <span className="text-xs text-gray-500 ml-2">channel: {msg.channelHash}</span>
         </div>
         <div className="break-words whitespace-pre-wrap">
           {parsed.sender ? (
@@ -163,7 +151,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
           paths={pathData} 
           title={`Heard ${pathData.length} repeat${pathData.length !== 1 ? 's' : ''}`}
           className="text-xs"
-          packetHash={msg.message_id}
+          packetHash={msg.messageId}
         />
       </div>
     );
@@ -174,8 +162,8 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
       return (
         <div className="border-b border-red-200 dark:border-red-800 pb-2 mb-2 bg-red-50 dark:bg-red-900/30">
           <div className="text-xs text-gray-400 flex items-center gap-2">
-            {formatLocalTime(msg.ingest_timestamp)}
-            <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
+            {formatLocalTime(msg.ingestTimestamp)}
+            <span className="text-xs text-gray-500 ml-2">channel: {msg.channelHash}</span>
           </div>
           <div className="text-xs text-red-600 dark:text-red-300">
             {error}
@@ -184,7 +172,7 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
             paths={pathData} 
             title={`Heard ${pathData.length} repeat${pathData.length !== 1 ? 's' : ''}`}
             className="text-xs"
-            packetHash={msg.message_id}
+            packetHash={msg.messageId}
           />
         </div>
       );
@@ -197,15 +185,15 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
     return (
       <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
         <div className="text-xs text-gray-400 flex items-center gap-2">
-          {formatLocalTime(msg.ingest_timestamp)}
-          <span className="text-xs text-gray-500 ml-2">channel: {msg.channel_hash}</span>
+          {formatLocalTime(msg.ingestTimestamp)}
+          <span className="text-xs text-gray-500 ml-2">channel: {msg.channelHash}</span>
         </div>
         <div className="w-full h-5 bg-gray-200 dark:bg-neutral-800 rounded animate-pulse my-2" />
         <PathVisualization 
           paths={pathData} 
           title={`Heard ${pathData.length} repeat${pathData.length !== 1 ? 's' : ''}`}
           className="text-xs"
-          packetHash={msg.message_id}
+          packetHash={msg.messageId}
         />
       </div>
     );
@@ -217,12 +205,12 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
 export default React.memo(ChatMessageItem, (prevProps, nextProps) => {
   // Only re-render if these key properties change
   return (
-    prevProps.msg.message_id === nextProps.msg.message_id &&
-    prevProps.msg.ingest_timestamp === nextProps.msg.ingest_timestamp &&
-    prevProps.msg.encrypted_message === nextProps.msg.encrypted_message &&
+    prevProps.msg.messageId === nextProps.msg.messageId &&
+    prevProps.msg.ingestTimestamp === nextProps.msg.ingestTimestamp &&
+    prevProps.msg.encryptedMessage === nextProps.msg.encryptedMessage &&
     prevProps.msg.mac === nextProps.msg.mac &&
-    prevProps.msg.channel_hash === nextProps.msg.channel_hash &&
-    prevProps.msg.origin_path_info?.length === nextProps.msg.origin_path_info?.length &&
+    prevProps.msg.channelHash === nextProps.msg.channelHash &&
+    prevProps.msg.originPathInfo?.length === nextProps.msg.originPathInfo?.length &&
     prevProps.showErrorRow === nextProps.showErrorRow
   );
 }); 

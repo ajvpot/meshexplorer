@@ -122,7 +122,7 @@ export const chatServiceImpl: ServiceImpl<typeof ChatService> = {
     for await (const result of streamer(params)) {
       const row = result.row;
       const decrypted = req.decrypt ? await decryptRow(row, keys) : null;
-      yield toChatMessage(row, decrypted);
+      yield { message: toChatMessage(row, decrypted) };
     }
   },
 };

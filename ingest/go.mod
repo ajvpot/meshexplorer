@@ -1,4 +1,4 @@
-module github.com/ajvpot/clickhouse-meshingest
+module github.com/ajvpot/meshexplorer/ingest
 
 go 1.24
 

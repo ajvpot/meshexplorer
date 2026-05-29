@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ajvpot/clickhouse-meshingest/internal/ingestcommon"
+	"github.com/ajvpot/meshexplorer/ingest/internal/ingestcommon"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

@@ -1,4 +1,4 @@
-FROM clickhouse/clickhouse-server:25.6.2.5
+FROM clickhouse/clickhouse-server:26.5.1.882
 
 # Read-only user used by the web app / discord bot
 COPY users.xml /etc/clickhouse-server/users.d/readonly_user.xml

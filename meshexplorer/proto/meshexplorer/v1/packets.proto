@@ -3,6 +3,7 @@ syntax = "proto3";
 package meshexplorer.v1;
 
 import "buf/validate/validate.proto";
+import "meshexplorer/v1/rules.proto";
 
 // A raw mesh packet (meshcore_packets), hex fields kept as hex strings.
 message Packet {
@@ -21,7 +22,7 @@ message Packet {
 }
 
 message StreamPacketsRequest {
-  optional string region = 1;
+  optional string region = 1 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
   // Payload type filter (0..15).
   optional int32 payload_type = 2 [(buf.validate.field).int32 = {
     gte: 0
@@ -32,7 +33,7 @@ message StreamPacketsRequest {
     gte: 0
     lte: 3
   }];
-  optional string origin_pubkey = 4 [(buf.validate.field).string.pattern = "^[0-9A-Fa-f]+$"];
+  optional string origin_pubkey = 4 [(buf.validate.field).string.(meshexplorer.v1.hex64) = true];
   // Poll interval in ms (clamped 100..10000, default 500).
   optional int32 poll_interval = 5 [(buf.validate.field).int32 = {
     gte: 100

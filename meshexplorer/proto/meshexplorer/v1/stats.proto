@@ -2,20 +2,23 @@ syntax = "proto3";
 
 package meshexplorer.v1;
 
+import "buf/validate/validate.proto";
+import "meshexplorer/v1/rules.proto";
+
 message GetTotalNodesRequest {
-  optional string region = 1;
+  optional string region = 1 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
 }
 
 message GetNodesOverTimeRequest {
-  optional string region = 1;
+  optional string region = 1 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
 }
 
 message GetPopularChannelsRequest {
-  optional string region = 1;
+  optional string region = 1 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
 }
 
 message GetRepeaterPrefixesRequest {
-  optional string region = 1;
+  optional string region = 1 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
 }
 
 message GetTotalNodesResponse {

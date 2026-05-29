@@ -4,6 +4,7 @@ package meshexplorer.v1;
 
 import "buf/validate/validate.proto";
 import "meshexplorer/v1/common.proto";
+import "meshexplorer/v1/rules.proto";
 
 // Latest known position of a node. Mirrors unified_latest_nodeinfo rows
 // returned by getNodePositions().
@@ -19,6 +20,17 @@ message NodePosition {
 }
 
 message GetMapRequest {
+  option (buf.validate.message).cel = {
+    id: "bbox.lat_order"
+    message: "min_lat must be <= max_lat"
+    expression: "!has(this.min_lat) || !has(this.max_lat) || this.min_lat <= this.max_lat"
+  };
+  option (buf.validate.message).cel = {
+    id: "bbox.lng_order"
+    message: "min_lng must be <= max_lng"
+    expression: "!has(this.min_lng) || !has(this.max_lng) || this.min_lng <= this.max_lng"
+  };
+
   // Bounding box (decimal degrees). Unset fields mean "unbounded" on that edge.
   optional double min_lat = 1 [(buf.validate.field).double = {
     gte: -90
@@ -36,10 +48,18 @@ message GetMapRequest {
     gte: -180
     lte: 180
   }];
-  repeated string node_types = 5;
+  repeated string node_types = 5 [(buf.validate.field).repeated = {
+    max_items: 20
+    items: {
+      string: {
+        min_len: 1
+        max_len: 64
+      }
+    }
+  }];
   // Only include nodes seen within this many seconds.
   optional int32 last_seen = 6 [(buf.validate.field).int32.gte = 0];
-  optional string region = 7;
+  optional string region = 7 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
   // When true, also compute and return the neighbor edge graph.
   bool include_neighbors = 8;
 }

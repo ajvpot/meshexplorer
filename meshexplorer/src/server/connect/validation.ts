@@ -1,10 +1,16 @@
 import type { DescMessage, MessageShape } from "@bufbuild/protobuf";
+import { createRegistry } from "@bufbuild/protobuf";
 import { createValidator } from "@bufbuild/protovalidate";
 import { Code, ConnectError, type Interceptor } from "@connectrpc/connect";
+import { file_meshexplorer_v1_rules } from "@/gen/meshexplorer/v1/rules_pb";
 
 // A single validator instance compiles and caches CEL programs per message
-// type, so reuse it across all requests.
-const validator = createValidator();
+// type, so reuse it across all requests. The registry carries our predefined
+// rule extensions (hex64, datetime64 in rules.proto); without it the validator
+// rejects those custom rules as unknown extensions.
+const validator = createValidator({
+  registry: createRegistry(file_meshexplorer_v1_rules),
+});
 
 function assertValid<Desc extends DescMessage>(schema: Desc, message: MessageShape<Desc>): void {
   const result = validator.validate(schema, message);

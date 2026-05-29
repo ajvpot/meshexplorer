@@ -3,6 +3,7 @@ syntax = "proto3";
 package meshexplorer.v1;
 
 import "buf/validate/validate.proto";
+import "meshexplorer/v1/rules.proto";
 
 // Basic node identity/capabilities from the latest advert (getMeshcoreNodeInfo).
 message NodeInfo {
@@ -65,7 +66,7 @@ message MqttInfo {
 }
 
 message GetNodeRequest {
-  string public_key = 1 [(buf.validate.field).string.min_len = 10];
+  string public_key = 1 [(buf.validate.field).string.(meshexplorer.v1.hex64) = true];
   // Max number of recent adverts to return (default 50).
   optional int32 limit = 2 [(buf.validate.field).int32 = {
     gte: 1
@@ -96,7 +97,7 @@ message Neighbor {
 }
 
 message GetNodeNeighborsRequest {
-  string public_key = 1 [(buf.validate.field).string.min_len = 10];
+  string public_key = 1 [(buf.validate.field).string.(meshexplorer.v1.hex64) = true];
   optional int32 last_seen = 2 [(buf.validate.field).int32.gte = 0];
 }
 
@@ -107,7 +108,7 @@ message GetNodeNeighborsResponse {
 // One search request within a (possibly batched) SearchNodes call.
 message SearchQuery {
   optional string query = 1 [(buf.validate.field).string.max_len = 100];
-  optional string region = 2;
+  optional string region = 2 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
   optional int32 last_seen = 3 [(buf.validate.field).int32.gte = 0];
   optional int32 limit = 4 [(buf.validate.field).int32 = {
     gte: 1
@@ -139,7 +140,10 @@ message SearchResultList {
 }
 
 message SearchNodesRequest {
-  repeated SearchQuery queries = 1 [(buf.validate.field).repeated.max_items = 500];
+  repeated SearchQuery queries = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 500
+  }];
 }
 
 message SearchNodesResponse {

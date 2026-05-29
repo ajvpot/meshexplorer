@@ -15,7 +15,7 @@ export default function InfoModal({ isOpen, onClose }: InfoModalProps) {
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
               {getAppName()} is a web-based visualization tool for exploring and monitoring mesh networks. 
-              It provides real-time mapping of network nodes, message tracking, and statistical analysis for MeshCore and Meshtastic networks.
+              It provides real-time mapping of network nodes, message tracking, and statistical analysis for MeshCore networks.
             </p>
           </div>
           

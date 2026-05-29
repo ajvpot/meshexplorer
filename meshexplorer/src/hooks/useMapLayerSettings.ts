@@ -1,7 +1,7 @@
 "use client";
 import { useLocalStorage } from './useLocalStorage';
 
-type NodeType = "meshcore" | "meshtastic";
+type NodeType = "meshcore";
 
 export interface MapLayerSettings {
   showNodes: boolean;
@@ -41,5 +41,4 @@ export const TILE_LAYERS = [
 
 export const NODE_TYPE_OPTIONS = [
   { key: "meshcore", label: "Meshcore" },
-  { key: "meshtastic", label: "Meshtastic" },
 ];

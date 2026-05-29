@@ -78,11 +78,11 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
             <label key={nodeType.key} className="flex items-center gap-2 mb-1 ml-6 cursor-pointer">
               <input
                 type="checkbox"
-                checked={settings.nodeTypes.includes(nodeType.key as "meshcore" | "meshtastic")}
+                checked={settings.nodeTypes.includes(nodeType.key as "meshcore")}
                 onChange={(e) => {
                   const currentTypes = settings.nodeTypes;
                   if (e.target.checked) {
-                    updateSetting('nodeTypes', [...currentTypes, nodeType.key as "meshcore" | "meshtastic"]);
+                    updateSetting('nodeTypes', [...currentTypes, nodeType.key as "meshcore"]);
                   } else {
                     updateSetting('nodeTypes', currentTypes.filter(t => t !== nodeType.key));
                   }

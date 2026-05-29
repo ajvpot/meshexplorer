@@ -47,6 +47,11 @@ func main() {
 		log.Fatalf("Failed to connect to ClickHouse: %v", err)
 	}
 
+	// ClickHouse is the target database; goose defaults to postgres otherwise.
+	if err := goose.SetDialect("clickhouse"); err != nil {
+		log.Fatalf("Failed to set goose dialect: %v", err)
+	}
+
 	// Set goose database
 	goose.SetBaseFS(os.DirFS(*migrationsPath))
 

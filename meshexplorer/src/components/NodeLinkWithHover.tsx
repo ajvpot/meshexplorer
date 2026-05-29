@@ -56,8 +56,8 @@ export default function NodeLinkWithHover({
     // If no results or multiple results, link to search page
     const searchUrl = `/search?q=${encodeURIComponent(nodeName)}`;
     const params = [];
-    if (exact) params.push('exact');
-    if (is_repeater) params.push('is_repeater');
+    if (exact) params.push('exact=true');
+    if (is_repeater) params.push('is_repeater=true');
     return searchUrl + (params.length > 0 ? '&' + params.join('&') : '');
   })();
 

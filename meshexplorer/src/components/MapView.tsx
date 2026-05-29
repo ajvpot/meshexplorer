@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { MapContainer, TileLayer, useMapEvents, Marker, Popup, MapContainerProps, useMap, Polyline } from "react-leaflet";
-import { useRouter, useSearchParams } from "next/navigation";
 import 'leaflet/dist/leaflet.css';
 import L from "leaflet";
 import 'leaflet.markercluster/dist/leaflet.markercluster.js';
@@ -17,15 +16,8 @@ import { buildApiUrl } from "@/lib/api";
 import { NodePosition } from "@/types/map";
 import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
 import { type AllNeighborsConnection } from "@/hooks/useAllNeighbors";
-import { useQueryParams } from "@/hooks/useQueryParams";
+import { useQueryStates, parseAsFloat, parseAsInteger } from "nuqs";
 import { useMapPosition } from "@/hooks/useMapPosition";
-
-interface MapQuery {
-  lat?: number;
-  lng?: number;
-  zoom?: number;
-}
-
 
 
 type ClusteredMarkersProps = { 
@@ -505,7 +497,11 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
   const [mapPosition, setMapPosition] = useMapPosition();
   
   // Use query params for map position (for sharing URLs)
-  const { query: mapQuery, updateQuery: updateMapQuery } = useQueryParams<MapQuery>({});
+  const [mapQuery, setMapQuery] = useQueryStates({
+    lat: parseAsFloat,
+    lng: parseAsFloat,
+    zoom: parseAsInteger,
+  });
   
   // Determine map center and zoom: query params take priority over localStorage
   const mapCenter: [number, number] = [
@@ -667,7 +663,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
         });
         
         // Update URL with new map position for sharing
-        updateMapQuery({
+        setMapQuery({
           lat: Math.round(center.lat * 100000) / 100000, // Round to 5 decimal places
           lng: Math.round(center.lng * 100000) / 100000,
           zoom: zoom
@@ -709,7 +705,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
         });
         
         // Update URL with new map position for sharing
-        updateMapQuery({
+        setMapQuery({
           lat: Math.round(center.lat * 100000) / 100000, // Round to 5 decimal places
           lng: Math.round(center.lng * 100000) / 100000,
           zoom: zoom

@@ -8,7 +8,6 @@ import SearchResults from '@/components/SearchResults';
 import RegionSelect from '@/components/RegionSelect';
 import { LAST_SEEN_OPTIONS } from '@/components/ConfigContext';
 import { useState, Suspense, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 
 function SearchPageContent() {
@@ -16,20 +15,14 @@ function SearchPageContent() {
   const { query, setQuery, setLimit, setExact, setIsRepeater } = useSearchQuery();
   const [showFilters, setShowFilters] = useState(false);
 
-  // Helper function to check if exact search is enabled
-  const isExactEnabled = query.exact === true || (typeof query.exact === 'string' && (query.exact === 'true' || query.exact === ''));
-  
-  // Helper function to check if is_repeater search is enabled
-  const isRepeaterEnabled = query.is_repeater === true || (typeof query.is_repeater === 'string' && (query.is_repeater === 'true' || query.is_repeater === ''));
-
   // Always use config values for region and lastSeen
   const searchParams = {
     query: query.q,
     region: config.selectedRegion,
     lastSeen: config.lastSeen,
     limit: query.limit || 50,
-    exact: isExactEnabled,
-    is_repeater: isRepeaterEnabled,
+    exact: query.exact,
+    is_repeater: query.is_repeater,
   };
 
   const { data, isLoading, error } = useMeshcoreSearch({
@@ -144,7 +137,7 @@ function SearchPageContent() {
                     <input
                       type="checkbox"
                       id="exact-match"
-                      checked={isExactEnabled}
+                      checked={query.exact}
                       onChange={(e) => setExact(e.target.checked)}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
@@ -163,7 +156,7 @@ function SearchPageContent() {
                     <input
                       type="checkbox"
                       id="is-repeater"
-                      checked={isRepeaterEnabled}
+                      checked={query.is_repeater}
                       onChange={(e) => setIsRepeater(e.target.checked)}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />

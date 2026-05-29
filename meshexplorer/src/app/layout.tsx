@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ConfigProvider } from "@/components/ConfigContext";
 import { QueryProvider } from "@/components/QueryProvider";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,11 +43,13 @@ export default function RootLayout({
         style={{ '--header-height': '64px' } as React.CSSProperties}
       >
         <div className="flex flex-col min-h-screen w-full">
-          <QueryProvider>
-            <ConfigProvider>
-              {children}
-            </ConfigProvider>
-          </QueryProvider>
+          <NuqsAdapter>
+            <QueryProvider>
+              <ConfigProvider>
+                {children}
+              </ConfigProvider>
+            </QueryProvider>
+          </NuqsAdapter>
         </div>
       </body>
     </html>

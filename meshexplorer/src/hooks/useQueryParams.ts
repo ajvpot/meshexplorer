@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { useQueryStates, parseAsString, parseAsInteger, parseAsBoolean } from 'nuqs';
 
 export function useQueryParams<T extends Record<string, any>>(defaultValues: T = {} as T) {
   const router = useRouter();
@@ -104,27 +105,21 @@ export function useQueryParams<T extends Record<string, any>>(defaultValues: T =
   };
 }
 
-// Legacy hook for backward compatibility - now uses the generic hook
-export interface SearchQuery {
-  q: string;
-  limit?: number;
-  exact?: boolean;
-  is_repeater?: boolean;
-}
-
+// Search query params, backed by nuqs for type-safe URL state.
 export function useSearchQuery() {
-  const { query, setParam } = useQueryParams<SearchQuery>({ q: '', limit: 50, exact: false, is_repeater: false });
-  
+  const [query, setQuery] = useQueryStates({
+    q: parseAsString.withDefault(''),
+    limit: parseAsInteger.withDefault(50),
+    exact: parseAsBoolean.withDefault(false),
+    is_repeater: parseAsBoolean.withDefault(false),
+  });
+
   return {
     query,
-    setQuery: (q: string) => setParam('q', q),
-    setLimit: (limit: number) => setParam('limit', limit),
-    setExact: (exact: boolean) => setParam('exact', exact),
-    setIsRepeater: (is_repeater: boolean) => setParam('is_repeater', is_repeater),
-    updateQuery: (updates: Partial<SearchQuery>) => {
-      Object.entries(updates).forEach(([key, value]) => {
-        setParam(key as keyof SearchQuery, value as any);
-      });
-    },
+    setQuery: (q: string) => setQuery({ q }),
+    setLimit: (limit: number) => setQuery({ limit }),
+    setExact: (exact: boolean) => setQuery({ exact }),
+    setIsRepeater: (is_repeater: boolean) => setQuery({ is_repeater }),
+    updateQuery: setQuery,
   };
 }

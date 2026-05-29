@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    isDefault: true
+    jsonData:
+      host: clickhouse
+      port: 9000
+      protocol: native
+      username: $CLICKHOUSE_READONLY_USER
+    secureJsonData:
+      password: $CLICKHOUSE_READONLY_PASSWORD
+    editable: false

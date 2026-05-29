@@ -9,6 +9,7 @@ single `docker compose up`:
 | Web app | [`meshexplorer/`](./meshexplorer) | Next.js UI + API (map, chat, stats, packet analysis) |
 | Ingest + DB | [`ingest/`](./ingest) | Go MeshCore MQTT→ClickHouse ingest, ClickHouse image, and SQL migrations |
 | Discord relay | [`meshexplorer/`](./meshexplorer) (`Dockerfile.bot`) | Optional bot that relays MeshCore channel messages to Discord |
+| Grafana | [`grafana/`](./grafana) | Dashboards with a pre-provisioned ClickHouse datasource (read-only user), on `127.0.0.1:3000` |
 
 ## Architecture
 
@@ -21,9 +22,9 @@ single `docker compose up`:
    └──────────────┘   └──────┬───────┘
                              │ (readonly user)
                   ┌──────────┴──────────┐
-                  ▼                     ▼
-            meshexplorer           discord-bot
-            (web UI :3001)         (optional --profile bot)
+                  ▼              ▼              ▼
+            meshexplorer     discord-bot      grafana
+            (web UI :3001)   (--profile bot)  (:3000)
 ```
 
 ## Quick start

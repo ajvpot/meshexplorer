@@ -126,8 +126,31 @@ services:
     networks:
       - meshnet
 
+  # Grafana dashboards, wired to ClickHouse via the read-only user.
+  grafana:
+    image: grafana/grafana:11.0.0
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+      - GF_USERS_DEFAULT_THEME=dark
+      # Consumed by the provisioned ClickHouse datasource (grafana/provisioning).
+      - CLICKHOUSE_READONLY_USER=${CLICKHOUSE_READONLY_USER:-readonly}
+      - CLICKHOUSE_READONLY_PASSWORD=${CLICKHOUSE_READONLY_PASSWORD:-readonly}
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - meshnet
+
 volumes:
   clickhouse-data:
+  grafana-data:
 
 networks:
   meshnet:

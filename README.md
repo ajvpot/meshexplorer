@@ -1,143 +1,82 @@
 # MeshExplorer
 
-MeshExplorer is a real-time map, chat client, and packet analysis tool for mesh networks using MeshCore and Meshtastic. It enables users to visualize mesh nodes on a map, communicate via chat, and analyze packet data in real time.
+A real-time map, chat client, and packet-analysis tool for **MeshCore** mesh
+networks. This repository ships the whole stack so it can be brought up with a
+single `docker compose up`:
 
-## Features
-- Real-time map of mesh network nodes (MeshCore and Meshtastic)
-- Integrated chat client for mesh channels
-- Packet analysis and inspection tools
-- Customizable map layers and clustering
-- Modern, responsive UI
+| Component | Path | Description |
+|-----------|------|-------------|
+| Web app | [`meshexplorer/`](./meshexplorer) | Next.js UI + API (map, chat, stats, packet analysis) |
+| Ingest + DB | [`ingest/`](./ingest) | Go MeshCore MQTT→ClickHouse ingest, ClickHouse image, and SQL migrations |
+| Discord relay | [`meshexplorer/`](./meshexplorer) (`Dockerfile.bot`) | Optional bot that relays MeshCore channel messages to Discord |
+| Grafana | [`grafana/`](./grafana) | Dashboards with a pre-provisioned ClickHouse datasource (read-only user), on `127.0.0.1:3000` |
 
-## Getting Started
+## Architecture
 
-First, run the development server:
+```
+                MQTT brokers (you configure)
+                          │
+                          ▼
+   ┌──────────────┐   ┌──────────────┐
+   │ meshcoreingest│──▶│  ClickHouse  │◀── migrate (one-shot, applies schema)
+   └──────────────┘   └──────┬───────┘
+                             │ (readonly user)
+                  ┌──────────┴──────────┐
+                  ▼              ▼              ▼
+            meshexplorer     discord-bot      grafana
+            (web UI :3001)   (--profile bot)  (:3000)
+```
+
+## Quick start
+
+Requirements: Docker + Docker Compose.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
+# Edit .env — at minimum set:
+#   CLICKHOUSE_PASSWORD   (read/write user, used by ingest + migrations)
+#   MQTT_BROKERS          (JSON array of meshcore MQTT brokers to ingest from)
+# Optional, for the Discord relay: DISCORD_WEBHOOK_URL (+ run with --profile bot)
+
+docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open <http://localhost:3001>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Startup order is handled automatically: ClickHouse becomes healthy → `migrate`
+applies the schema and exits → `meshcoreingest` and `meshexplorer` start.
 
-## Environment Variables
-
-### ClickHouse Database Configuration
-
-The application connects to ClickHouse using the following environment variables:
-
-- `CLICKHOUSE_HOST` - ClickHouse server hostname (default: `localhost`)
-- `CLICKHOUSE_PORT` - ClickHouse server port (default: `8123`)
-- `CLICKHOUSE_USER` - ClickHouse username (default: `default`)
-- `CLICKHOUSE_PASSWORD` - ClickHouse password (default: `password`)
-
-### `NEXT_PUBLIC_API_URL`
-
-This environment variable allows you to override the API base URL for frontend development purposes. When set, all API calls will be made to the specified URL instead of using relative URLs.
-
-**Use case**: This is useful when you want to develop the frontend without direct access to the ClickHouse database, by pointing to a remote API endpoint.
-
-**Example**:
-```bash
-NEXT_PUBLIC_API_URL=https://map.w0z.is
-```
-
-**Important**: When this environment variable is set, the local API routes (`/api/*`) will not work. Make sure the remote API endpoint provides the same API structure and endpoints.
-
-**Default behavior**: If not set, the application uses relative URLs and works with the local Next.js API routes.
-
-### CORS Support
-
-The application includes middleware (`middleware.ts`) that automatically adds CORS headers to all API routes. This allows:
-
-- Cross-origin requests from localhost to production APIs
-- Cross-protocol requests (HTTP on localhost to HTTPS in production)
-- Preflight OPTIONS requests are handled automatically
-
-The middleware applies the following CORS headers to all `/api/*` routes:
-- `Access-Control-Allow-Origin: *`
-- `Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS`
-- `Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With`
-- `Access-Control-Allow-Credentials: true`
-
-## Learn More
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [MeshCore](https://github.com/your-org/meshcore) - mesh network backend
-- [Meshtastic](https://meshtastic.org/) - open source mesh communication project
-
-## Docker Deployment
-
-The application includes Docker support for easy deployment. The Docker configuration is set up to connect to ClickHouse running on the Docker host.
-
-### Prerequisites
-
-- Docker and Docker Compose installed
-- ClickHouse running on the Docker host (default port 8123)
-- External Docker network `shared-network` must exist (see setup instructions below)
-
-### External Network Setup
-
-The application requires an external Docker network called `shared-network` to communicate with ClickHouse. You must create this network before running the application:
+To also run the Discord relay:
 
 ```bash
-docker network create shared-network
+docker compose --profile bot up --build
 ```
 
-**Note**: If the network already exists, this command will show an error but can be safely ignored.
+## Configuration
 
-### Running with Docker Compose
+All configuration is via environment variables in `.env` (see
+[`.env.example`](./.env.example) for the full list and defaults). Highlights:
 
-1. **Create the required external network (if not already created):**
-   ```bash
-   docker network create shared-network
-   ```
+- **ClickHouse** — two accounts. The read/write `default` user
+  (`CLICKHOUSE_PASSWORD`) is used by the ingest daemon and the migration runner;
+  the `readonly` user (`CLICKHOUSE_READONLY_PASSWORD`) is used by the web app and
+  the Discord bot. ClickHouse is only published to `127.0.0.1` for debugging and
+  is otherwise reachable only on the internal `meshnet` network.
+- **MQTT_BROKERS** — a JSON array; each entry is
+  `{ "url", "username", "password", "topics" }` (`topics` defaults to
+  `["meshcore/#"]`). The ingest daemon exits with a clear error if this is unset,
+  so configure at least one broker.
 
-2. **Build and start the application:**
-   ```bash
-   docker-compose up --build
-   ```
+## Development
 
-3. **Access the application:**
-   Open [http://localhost:3001](http://localhost:3001) in your browser.
+Each component can be run on its own:
 
-### Docker Configuration
+- Web app: see [`meshexplorer/README.md`](./meshexplorer/README.md)
+  (`npm install && npm run dev`).
+- Ingest: see [`ingest/README.md`](./ingest/README.md) (`go build ./...`).
 
-The `docker-compose.yml` file is configured with:
-- **Port mapping**: Container port 3000 → Host port 3001
-- **ClickHouse connection**: Uses `clickhouse` hostname to connect to ClickHouse via the shared network
-- **External network**: Requires `shared-network` to be created externally
-- **Environment variables**: Pre-configured for typical ClickHouse setup
+## Security notes
 
-### Customizing ClickHouse Connection
-
-You can customize the ClickHouse connection by modifying the environment variables in `docker-compose.yml`:
-
-```yaml
-environment:
-  - CLICKHOUSE_HOST=your-clickhouse-host
-  - CLICKHOUSE_PORT=8123
-  - CLICKHOUSE_USER=your-username
-  - CLICKHOUSE_PASSWORD=your-password
-```
-
-### Building with BuildKit
-
-For faster builds with caching, enable BuildKit:
-
-```bash
-DOCKER_BUILDKIT=1 docker-compose up --build
-```
-
-## Deploy
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `.env` is gitignored — keep real credentials out of version control.
+- If you previously used the bundled defaults, rotate any secrets before going
+  to production.

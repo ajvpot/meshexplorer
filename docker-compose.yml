@@ -1,59 +1,157 @@
-version: '3.8'
-
 services:
+  # ClickHouse database (custom image bundles the meshcore decrypt UDF)
+  clickhouse:
+    build: ./ingest/clickhouse
+    environment:
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-default}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      # Published to localhost only, for debugging. Not required by the stack.
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user $$CLICKHOUSE_USER --password $$CLICKHOUSE_PASSWORD --query 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - meshnet
+
+  # One-shot migration runner (goose). Applies the meshcore schema then exits.
+  migrate:
+    build: ./ingest
+    command:
+      - "./migrate"
+      - "-host"
+      - "clickhouse"
+      - "-port"
+      - "9000"
+      - "-database"
+      - "${CLICKHOUSE_DB:-default}"
+      - "-username"
+      - "${CLICKHOUSE_USER:-default}"
+      - "-password"
+      - "${CLICKHOUSE_PASSWORD:-}"
+      - "-path"
+      - "migrations"
+      - "-action"
+      - "up"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - meshnet
+
+  # MeshCore MQTT -> ClickHouse ingest daemon
+  meshcoreingest:
+    build: ./ingest
+    command: ["./meshcoreingest"]
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=9000
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-default}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
+      - MQTT_BROKERS=${MQTT_BROKERS}
+      - MQTT_CLIENT_ID=${MQTT_CLIENT_ID:-meshcore-ingest}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - meshnet
+
+  # MeshExplorer web app (Next.js). Reads ClickHouse over HTTP (8123) as the
+  # readonly user.
   meshexplorer:
     build:
-      context: .
+      context: ./meshexplorer
       dockerfile: Dockerfile
-    ports:
-      - "3001:3000"
     environment:
-      # Next.js Configuration
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      
-      # ClickHouse Database Configuration
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-clickhouse}
-      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-8123}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-password}
-      
-      # Next.js API Configuration
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=${CLICKHOUSE_READONLY_USER:-readonly}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_READONLY_PASSWORD:-readonly}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
+    ports:
+      - "3001:3000"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     init: true
     networks:
-      - shared-network
+      - meshnet
 
+  # MeshCore -> Discord relay bot. Optional: enabled with the "bot" profile.
+  #   docker compose --profile bot up
   discord-bot:
     build:
-      context: .
+      context: ./meshexplorer
       dockerfile: Dockerfile.bot
+    profiles: ["bot"]
     environment:
-      # Node.js Configuration
       - NODE_ENV=production
-      
-      # ClickHouse Database Configuration
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-clickhouse}
-      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-8123}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-password}
-      
-      # Discord Bot Configuration
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=${CLICKHOUSE_READONLY_USER:-readonly}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_READONLY_PASSWORD:-readonly}
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
       - DISCORD_THREAD_ID=${DISCORD_THREAD_ID:-}
       - MESH_REGION=${MESH_REGION:-seattle}
-      - POLL_INTERVAL=${POLL_INTERVAL:-1000}
+      - POLL_INTERVAL=${POLL_INTERVAL:-300}
       - MAX_ROWS_PER_POLL=${MAX_ROWS_PER_POLL:-50}
       - PRIVATE_KEYS=${PRIVATE_KEYS:-}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     init: true
     networks:
-      - shared-network
+      - meshnet
+
+  # Grafana dashboards, wired to ClickHouse via the read-only user.
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+      - GF_USERS_DEFAULT_THEME=dark
+      # Consumed by the provisioned ClickHouse datasource (grafana/provisioning).
+      - CLICKHOUSE_READONLY_USER=${CLICKHOUSE_READONLY_USER:-readonly}
+      - CLICKHOUSE_READONLY_PASSWORD=${CLICKHOUSE_READONLY_PASSWORD:-readonly}
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
-      - meshexplorer
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - meshnet
+
+volumes:
+  clickhouse-data:
+  grafana-data:
 
 networks:
-  shared-network:
-    external: true 
+  meshnet:
+    driver: bridge

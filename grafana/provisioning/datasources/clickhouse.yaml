@@ -1,0 +1,17 @@
+apiVersion: 1
+
+datasources:
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    # Pinned uid so the provisioned MeshCore dashboard's panel references resolve.
+    uid: clickhouse
+    access: proxy
+    isDefault: true
+    jsonData:
+      host: clickhouse
+      port: 9000
+      protocol: native
+      username: $CLICKHOUSE_READONLY_USER
+    secureJsonData:
+      password: $CLICKHOUSE_READONLY_PASSWORD
+    editable: false

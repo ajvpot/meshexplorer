@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MeshExplorer",
-  description: "A real-time map, chat client, and packet analysis tool for mesh networks using MeshCore and Meshtastic.",
+  description: "A real-time map, chat client, and packet analysis tool for MeshCore mesh networks.",
   icons: {
     icon: { url: "/favicon.svg", type: "image/svg+xml" },
     apple: { url: "/favicon.svg", type: "image/svg+xml" }

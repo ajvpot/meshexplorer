@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated protobuf / ConnectRPC code (produced by `npm run generate`, run on build)
+/src/gen

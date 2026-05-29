@@ -17,21 +17,28 @@ export interface NeighborEdgeRow {
   target_has_location: number;
 }
 
+// ClickHouse serializes UInt64/Int64 and aggregate columns (count(), etc.) as
+// JSON *strings* in JSONEachRow. Coerce every integer field we feed into an
+// int32 proto field, or protobuf-es rejects the string at encode time.
+export function num(v: unknown): number {
+  return Number(v ?? 0);
+}
+
 /** Maps a ClickHouse neighbor-edge row to the NeighborEdge proto init shape. */
 export function toNeighborEdge(row: NeighborEdgeRow): MessageInitShape<typeof NeighborEdgeSchema> {
   return {
     sourceNode: row.source_node,
     targetNode: row.target_node,
     connectionType: row.connection_type,
-    packetCount: row.packet_count,
+    packetCount: num(row.packet_count),
     sourceName: row.source_name,
     sourceLatitude: row.source_latitude,
     sourceLongitude: row.source_longitude,
-    sourceHasLocation: row.source_has_location,
+    sourceHasLocation: num(row.source_has_location),
     targetName: row.target_name,
     targetLatitude: row.target_latitude,
     targetLongitude: row.target_longitude,
-    targetHasLocation: row.target_has_location,
+    targetHasLocation: num(row.target_has_location),
   };
 }
 

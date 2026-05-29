@@ -8,6 +8,7 @@ import {
   createChatMessagesStreamerConfig,
 } from "@/lib/clickhouse/streaming";
 import { decryptMeshcoreGroupMessage } from "@/lib/meshcore";
+import { num } from "./mappers";
 
 const PUBLIC_MESHCORE_KEY = "izOH6cXN6mrJ5e26oRXNcg==";
 
@@ -40,7 +41,7 @@ function toChatMessage(
     channelHash: row.channel_hash,
     mac: row.mac,
     encryptedMessage: row.encrypted_message,
-    messageCount: row.message_count,
+    messageCount: num(row.message_count),
     originPathInfo: (row.origin_path_info ?? []).map(
       ([origin, originPubkey, path, broker, topic]) => ({
         origin,

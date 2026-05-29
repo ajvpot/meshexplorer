@@ -30,7 +30,8 @@ message OriginPathPubkeyTuple {
 
 // An advert grouped by packet_hash, with all the paths it was heard over.
 message Advert {
-  string adv_timestamp = 1;
+  // Unix epoch seconds from the meshcore advert (uint32 in ClickHouse).
+  uint32 adv_timestamp = 1;
   repeated OriginPathPubkeyTuple origin_path_pubkey_tuples = 2;
   int32 advert_count = 3;
   string earliest_timestamp = 4;

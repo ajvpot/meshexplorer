@@ -7,6 +7,7 @@ import {
   getMeshcoreNodeNeighbors,
   searchMeshcoreNodes,
 } from "@/lib/clickhouse/actions";
+import { num } from "./mappers";
 
 interface SearchResultRow {
   public_key: string;
@@ -30,11 +31,11 @@ function toSearchResult(row: SearchResultRow): MessageInitShape<typeof SearchRes
     nodeName: row.node_name,
     latitude: row.latitude ?? undefined,
     longitude: row.longitude ?? undefined,
-    hasLocation: row.has_location,
-    isRepeater: row.is_repeater,
-    isChatNode: row.is_chat_node,
-    isRoomServer: row.is_room_server,
-    hasName: row.has_name,
+    hasLocation: num(row.has_location),
+    isRepeater: num(row.is_repeater),
+    isChatNode: num(row.is_chat_node),
+    isRoomServer: num(row.is_room_server),
+    hasName: num(row.has_name),
     firstHeard: row.first_heard,
     lastSeen: row.last_seen,
     broker: row.broker,
@@ -54,7 +55,7 @@ export const nodeServiceImpl: ServiceImpl<typeof NodeService> = {
     const node = nodeInfo.node;
     // recentAdverts / locationHistory come back as untyped JSON rows.
     const adverts = nodeInfo.recentAdverts as Array<{
-      adv_timestamp: string;
+      adv_timestamp: number;
       origin_path_pubkey_tuples: Array<[string, string, string]>;
       advert_count: number;
       earliest_timestamp: string;
@@ -79,30 +80,30 @@ export const nodeServiceImpl: ServiceImpl<typeof NodeService> = {
         nodeName: node.node_name,
         latitude: node.latitude ?? undefined,
         longitude: node.longitude ?? undefined,
-        hasLocation: node.has_location,
-        isRepeater: node.is_repeater,
-        isChatNode: node.is_chat_node,
-        isRoomServer: node.is_room_server,
-        hasName: node.has_name,
+        hasLocation: num(node.has_location),
+        isRepeater: num(node.is_repeater),
+        isChatNode: num(node.is_chat_node),
+        isRoomServer: num(node.is_room_server),
+        hasName: num(node.has_name),
         broker: node.broker ?? undefined,
         topic: node.topic ?? undefined,
         firstSeen: node.first_seen,
         lastSeen: node.last_seen,
       },
       recentAdverts: adverts.map((a) => ({
-        advTimestamp: a.adv_timestamp,
+        advTimestamp: num(a.adv_timestamp),
         originPathPubkeyTuples: (a.origin_path_pubkey_tuples ?? []).map(
           ([origin, path, originPubkey]) => ({ origin, path, originPubkey }),
         ),
-        advertCount: a.advert_count,
+        advertCount: num(a.advert_count),
         earliestTimestamp: a.earliest_timestamp,
         latestTimestamp: a.latest_timestamp,
         latitude: a.latitude ?? undefined,
         longitude: a.longitude ?? undefined,
-        isRepeater: a.is_repeater,
-        isChatNode: a.is_chat_node,
-        isRoomServer: a.is_room_server,
-        hasLocation: a.has_location,
+        isRepeater: num(a.is_repeater),
+        isChatNode: num(a.is_chat_node),
+        isRoomServer: num(a.is_room_server),
+        hasLocation: num(a.has_location),
         packetHash: a.packet_hash,
       })),
       locationHistory: locationHistory.map((l) => ({
@@ -135,11 +136,11 @@ export const nodeServiceImpl: ServiceImpl<typeof NodeService> = {
         nodeName: n.node_name,
         latitude: n.latitude ?? undefined,
         longitude: n.longitude ?? undefined,
-        hasLocation: n.has_location,
-        isRepeater: n.is_repeater,
-        isChatNode: n.is_chat_node,
-        isRoomServer: n.is_room_server,
-        hasName: n.has_name,
+        hasLocation: num(n.has_location),
+        isRepeater: num(n.is_repeater),
+        isChatNode: num(n.is_chat_node),
+        isRoomServer: num(n.is_room_server),
+        hasName: num(n.has_name),
         directions: n.directions,
       })),
     };

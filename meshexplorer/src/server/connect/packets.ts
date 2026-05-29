@@ -4,6 +4,7 @@ import {
   createClickHouseStreamer,
   createMeshcorePacketsStreamerConfig,
 } from "@/lib/clickhouse/streaming";
+import { num } from "./mappers";
 
 interface PacketRow {
   ingest_timestamp: string;
@@ -47,12 +48,12 @@ export const packetsServiceImpl: ServiceImpl<typeof PacketsService> = {
         broker: row.broker,
         topic: row.topic,
         packet: row.packet,
-        pathLen: row.path_len,
+        pathLen: num(row.path_len),
         path: row.path,
-        routeType: row.route_type,
-        payloadType: row.payload_type,
-        payloadVersion: row.payload_version,
-        header: row.header,
+        routeType: num(row.route_type),
+        payloadType: num(row.payload_type),
+        payloadVersion: num(row.payload_version),
+        header: num(row.header),
         originPubkey: row.origin_pubkey,
       };
     }

@@ -1,0 +1,4 @@
+<clickhouse>
+    <user_defined_executable_functions_config>/usr/local/share/clickhouse-udfs/*.xml</user_defined_executable_functions_config>
+    <user_scripts_path>/usr/local/share/clickhouse-udf-bins/</user_scripts_path>
+</clickhouse> 

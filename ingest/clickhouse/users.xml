@@ -1,0 +1,33 @@
+<clickhouse>
+    <users>
+        <!-- Readonly user configuration. Used by the web UI / discord bot.
+             Only reachable on the internal docker network, so the password is fine inline. -->
+        <readonly>
+            <password>readonly</password>
+            <networks incl="networks" replace="replace">
+                <ip>::/0</ip>
+            </networks>
+            <profile>readonly</profile>
+            <quota>default</quota>
+        </readonly>
+    </users>
+    
+    <profiles>
+        <!-- Profile for readonly user -->
+        <readonly>
+            <readonly>1</readonly>
+            <allow_ddl>0</allow_ddl>
+            <max_memory_usage>10000000000</max_memory_usage>
+            <max_execution_time>300</max_execution_time>
+            <max_rows_to_read>10000000</max_rows_to_read>
+            <max_bytes_to_read>500000000</max_bytes_to_read>
+            <constraints>
+                <max_execution_time>
+                    <changeable_in_readonly/>
+                    <min>0</min>
+                    <max>180</max>
+                </max_execution_time>
+            </constraints>
+        </readonly>
+    </profiles>
+</clickhouse>

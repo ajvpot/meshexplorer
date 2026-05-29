@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { buildApiUrl } from '@/lib/api';
+import { useQuery } from '@connectrpc/connect-query';
+import { NeighborsService } from '@/gen/meshexplorer/v1/neighbors_pb';
 
 export interface AllNeighborsConnection {
   source_node: string;
@@ -27,55 +27,46 @@ interface UseAllNeighborsParams {
   enabled?: boolean;
 }
 
-export function useAllNeighbors({ 
-  minLat, 
-  maxLat, 
-  minLng, 
-  maxLng, 
-  nodeTypes, 
-  lastSeen, 
+export function useAllNeighbors({
+  minLat,
+  maxLat,
+  minLng,
+  maxLng,
+  nodeTypes,
+  lastSeen,
   region,
-  enabled = true 
+  enabled = true,
 }: UseAllNeighborsParams) {
-  return useQuery({
-    queryKey: ['allNeighbors', minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen, region],
-    queryFn: async (): Promise<AllNeighborsConnection[]> => {
-      const params = new URLSearchParams();
-      
-      if (minLat !== null && minLat !== undefined) {
-        params.append('minLat', minLat.toString());
-      }
-      if (maxLat !== null && maxLat !== undefined) {
-        params.append('maxLat', maxLat.toString());
-      }
-      if (minLng !== null && minLng !== undefined) {
-        params.append('minLng', minLng.toString());
-      }
-      if (maxLng !== null && maxLng !== undefined) {
-        params.append('maxLng', maxLng.toString());
-      }
-      if (nodeTypes && nodeTypes.length > 0) {
-        nodeTypes.forEach(type => params.append('nodeTypes', type));
-      }
-      if (lastSeen !== null && lastSeen !== undefined) {
-        params.append('lastSeen', lastSeen.toString());
-      }
-      if (region) {
-        params.append('region', region);
-      }
-      
-      const url = `/api/neighbors/all${params.toString() ? `?${params.toString()}` : ''}`;
-      
-      const response = await fetch(buildApiUrl(url));
-      if (!response.ok) {
-        throw new Error(`Failed to fetch all neighbors: ${response.statusText}`);
-      }
-      
-      return response.json();
+  return useQuery(
+    NeighborsService.method.getAllNeighbors,
+    {
+      minLat: minLat ?? undefined,
+      maxLat: maxLat ?? undefined,
+      minLng: minLng ?? undefined,
+      maxLng: maxLng ?? undefined,
+      nodeTypes: nodeTypes ?? [],
+      lastSeen: lastSeen ?? undefined,
+      region,
     },
-    enabled: enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes (shorter than individual neighbors since this is more expensive)
-    gcTime: 15 * 60 * 1000, // 15 minutes
-  });
+    {
+      select: (res): AllNeighborsConnection[] =>
+        res.neighbors.map((n) => ({
+          source_node: n.sourceNode,
+          target_node: n.targetNode,
+          connection_type: n.connectionType,
+          packet_count: n.packetCount,
+          source_name: n.sourceName,
+          source_latitude: n.sourceLatitude,
+          source_longitude: n.sourceLongitude,
+          source_has_location: n.sourceHasLocation,
+          target_name: n.targetName,
+          target_latitude: n.targetLatitude,
+          target_longitude: n.targetLongitude,
+          target_has_location: n.targetHasLocation,
+        })),
+      enabled,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 15 * 60 * 1000, // 15 minutes
+    },
+  );
 }
-

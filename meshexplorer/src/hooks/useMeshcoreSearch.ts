@@ -1,6 +1,7 @@
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { create, windowScheduler, indexedResolver } from '@yornaath/batshit';
-import { buildApiUrl } from '@/lib/api';
+import { nodeClient } from '@/lib/connect/client';
+import type { SearchResult } from '@/gen/meshexplorer/v1/node_pb';
 import { useMemo } from 'react';
 
 export interface MeshcoreSearchResult {
@@ -17,6 +18,25 @@ export interface MeshcoreSearchResult {
   last_seen: string;
   broker: string;
   topic: string;
+}
+
+// Maps a generated (camelCase) SearchResult to the snake_case shape consumers use.
+function toSearchResult(r: SearchResult): MeshcoreSearchResult {
+  return {
+    public_key: r.publicKey,
+    node_name: r.nodeName,
+    latitude: r.latitude ?? null,
+    longitude: r.longitude ?? null,
+    has_location: r.hasLocation,
+    is_repeater: r.isRepeater,
+    is_chat_node: r.isChatNode,
+    is_room_server: r.isRoomServer,
+    has_name: r.hasName,
+    first_heard: r.firstHeard,
+    last_seen: r.lastSeen,
+    broker: r.broker,
+    topic: r.topic,
+  };
 }
 
 export interface MeshcoreSearchResponse {
@@ -48,26 +68,27 @@ const searchBatcher = create({
 
     // Create AbortController for this batch
     const abortController = new AbortController();
-    
+
     // Store the abort controller so individual queries can cancel the batch
     (searchBatcher as any)._currentAbortController = abortController;
 
-    const response = await fetch(buildApiUrl('/api/meshcore/search'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ queries: normalizedQueries }),
-      signal: abortController.signal,
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to execute batch search: ${response.statusText}`);
-    }
-    
-    const batchResponse = await response.json();
-    
-    // Return results with batch context for resolver
+    const response = await nodeClient.searchNodes(
+      {
+        queries: normalizedQueries.map((q) => ({
+          query: q.query,
+          region: q.region,
+          lastSeen: q.lastSeen,
+          limit: q.limit,
+          exact: q.exact,
+          isRepeater: q.is_repeater,
+        })),
+      },
+      { signal: abortController.signal },
+    );
+
+    // Return results with batch context for resolver (array-of-arrays, one per query)
     return {
-      results: batchResponse.results || [],
+      results: response.results.map((list) => list.results.map(toSearchResult)),
       queries: queries
     };
   },

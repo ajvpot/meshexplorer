@@ -13,7 +13,8 @@ import MapLayerSettingsComponent from "@/components/MapLayerSettings";
 import { type MapLayerSettings } from "@/hooks/useMapLayerSettings";
 import { NodeMarker, ClusterMarker, PopupContent } from "./MapIcons";
 import { renderToString } from "react-dom/server";
-import { buildApiUrl } from "@/lib/api";
+import { Code, ConnectError } from "@connectrpc/connect";
+import { mapClient } from "@/lib/connect/client";
 import { NodePosition } from "@/types/map";
 import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
 import { type AllNeighborsConnection } from "@/hooks/useAllNeighbors";
@@ -572,65 +573,75 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
       setAllNeighborsLoading(true);
     }
     
-    let url = "/api/map";
-    const params = [];
-    if (bounds) {
-      const [[minLat, minLng], [maxLat, maxLng]] = bounds;
-      params.push(`minLat=${minLat}`);
-      params.push(`maxLat=${maxLat}`);
-      params.push(`minLng=${minLng}`);
-      params.push(`maxLng=${maxLng}`);
-    }
-    if (mapLayerSettings.nodeTypes && mapLayerSettings.nodeTypes.length > 0) {
-      for (const type of mapLayerSettings.nodeTypes) {
-        params.push(`nodeTypes=${encodeURIComponent(type)}`);
-      }
-    }
-    if (config?.lastSeen !== null && config?.lastSeen !== undefined) {
-      params.push(`lastSeen=${config.lastSeen}`);
-    }
-    if (config?.selectedRegion) {
-      params.push(`region=${encodeURIComponent(config.selectedRegion)}`);
-    }
-    if (includeNeighbors) {
-      params.push('includeNeighbors=true');
-    }
-    if (params.length > 0) {
-      url += `?${params.join("&")}`;
-    }
-    
-    fetch(buildApiUrl(url), { signal: controller.signal })
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          // Backward compatibility: just nodes array
-          setNodePositions(data);
-          setLastResultCount(data.length);
-          if (includeNeighbors) {
-            // If we expected neighbors but got just nodes, clear neighbors
-            setAllNeighborConnections([]);
-          }
-        } else if (data && data.nodes && Array.isArray(data.nodes)) {
-          // New format: object with nodes and neighbors
-          setNodePositions(data.nodes);
-          setLastResultCount(data.nodes.length);
-          if (data.neighbors && Array.isArray(data.neighbors)) {
-            setAllNeighborConnections(data.neighbors);
-          } else {
-            setAllNeighborConnections([]);
-          }
+    // Clamp to valid lat/lng ranges so the protovalidate bounds rules accept the
+    // (buffered) viewport; node coordinates never fall outside these ranges.
+    const clampLat = (v: number) => Math.max(-90, Math.min(90, v));
+    const clampLng = (v: number) => Math.max(-180, Math.min(180, v));
+
+    const request = {
+      minLat: bounds ? clampLat(bounds[0][0]) : undefined,
+      minLng: bounds ? clampLng(bounds[0][1]) : undefined,
+      maxLat: bounds ? clampLat(bounds[1][0]) : undefined,
+      maxLng: bounds ? clampLng(bounds[1][1]) : undefined,
+      nodeTypes:
+        mapLayerSettings.nodeTypes && mapLayerSettings.nodeTypes.length > 0
+          ? mapLayerSettings.nodeTypes
+          : [],
+      lastSeen:
+        config?.lastSeen !== null && config?.lastSeen !== undefined
+          ? config.lastSeen
+          : undefined,
+      region: config?.selectedRegion || undefined,
+      includeNeighbors,
+    };
+
+    mapClient
+      .getMap(request, { signal: controller.signal })
+      .then((res) => {
+        setNodePositions(
+          res.nodes.map((n) => ({
+            node_id: n.nodeId,
+            latitude: n.latitude,
+            longitude: n.longitude,
+            last_seen: n.lastSeen,
+            first_seen: n.firstSeen,
+            type: n.type,
+            short_name: n.shortName,
+            name: n.name ?? null,
+          })),
+        );
+        setLastResultCount(res.nodes.length);
+        if (includeNeighbors) {
+          setAllNeighborConnections(
+            res.neighbors.map((e) => ({
+              source_node: e.sourceNode,
+              target_node: e.targetNode,
+              connection_type: e.connectionType,
+              packet_count: e.packetCount,
+              source_name: e.sourceName,
+              source_latitude: e.sourceLatitude,
+              source_longitude: e.sourceLongitude,
+              source_has_location: e.sourceHasLocation,
+              target_name: e.targetName,
+              target_latitude: e.targetLatitude,
+              target_longitude: e.targetLongitude,
+              target_has_location: e.targetHasLocation,
+            })),
+          );
         } else {
-          setNodePositions([]);
           setAllNeighborConnections([]);
         }
-        
+
         if (fetchController.current === controller) {
           setLoading(false);
           setAllNeighborsLoading(false);
         }
       })
       .catch((err) => {
-        if (err.name !== "AbortError") {
+        const canceled =
+          controller.signal.aborted ||
+          (err instanceof ConnectError && err.code === Code.Canceled);
+        if (!canceled) {
           setNodePositions([]);
           setAllNeighborConnections([]);
         }

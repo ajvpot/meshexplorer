@@ -25,7 +25,7 @@ function getNodeType(node: NodeInfo): number {
 
 export default function MeshcoreNodePage() {
   const params = useParams();
-  const publicKey = params.publicKey as string;
+  const publicKey = params?.publicKey as string;
   const { config } = useConfig();
 
   // Use TanStack Query for node data

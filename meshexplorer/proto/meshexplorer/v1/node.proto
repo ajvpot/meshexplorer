@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package meshexplorer.v1;
+
+import "buf/validate/validate.proto";
+
+// Basic node identity/capabilities from the latest advert (getMeshcoreNodeInfo).
+message NodeInfo {
+  string public_key = 1;
+  string node_name = 2;
+  optional double latitude = 3;
+  optional double longitude = 4;
+  int32 has_location = 5;
+  int32 is_repeater = 6;
+  int32 is_chat_node = 7;
+  int32 is_room_server = 8;
+  int32 has_name = 9;
+  optional string broker = 10;
+  optional string topic = 11;
+  string first_seen = 12;
+  string last_seen = 13;
+}
+
+// One (origin, path, origin_pubkey) tuple from an advert's reception paths.
+message OriginPathPubkeyTuple {
+  string origin = 1;
+  string path = 2;
+  string origin_pubkey = 3;
+}
+
+// An advert grouped by packet_hash, with all the paths it was heard over.
+message Advert {
+  string adv_timestamp = 1;
+  repeated OriginPathPubkeyTuple origin_path_pubkey_tuples = 2;
+  int32 advert_count = 3;
+  string earliest_timestamp = 4;
+  string latest_timestamp = 5;
+  optional double latitude = 6;
+  optional double longitude = 7;
+  int32 is_repeater = 8;
+  int32 is_chat_node = 9;
+  int32 is_room_server = 10;
+  int32 has_location = 11;
+  string packet_hash = 12;
+}
+
+message LocationHistory {
+  string mesh_timestamp = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+
+message MqttTopic {
+  string topic = 1;
+  string broker = 2;
+  string last_packet_time = 3;
+  bool is_recent = 4;
+}
+
+message MqttInfo {
+  bool is_uplinked = 1;
+  bool has_packets = 2;
+  repeated MqttTopic topics = 3;
+}
+
+message GetNodeRequest {
+  string public_key = 1 [(buf.validate.field).string.min_len = 10];
+  // Max number of recent adverts to return (default 50).
+  optional int32 limit = 2 [(buf.validate.field).int32 = {gte: 1, lte: 1000}];
+}
+
+message GetNodeResponse {
+  NodeInfo node = 1;
+  repeated Advert recent_adverts = 2;
+  repeated LocationHistory location_history = 3;
+  MqttInfo mqtt = 4;
+  optional string region = 5;
+}
+
+// Direct neighbor of a node (meshcore_node_direct_neighbors).
+message Neighbor {
+  string public_key = 1;
+  string node_name = 2;
+  optional double latitude = 3;
+  optional double longitude = 4;
+  int32 has_location = 5;
+  int32 is_repeater = 6;
+  int32 is_chat_node = 7;
+  int32 is_room_server = 8;
+  int32 has_name = 9;
+  repeated string directions = 10;
+}
+
+message GetNodeNeighborsRequest {
+  string public_key = 1 [(buf.validate.field).string.min_len = 10];
+  optional int32 last_seen = 2 [(buf.validate.field).int32.gte = 0];
+}
+
+message GetNodeNeighborsResponse {
+  repeated Neighbor neighbors = 1;
+}
+
+// One search request within a (possibly batched) SearchNodes call.
+message SearchQuery {
+  optional string query = 1 [(buf.validate.field).string.max_len = 100];
+  optional string region = 2;
+  optional int32 last_seen = 3 [(buf.validate.field).int32.gte = 0];
+  optional int32 limit = 4 [(buf.validate.field).int32 = {gte: 1, lte: 200}];
+  optional bool exact = 5;
+  optional bool is_repeater = 6;
+}
+
+message SearchResult {
+  string public_key = 1;
+  string node_name = 2;
+  optional double latitude = 3;
+  optional double longitude = 4;
+  int32 has_location = 5;
+  int32 is_repeater = 6;
+  int32 is_chat_node = 7;
+  int32 is_room_server = 8;
+  int32 has_name = 9;
+  string first_heard = 10;
+  string last_seen = 11;
+  string broker = 12;
+  string topic = 13;
+}
+
+// Results for a single query in the batch (preserves per-query grouping).
+message SearchResultList {
+  repeated SearchResult results = 1;
+}
+
+message SearchNodesRequest {
+  repeated SearchQuery queries = 1 [(buf.validate.field).repeated.max_items = 500];
+}
+
+message SearchNodesResponse {
+  // One entry per input query, in the same order.
+  repeated SearchResultList results = 1;
+}
+
+service NodeService {
+  rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
+  rpc GetNodeNeighbors(GetNodeNeighborsRequest) returns (GetNodeNeighborsResponse);
+  rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
+}

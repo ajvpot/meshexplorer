@@ -7,11 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "generate": "buf generate --include-imports",
     "discord-bot": "tsx scripts/discord-bot.ts",
     "discord-bot:dev": "tsx watch scripts/discord-bot.ts"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^2.9.0",
+    "@bufbuild/protovalidate": "^1.2.0",
     "@clickhouse/client": "^1.11.2",
+    "@connectrpc/connect": "^2.1.0",
+    "@connectrpc/connect-next": "^2.1.0",
+    "@connectrpc/connect-query": "^2.1.0",
+    "@connectrpc/connect-web": "^2.1.0",
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
     "@tanstack/react-query": "^5.87.1",
@@ -38,6 +45,8 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.50.0",
+    "@bufbuild/protoc-gen-es": "^2.9.0",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/aes-js": "^3.1.4",

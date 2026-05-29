@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package meshexplorer.v1;
+
+import "buf/validate/validate.proto";
+
+// A raw mesh packet (meshcore_packets), hex fields kept as hex strings.
+message Packet {
+  string ingest_timestamp = 1;
+  string mesh_timestamp = 2;
+  string broker = 3;
+  string topic = 4;
+  string packet = 5;
+  int32 path_len = 6;
+  string path = 7;
+  int32 route_type = 8;
+  int32 payload_type = 9;
+  int32 payload_version = 10;
+  int32 header = 11;
+  string origin_pubkey = 12;
+}
+
+message StreamPacketsRequest {
+  optional string region = 1;
+  // Payload type filter (0..15).
+  optional int32 payload_type = 2 [(buf.validate.field).int32 = {gte: 0, lte: 15}];
+  // Route type filter (0..3).
+  optional int32 route_type = 3 [(buf.validate.field).int32 = {gte: 0, lte: 3}];
+  optional string origin_pubkey = 4 [(buf.validate.field).string.pattern = "^[0-9A-Fa-f]+$"];
+  // Poll interval in ms (clamped 100..10000, default 500).
+  optional int32 poll_interval = 5 [(buf.validate.field).int32 = {gte: 100, lte: 10000}];
+  // Max rows per poll (clamped 10..10000, default 10).
+  optional int32 max_rows = 6 [(buf.validate.field).int32 = {gte: 10, lte: 10000}];
+}
+
+service PacketsService {
+  rpc StreamPackets(StreamPacketsRequest) returns (stream Packet);
+}

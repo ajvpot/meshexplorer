@@ -32,8 +32,8 @@ export function useQueryParams<T extends Record<string, any>>(defaultValues: T =
   // (not from our own updates)
   useEffect(() => {
     const newState = { ...defaultValues };
-    
-    searchParams.forEach((value, key) => {
+
+    searchParams?.forEach((value, key) => {
       // Don't auto-convert 'q' (query) parameter to number since it should always be a string
       if (key !== 'q' && !isNaN(Number(value)) && value !== '') {
         newState[key as keyof T] = Number(value) as T[keyof T];

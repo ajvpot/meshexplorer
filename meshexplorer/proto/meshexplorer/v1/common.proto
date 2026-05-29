@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package meshexplorer.v1;
+
+// A directed edge in the neighbor graph between two located nodes.
+// Shared by MapService.GetMap (when includeNeighbors=true) and
+// NeighborsService.GetAllNeighbors. Mirrors meshcore_all_neighbor_edges.
+message NeighborEdge {
+  string source_node = 1;
+  string target_node = 2;
+  string connection_type = 3;
+  int32 packet_count = 4;
+  string source_name = 5;
+  double source_latitude = 6;
+  double source_longitude = 7;
+  int32 source_has_location = 8;
+  string target_name = 9;
+  double target_latitude = 10;
+  double target_longitude = 11;
+  int32 target_has_location = 12;
+}

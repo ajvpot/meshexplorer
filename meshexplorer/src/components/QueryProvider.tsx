@@ -1,7 +1,9 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TransportProvider } from '@connectrpc/connect-query';
 import { ReactNode, useState } from 'react';
+import { transport } from '@/lib/connect/transport';
 
 export function QueryProvider({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -16,8 +18,10 @@ export function QueryProvider({ children }: { children: ReactNode }) {
   }));
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <TransportProvider transport={transport}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    </TransportProvider>
   );
 }

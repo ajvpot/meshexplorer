@@ -1,7 +1,7 @@
 "use client";
 
 import { useConfig } from '@/components/ConfigContext';
-import { useSearchQuery } from '@/hooks/useQueryParams';
+import { useQueryStates, parseAsString, parseAsInteger, parseAsBoolean } from 'nuqs';
 import { useMeshcoreSearch } from '@/hooks/useMeshcoreSearch';
 import SearchInput from '@/components/SearchInput';
 import SearchResults from '@/components/SearchResults';
@@ -12,7 +12,12 @@ import { ChevronDownIcon } from '@heroicons/react/24/outline';
 
 function SearchPageContent() {
   const { config } = useConfig();
-  const { query, setQuery, setLimit, setExact, setIsRepeater } = useSearchQuery();
+  const [query, setQuery] = useQueryStates({
+    q: parseAsString.withDefault(''),
+    limit: parseAsInteger.withDefault(50),
+    exact: parseAsBoolean.withDefault(false),
+    is_repeater: parseAsBoolean.withDefault(false),
+  });
   const [showFilters, setShowFilters] = useState(false);
 
   // Always use config values for region and lastSeen
@@ -41,7 +46,7 @@ function SearchPageContent() {
   };
 
   const handleLimitChange = (limit: number) => {
-    setLimit(limit);
+    setQuery({ limit });
   };
 
   return (
@@ -61,7 +66,7 @@ function SearchPageContent() {
         <div className="mb-6">
           <SearchInput
             value={query.q}
-            onChange={setQuery}
+            onChange={(q) => setQuery({ q })}
             placeholder="Search by node name or public key..."
             autoFocus
           />
@@ -138,7 +143,7 @@ function SearchPageContent() {
                       type="checkbox"
                       id="exact-match"
                       checked={query.exact}
-                      onChange={(e) => setExact(e.target.checked)}
+                      onChange={(e) => setQuery({ exact: e.target.checked })}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <label htmlFor="exact-match" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
@@ -157,7 +162,7 @@ function SearchPageContent() {
                       type="checkbox"
                       id="is-repeater"
                       checked={query.is_repeater}
-                      onChange={(e) => setIsRepeater(e.target.checked)}
+                      onChange={(e) => setQuery({ is_repeater: e.target.checked })}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <label htmlFor="is-repeater" className="ml-2 text-sm text-gray-700 dark:text-gray-300">

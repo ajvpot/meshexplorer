@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package meshexplorer.v1;
+
+import "buf/validate/validate.proto";
+import "meshexplorer/v1/rules.proto";
+
+message GetTotalNodesRequest {
+  optional string region = 1 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
+}
+
+message GetNodesOverTimeRequest {
+  optional string region = 1 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
+}
+
+message GetPopularChannelsRequest {
+  optional string region = 1 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
+}
+
+message GetRepeaterPrefixesRequest {
+  optional string region = 1 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
+}
+
+message GetTotalNodesResponse {
+  int32 total_nodes = 1;
+}
+
+message NodesOverTimeRow {
+  string day = 1;
+  int32 cumulative_unique_nodes = 2;
+  int32 nodes_with_location = 3;
+  int32 nodes_without_location = 4;
+  int32 repeaters = 5;
+  int32 room_servers = 6;
+}
+
+message GetNodesOverTimeResponse {
+  repeated NodesOverTimeRow data = 1;
+}
+
+message PopularChannelRow {
+  string channel_hash = 1;
+  int32 message_count = 2;
+}
+
+message GetPopularChannelsResponse {
+  repeated PopularChannelRow data = 1;
+}
+
+message RepeaterPrefixRow {
+  string prefix = 1;
+  repeated string node_names = 2;
+}
+
+message GetRepeaterPrefixesResponse {
+  repeated RepeaterPrefixRow data = 1;
+}
+
+service StatsService {
+  rpc GetTotalNodes(GetTotalNodesRequest) returns (GetTotalNodesResponse);
+  rpc GetNodesOverTime(GetNodesOverTimeRequest) returns (GetNodesOverTimeResponse);
+  rpc GetPopularChannels(GetPopularChannelsRequest) returns (GetPopularChannelsResponse);
+  rpc GetRepeaterPrefixes(GetRepeaterPrefixesRequest) returns (GetRepeaterPrefixesResponse);
+}

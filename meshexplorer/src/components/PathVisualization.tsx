@@ -8,7 +8,6 @@ import { ArrowsPointingOutIcon, ArrowsPointingInIcon } from "@heroicons/react/24
 import { ExternalLink } from "lucide-react";
 import NodeLinkWithHover from "./NodeLinkWithHover";
 import { useMeshcoreSearches } from "@/hooks/useMeshcoreSearch";
-import type { MeshcoreSearchResult } from "@/hooks/useMeshcoreSearch";
 import { useConfigWithRegion } from "@/hooks/useConfigWithRegion";
 import { 
   PathData, 
@@ -91,10 +90,10 @@ export default function PathVisualization({
       const searchResult = searchResults[index];
       if (searchResult?.data?.results) {
         const matchingNodes = searchResult.data.results
-          .filter(result => result.public_key.toLowerCase().startsWith(prefix.toLowerCase()) && result.node_name)
+          .filter(result => result.publicKey.toLowerCase().startsWith(prefix.toLowerCase()) && result.nodeName)
           .map(result => ({
-            name: result.node_name,
-            publicKey: result.public_key
+            name: result.nodeName,
+            publicKey: result.publicKey
           }))
           .filter(node => node.name.length > 0);
         

@@ -197,7 +197,7 @@ export default function ChatBox({
                {/* Messages */}
                {(startExpanded ? messages : messages.toReversed()).map((msg, i) => (
                  <ChatMessageItem
-                   key={`${msg.message_id}-${msg.origin_path_info?.length || 0}`}
+                   key={`${msg.messageId}-${msg.originPathInfo?.length || 0}`}
                    msg={msg}
                    showErrorRow={selectedKey.isAllMessages}
                  />

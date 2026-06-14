@@ -8,8 +8,9 @@ import { getNameIconLabel } from "@/lib/meshcore-map-nodeutils";
 import AdvertDetails from "@/components/AdvertDetails";
 import ContactQRCode from "@/components/ContactQRCode";
 import { useConfig, LAST_SEEN_OPTIONS } from "@/components/ConfigContext";
-import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
-import { useNodeData, type NodeData, type NodeInfo, type Advert, type LocationHistory, type MqttInfo, type NodeError } from "@/hooks/useNodeData";
+import { useNeighbors } from "@/hooks/useNeighbors";
+import { useNodeData, nodeErrorCode } from "@/hooks/useNodeData";
+import type { NodeInfo } from "@/gen/meshexplorer/v1/node_pb";
 import { ArrowRightEndOnRectangleIcon, ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
 import { RegionProvider } from "@/contexts/RegionContext";
 
@@ -17,15 +18,15 @@ import { RegionProvider } from "@/contexts/RegionContext";
 
 // Function to determine node type based on capabilities
 function getNodeType(node: NodeInfo): number {
-  if (node.is_chat_node) return 1; // companion
-  if (node.is_repeater) return 2; // repeater
-  if (node.is_room_server) return 3; // room
+  if (node.isChatNode) return 1; // companion
+  if (node.isRepeater) return 2; // repeater
+  if (node.isRoomServer) return 3; // room
   return 4; // sensor (default for standard nodes)
 }
 
 export default function MeshcoreNodePage() {
   const params = useParams();
-  const publicKey = params.publicKey as string;
+  const publicKey = params?.publicKey as string;
   const { config } = useConfig();
 
   // Use TanStack Query for node data
@@ -48,9 +49,9 @@ export default function MeshcoreNodePage() {
     enabled: !!publicKey
   });
 
-  // Extract error information from TanStack Query error
-  const error = queryError?.error || null;
-  const errorCode = queryError?.code || null;
+  // Extract error information from the ConnectError
+  const error = queryError ? (queryError.rawMessage || queryError.message) : null;
+  const errorCode = nodeErrorCode(queryError);
 
 
   if (loading) {
@@ -183,7 +184,7 @@ export default function MeshcoreNodePage() {
     );
   }
 
-  if (!nodeData) {
+  if (!nodeData || !nodeData.node || !nodeData.mqtt) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-neutral-800 flex items-center justify-center">
         <div className="text-center">
@@ -196,7 +197,7 @@ export default function MeshcoreNodePage() {
   const { node, recentAdverts, locationHistory, mqtt, region } = nodeData;
 
   return (
-    <RegionProvider region={region}>
+    <RegionProvider region={region ?? null}>
       <div className="min-h-screen bg-gray-50 dark:bg-neutral-800 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
@@ -205,15 +206,15 @@ export default function MeshcoreNodePage() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                  {node.has_name ? getNameIconLabel(node.node_name) : "Unknown Node"}
+                  {node.hasName ? getNameIconLabel(node.nodeName) : "Unknown Node"}
                 </h1>
-                {node.has_name && (
+                {node.hasName && (
                   <p className="text-lg text-gray-700 dark:text-gray-300 mb-2">
-                    {node.node_name}
+                    {node.nodeName}
                   </p>
                 )}
                 <p className="text-gray-600 dark:text-gray-300 font-mono text-sm">
-                  {formatPublicKey(node.public_key)}
+                  {formatPublicKey(node.publicKey)}
                 </p>
                 {region && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -221,22 +222,22 @@ export default function MeshcoreNodePage() {
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {node.is_repeater && (
+                  {node.isRepeater && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                       Repeater
                     </span>
                   ) || null}
-                  {node.is_chat_node && (
+                  {node.isChatNode && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                       Companion
                     </span>
                   ) || null}
-                  {node.is_room_server && (
+                  {node.isRoomServer && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                       Room Server
                     </span>
                   ) || null}
-                  {!node.is_repeater && !node.is_chat_node && !node.is_room_server && (
+                  {!node.isRepeater && !node.isChatNode && !node.isRoomServer && (
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       Unknown
                     </span>
@@ -245,8 +246,8 @@ export default function MeshcoreNodePage() {
               </div>
               <div className="text-right">
                 <ContactQRCode
-                  name={node.has_name ? node.node_name : "Unknown Node"}
-                  publicKey={node.public_key}
+                  name={node.hasName ? node.nodeName : "Unknown Node"}
+                  publicKey={node.publicKey}
                   type={getNodeType(node)}
                   size={150}
                 />
@@ -265,7 +266,7 @@ export default function MeshcoreNodePage() {
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Public Key</dt>
                 <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100 font-mono break-all">
-                  {node.public_key}
+                  {node.publicKey}
                 </dd>
               </div>
               <div>
@@ -273,10 +274,10 @@ export default function MeshcoreNodePage() {
                 <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   <div className="space-y-1">
                     <div>
-                      {moment.utc(node.first_seen).format('YYYY-MM-DD HH:mm:ss')} UTC
+                      {moment.utc(node.firstSeen).format('YYYY-MM-DD HH:mm:ss')} UTC
                     </div>
                     <div className="text-gray-500 dark:text-gray-400">
-                      {moment.utc(node.first_seen).local().fromNow()}
+                      {moment.utc(node.firstSeen).local().fromNow()}
                     </div>
                   </div>
                 </dd>
@@ -286,10 +287,10 @@ export default function MeshcoreNodePage() {
                 <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   <div className="space-y-1">
                     <div>
-                      {moment.utc(node.last_seen).format('YYYY-MM-DD HH:mm:ss')} UTC
+                      {moment.utc(node.lastSeen).format('YYYY-MM-DD HH:mm:ss')} UTC
                     </div>
                     <div className="text-gray-500 dark:text-gray-400">
-                      {moment.utc(node.last_seen).local().fromNow()}
+                      {moment.utc(node.lastSeen).local().fromNow()}
                     </div>
                   </div>
                 </dd>
@@ -297,7 +298,7 @@ export default function MeshcoreNodePage() {
               <div>
                 <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Location</dt>
                 <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                  {node.has_location && node.latitude && node.longitude ? (
+                  {node.hasLocation && node.latitude && node.longitude ? (
                     <span>
                       {node.latitude.toFixed(6)}, {node.longitude.toFixed(6)}
                     </span>
@@ -311,11 +312,11 @@ export default function MeshcoreNodePage() {
                 <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   <div className="flex items-center space-x-2 mb-2">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      mqtt.is_uplinked 
+                      mqtt.isUplinked 
                         ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
                         : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                     }`}>
-                      {mqtt.is_uplinked ? 'Connected' : 'Not Connected'}
+                      {mqtt.isUplinked ? 'Connected' : 'Not Connected'}
                     </span>
                   </div>
                   
@@ -331,10 +332,10 @@ export default function MeshcoreNodePage() {
                             </div>
                             <div className="text-right">
                               <div className="text-gray-900 dark:text-gray-100">
-                                {moment.utc(topic.last_packet_time).format('MM-DD HH:mm')}
+                                {moment.utc(topic.lastPacketTime).format('MM-DD HH:mm')}
                               </div>
                               <div className="text-gray-500 dark:text-gray-400">
-                                {moment.utc(topic.last_packet_time).local().fromNow()}
+                                {moment.utc(topic.lastPacketTime).local().fromNow()}
                               </div>
                             </div>
                           </div>
@@ -362,7 +363,7 @@ export default function MeshcoreNodePage() {
                 </div>
               ) : (
                 recentAdverts.map((advert) => (
-                  <AdvertDetails key={advert.group_id} advert={advert} initiatingNodeKey={node.public_key} />
+                  <AdvertDetails key={advert.packetHash} advert={advert} initiatingNodeKey={node.publicKey} />
                 ))
               )}
             </div>
@@ -387,7 +388,7 @@ export default function MeshcoreNodePage() {
                   {locationHistory.map((location, index) => (
                     <tr key={index}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                        {moment.utc(location.mesh_timestamp).format('MM-DD HH:mm:ss')}
+                        {moment.utc(location.meshTimestamp).format('MM-DD HH:mm:ss')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                         {location.latitude.toFixed(6)}
@@ -434,23 +435,23 @@ export default function MeshcoreNodePage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {neighbors.map((neighbor) => (
-                    <div key={neighbor.public_key} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors">
+                    <div key={neighbor.publicKey} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {neighbor.has_name ? getNameIconLabel(neighbor.node_name) : "Unknown Node"}
+                            {neighbor.hasName ? getNameIconLabel(neighbor.nodeName) : "Unknown Node"}
                           </h3>
-                          {neighbor.has_name && (
+                          {neighbor.hasName && (
                             <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
-                              {neighbor.node_name}
+                              {neighbor.nodeName}
                             </p>
                           )}
                           <p className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate">
-                            {formatPublicKey(neighbor.public_key)}
+                            {formatPublicKey(neighbor.publicKey)}
                           </p>
                         </div>
                         <a
-                          href={`/meshcore/node/${neighbor.public_key}`}
+                          href={`/meshcore/node/${neighbor.publicKey}`}
                           className="ml-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs font-medium"
                         >
                           View →
@@ -458,17 +459,17 @@ export default function MeshcoreNodePage() {
                       </div>
                       
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {neighbor.is_repeater && (
+                        {neighbor.isRepeater && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                             Repeater
                           </span>
                         ) || null}
-                        {neighbor.is_chat_node && (
+                        {neighbor.isChatNode && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                             Companion
                           </span>
                         ) || null}
-                        {neighbor.is_room_server && (
+                        {neighbor.isRoomServer && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                             Room
                           </span>
@@ -476,7 +477,7 @@ export default function MeshcoreNodePage() {
                       </div>
                       
                       <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                        {neighbor.has_location && neighbor.latitude && neighbor.longitude && (
+                        {neighbor.hasLocation && neighbor.latitude && neighbor.longitude && (
                           <div>
                             Location: {neighbor.latitude.toFixed(4)}, {neighbor.longitude.toFixed(4)}
                           </div>

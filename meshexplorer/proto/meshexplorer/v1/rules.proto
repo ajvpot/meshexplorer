@@ -1,0 +1,39 @@
+// proto2 syntax is required to extend protovalidate's rule messages (proto3
+// only permits extending options messages). protovalidate's own validate.proto
+// is proto2 for the same reason.
+syntax = "proto2";
+
+package meshexplorer.v1;
+
+import "buf/validate/validate.proto";
+
+// Reusable protovalidate string-rule "types" for this schema, so the same regex
+// isn't duplicated on every field. Apply with, e.g.,
+//   string public_key = 1 [(buf.validate.field).string.(meshexplorer.v1.hex64) = true];
+extend buf.validate.StringRules {
+  // A 32-byte meshcore key rendered as 64 hexadecimal characters
+  // (case-insensitive). Used for public keys / origin pubkeys, which are matched
+  // exactly in ClickHouse.
+  optional bool hex64 = 1001 [(buf.validate.predefined).cel = {
+    id: "string.hex64"
+    message: "must be 64 hexadecimal characters"
+    expression: "!rule || this.matches('^[0-9A-Fa-f]{64}$')"
+  }];
+
+  // A ClickHouse DateTime64 literal, e.g. "2026-05-29 08:39:22.328".
+  optional bool datetime64 = 1002 [(buf.validate.predefined).cel = {
+    id: "string.datetime64"
+    message: "must be a DateTime64 timestamp like \"YYYY-MM-DD HH:MM:SS[.fff]\""
+    expression: "!rule || this.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?$')"
+  }];
+
+  // A region identifier (a config slug like "seattle", resolved server-side).
+  // Kept permissive on purpose — regions are config/lookup-driven, so this only
+  // bounds length and charset rather than enumerating values. Empty is allowed
+  // and means "no region filter".
+  optional bool region = 1003 [(buf.validate.predefined).cel = {
+    id: "string.region"
+    message: "must be a region identifier of at most 64 characters"
+    expression: "!rule || (size(this) <= 64 && this.matches('^[A-Za-z0-9._/-]*$'))"
+  }];
+}

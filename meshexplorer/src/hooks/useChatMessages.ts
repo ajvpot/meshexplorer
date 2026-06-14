@@ -1,9 +1,10 @@
 "use client";
 
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { buildApiUrl } from '@/lib/api';
-import { ChatMessage } from '@/components/ChatMessageItem';
+import { Code, ConnectError } from '@connectrpc/connect';
+import { chatClient } from '@/lib/connect/client';
+import type { ChatMessage } from '@/gen/meshexplorer/v1/chat_pb';
 
 interface ChatMessagesParams {
   channelId?: string;
@@ -20,6 +21,38 @@ interface ChatMessagesPage {
 
 const PAGE_SIZE = 20;
 
+// Inserts a single streamed message into the infinite-query cache, de-duping by
+// messageId, keeping newest-first order, and re-paginating into PAGE_SIZE pages.
+function mergeStreamedMessage(oldData: any, newMessage: ChatMessage) {
+  if (!oldData?.pages?.[0]) return oldData;
+
+  const all = oldData.pages.flatMap((p: ChatMessagesPage) => p.messages) as ChatMessage[];
+  const existingIndex = all.findIndex((m) => m.messageId === newMessage.messageId);
+
+  let merged: ChatMessage[];
+  if (existingIndex !== -1) {
+    merged = [...all];
+    merged[existingIndex] = newMessage;
+  } else {
+    merged = [newMessage, ...all];
+  }
+
+  merged.sort(
+    (a, b) => new Date(b.ingestTimestamp).getTime() - new Date(a.ingestTimestamp).getTime(),
+  );
+
+  const pages = [];
+  for (let i = 0; i < merged.length; i += PAGE_SIZE) {
+    const pageIndex = Math.floor(i / PAGE_SIZE);
+    pages.push({
+      ...(oldData.pages[pageIndex] || { hasMore: false }),
+      messages: merged.slice(i, i + PAGE_SIZE),
+    });
+  }
+
+  return { ...oldData, pages };
+}
+
 export function useChatMessages({
   channelId,
   region,
@@ -29,12 +62,12 @@ export function useChatMessages({
   const queryClient = useQueryClient();
 
   // Build base query key
-  const baseQueryKey = useMemo(() => 
-    ['chat-messages', channelId, region] as const, 
-    [channelId, region]
+  const baseQueryKey = useMemo(
+    () => ['chat-messages', channelId, region] as const,
+    [channelId, region],
   );
 
-  // Main infinite query for loading messages with pagination
+  // Infinite query loads message history (older pages) via the unary GetChat RPC.
   const messagesQuery = useInfiniteQuery({
     queryKey: baseQueryKey,
     queryFn: async ({ pageParam, signal }): Promise<ChatMessagesPage> => {
@@ -42,28 +75,23 @@ export function useChatMessages({
         throw new Error('Region is required');
       }
 
-      let url = `/api/chat?limit=${PAGE_SIZE}&region=${encodeURIComponent(region)}`;
-      if (channelId) {
-        url += `&channel_id=${channelId}`;
-      }
-      
-      if (pageParam) {
-        url += `&before=${encodeURIComponent(pageParam)}`;
-      }
+      const res = await chatClient.getChat(
+        {
+          limit: PAGE_SIZE,
+          region,
+          channelId: channelId || undefined,
+          before: pageParam || undefined,
+        },
+        { signal },
+      );
 
-      const response = await fetch(buildApiUrl(url), { signal });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch chat messages: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      const messages = Array.isArray(data) ? data : [];
-      
+      const messages = res.messages;
+
       return {
         messages,
         hasMore: messages.length === PAGE_SIZE,
-        oldestTimestamp: messages.length > 0 ? messages[messages.length - 1].ingest_timestamp : undefined,
+        oldestTimestamp:
+          messages.length > 0 ? messages[messages.length - 1].ingestTimestamp : undefined,
       };
     },
     getNextPageParam: (lastPage) => {
@@ -76,106 +104,58 @@ export function useChatMessages({
     retry: 1,
   });
 
-  // Auto-refresh query to get newer messages
-  const latestTimestamp = messagesQuery.data?.pages[0]?.messages[0]?.ingest_timestamp;
-  
-  const autoRefreshQuery = useQuery({
-    queryKey: [...baseQueryKey, 'auto-refresh', latestTimestamp],
-    queryFn: async ({ signal }): Promise<ChatMessage[]> => {
-      if (!region || !latestTimestamp) {
-        return [];
-      }
-
-      let url = `/api/chat?limit=${PAGE_SIZE}&region=${encodeURIComponent(region)}`;
-      if (channelId) {
-        url += `&channel_id=${channelId}`;
-      }
-      url += `&after=${encodeURIComponent(latestTimestamp)}`;
-
-      const response = await fetch(buildApiUrl(url), { signal });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch new chat messages: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: enabled && autoRefreshEnabled && !!region && !!latestTimestamp,
-    refetchInterval: 5000, // 5 seconds
-    staleTime: 0, // Always fresh for auto-refresh
-    retry: 1,
-  });
-
-  // When auto-refresh finds new messages, update the main query
+  // Live updates: subscribe to the StreamChat server-streaming RPC and merge new
+  // messages into the cache as they arrive (replaces the old 5s polling query).
   useEffect(() => {
-    if (autoRefreshQuery.data && autoRefreshQuery.data.length > 0) {
-      queryClient.setQueryData(baseQueryKey, (oldData: any) => {
-        if (!oldData?.pages?.[0]) return oldData;
-        
-        const newMessages = autoRefreshQuery.data;
-        
-        // Get all existing messages from all pages
-        const allExistingMessages = oldData.pages.flatMap((page: any) => page.messages);
-        
-        // Process new messages: replace duplicates and collect truly new ones
-        const trulyNewMessages: ChatMessage[] = [];
-        const updatedExistingMessages = [...allExistingMessages];
-        
-        for (const newMessage of newMessages) {
-          const existingIndex = updatedExistingMessages.findIndex(
-            (msg: ChatMessage) => msg.message_id === newMessage.message_id
-          );
-          
-          if (existingIndex !== -1) {
-            // Replace existing message with the new one
-            updatedExistingMessages[existingIndex] = newMessage;
-          } else {
-            // This is a truly new message
-            trulyNewMessages.push(newMessage);
-          }
-        }
-        
-        // Combine truly new messages with updated existing messages
-        // Sort by ingest_timestamp to maintain order
-        const allMessages = [...trulyNewMessages, ...updatedExistingMessages]
-          .sort((a, b) => new Date(b.ingest_timestamp).getTime() - new Date(a.ingest_timestamp).getTime());
-        
-        // Redistribute messages back into pages
-        const updatedPages = [];
-        let currentPageMessages = [];
-        
-        for (let i = 0; i < allMessages.length; i++) {
-          currentPageMessages.push(allMessages[i]);
-          
-          if (currentPageMessages.length === PAGE_SIZE || i === allMessages.length - 1) {
-            updatedPages.push({
-              ...oldData.pages[Math.floor(i / PAGE_SIZE)] || { hasMore: false },
-              messages: currentPageMessages,
-            });
-            currentPageMessages = [];
-          }
-        }
-        
-        return {
-          ...oldData,
-          pages: updatedPages,
-        };
-      });
+    if (!enabled || !autoRefreshEnabled || !region) {
+      return;
     }
-  }, [autoRefreshQuery.data, queryClient, baseQueryKey]);
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const stream = chatClient.streamChat(
+          {
+            channelId: channelId || undefined,
+            region,
+            // History is loaded by GetChat; only stream messages from now on.
+            skipInitialMessages: true,
+          },
+          { signal: controller.signal },
+        );
+
+        for await (const resp of stream) {
+          if (cancelled) break;
+          if (!resp.message) continue;
+          const msg = resp.message;
+          queryClient.setQueryData(baseQueryKey, (oldData: any) =>
+            mergeStreamedMessage(oldData, msg),
+          );
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        if (err instanceof ConnectError && err.code === Code.Canceled) return;
+        // A dropped stream shouldn't crash the chat UI; history is still usable.
+        console.warn('Chat stream error:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [enabled, autoRefreshEnabled, region, channelId, queryClient, baseQueryKey]);
 
   // Flatten all messages from all pages
-  const allMessages = messagesQuery.data?.pages.flatMap(page => page.messages) ?? [];
-  
-  // Check if there are more pages to load
-  const hasNextPage = messagesQuery.hasNextPage;
-  
+  const allMessages = messagesQuery.data?.pages.flatMap((page) => page.messages) ?? [];
+
   return {
     messages: allMessages,
     loading: messagesQuery.isLoading,
-    error: messagesQuery.error || autoRefreshQuery.error,
-    hasMore: hasNextPage,
+    error: messagesQuery.error,
+    hasMore: messagesQuery.hasNextPage,
     loadMore: messagesQuery.fetchNextPage,
     isLoadingMore: messagesQuery.isFetchingNextPage,
     refresh: () => {

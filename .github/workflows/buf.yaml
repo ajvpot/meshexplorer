@@ -1,0 +1,36 @@
+name: buf
+
+on:
+  pull_request:
+    paths:
+      - "meshexplorer/proto/**"
+      - "meshexplorer/buf.yaml"
+      - "meshexplorer/buf.gen.yaml"
+      - "meshexplorer/buf.lock"
+      - ".github/workflows/buf.yaml"
+  push:
+    branches:
+      - main
+    paths:
+      - "meshexplorer/proto/**"
+      - "meshexplorer/buf.yaml"
+      - "meshexplorer/buf.gen.yaml"
+      - "meshexplorer/buf.lock"
+
+permissions:
+  contents: read
+  pull-requests: write # lets buf-action post check summaries as PR comments
+
+jobs:
+  buf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-action@v1
+        with:
+          input: meshexplorer # buf.yaml lives in this subdir
+          lint: true
+          format: true
+          breaking: true
+          push: false # no BSR publishing / token
+          github_token: ${{ github.token }}

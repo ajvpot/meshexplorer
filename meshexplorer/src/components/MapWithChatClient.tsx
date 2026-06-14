@@ -1,25 +1,13 @@
 "use client";
 import dynamic from "next/dynamic";
 
-type NodePosition = {
-  from_node_id: string;
-  latitude: number;
-  longitude: number;
-  altitude?: number;
-  last_seen?: string;
-};
-
-interface MapWithChatProps {
-  nodePositions?: NodePosition[];
-}
-
 const MapView = dynamic(
   () => import("./MapView"),
   { ssr: false }
 );
 const ChatBox = dynamic(() => import("./ChatBox"), { ssr: false });
 
-export default function MapWithChat({ nodePositions }: MapWithChatProps) {
+export default function MapWithChat() {
   return (
     <div
       className="flex flex-col w-screen overflow-hidden"

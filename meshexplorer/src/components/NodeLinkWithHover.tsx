@@ -51,7 +51,7 @@ export default function NodeLinkWithHover({
     if (isSearchLoading) return "#";
     
     // If exactly one result found, link directly to node
-    if (foundNode) return `/meshcore/node/${foundNode.public_key}`;
+    if (foundNode) return `/meshcore/node/${foundNode.publicKey}`;
     
     // If no results or multiple results, link to search page
     const searchUrl = `/search?q=${encodeURIComponent(nodeName)}`;
@@ -83,7 +83,7 @@ export default function NodeLinkWithHover({
       
       // Calculate navigation URL directly here since linkHref might still be "#"
       const navigationUrl = foundNode 
-        ? `/meshcore/node/${foundNode.public_key}`
+        ? `/meshcore/node/${foundNode.publicKey}`
         : (() => {
             const searchUrl = `/search?q=${encodeURIComponent(nodeName)}`;
             const params = [];

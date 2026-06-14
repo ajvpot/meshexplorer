@@ -1,18 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { buildApiUrl } from '@/lib/api';
-
-export interface Neighbor {
-  public_key: string;
-  node_name: string;
-  latitude: number | null;
-  longitude: number | null;
-  has_location: number;
-  is_repeater: number;
-  is_chat_node: number;
-  is_room_server: number;
-  has_name: number;
-  directions: string[];
-}
+import { useQuery } from '@connectrpc/connect-query';
+import { NodeService } from '@/gen/meshexplorer/v1/node_pb';
 
 interface UseNeighborsParams {
   nodeId: string | null;
@@ -21,26 +8,18 @@ interface UseNeighborsParams {
 }
 
 export function useNeighbors({ nodeId, lastSeen, enabled = true }: UseNeighborsParams) {
-  return useQuery({
-    queryKey: ['neighbors', nodeId, lastSeen],
-    queryFn: async (): Promise<Neighbor[]> => {
-      if (!nodeId) return [];
-      
-      const params = new URLSearchParams();
-      if (lastSeen !== null && lastSeen !== undefined) {
-        params.append('lastSeen', lastSeen.toString());
-      }
-      const url = `/api/meshcore/node/${nodeId}/neighbors${params.toString() ? `?${params.toString()}` : ''}`;
-      
-      const response = await fetch(buildApiUrl(url));
-      if (!response.ok) {
-        throw new Error(`Failed to fetch neighbors: ${response.statusText}`);
-      }
-      
-      return response.json();
+  return useQuery(
+    NodeService.method.getNodeNeighbors,
+    {
+      publicKey: nodeId ?? '',
+      lastSeen: lastSeen ?? undefined,
     },
-    enabled: enabled && !!nodeId,
-    staleTime: 15 * 60 * 1000, // 15 minutes
-    gcTime: 15 * 60 * 1000, // 15 minutes
-  });
+    {
+      // Unwrap the response to the generated Neighbor[] (no field mapping).
+      select: (res) => res.neighbors,
+      enabled: enabled && !!nodeId,
+      staleTime: 15 * 60 * 1000, // 15 minutes
+      gcTime: 15 * 60 * 1000, // 15 minutes
+    },
+  );
 }

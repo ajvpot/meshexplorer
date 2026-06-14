@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package meshexplorer.v1;
+
+import "buf/validate/validate.proto";
+import "meshexplorer/v1/rules.proto";
+
+// One (origin, origin_pubkey, path, broker, topic) reception tuple.
+message OriginPathInfo {
+  string origin = 1;
+  string origin_pubkey = 2;
+  string path = 3;
+  string broker = 4;
+  string topic = 5;
+}
+
+// A parsed/decrypted public-channel message (parseMeshcoreGroupMessage).
+message DecryptedChat {
+  double timestamp = 1;
+  int32 msg_type = 2;
+  string sender = 3;
+  string text = 4;
+  string raw_text = 5;
+}
+
+message ChatMessage {
+  string ingest_timestamp = 1;
+  string mesh_timestamp = 2;
+  string channel_hash = 3;
+  string mac = 4;
+  // Hex-encoded ciphertext.
+  string encrypted_message = 5;
+  int32 message_count = 6;
+  repeated OriginPathInfo origin_path_info = 7;
+  string message_id = 8;
+  // Present only when decrypt was requested and decryption succeeded.
+  optional DecryptedChat decrypted = 9;
+}
+
+message GetChatRequest {
+  optional int32 limit = 1 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 1000
+  }];
+  // ClickHouse DateTime64 cursor, e.g. "2026-05-29 08:39:22.328".
+  optional string before = 2 [(buf.validate.field).string.(meshexplorer.v1.datetime64) = true];
+  optional string after = 3 [(buf.validate.field).string.(meshexplorer.v1.datetime64) = true];
+  optional string channel_id = 4 [(buf.validate.field).string = {
+    max_len: 2
+    pattern: "^[0-9A-Fa-f]+$"
+  }];
+  optional string region = 5 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
+  bool decrypt = 6;
+  repeated string private_keys = 7 [(buf.validate.field).repeated = {
+    max_items: 50
+    items: {
+      string: {
+        min_len: 1
+        max_len: 64
+        pattern: "^[A-Za-z0-9+/=]+$"
+      }
+    }
+  }];
+}
+
+message GetChatResponse {
+  repeated ChatMessage messages = 1;
+}
+
+message StreamChatRequest {
+  optional string channel_id = 1 [(buf.validate.field).string = {
+    max_len: 2
+    pattern: "^[0-9A-Fa-f]+$"
+  }];
+  optional string region = 2 [(buf.validate.field).string.(meshexplorer.v1.region) = true];
+  bool decrypt = 3;
+  repeated string private_keys = 4 [(buf.validate.field).repeated = {
+    max_items: 50
+    items: {
+      string: {
+        min_len: 1
+        max_len: 64
+        pattern: "^[A-Za-z0-9+/=]+$"
+      }
+    }
+  }];
+  // Poll interval in ms (clamped 100..10000, default 1000).
+  optional int32 poll_interval = 5 [(buf.validate.field).int32 = {
+    gte: 100
+    lte: 10000
+  }];
+  // Max rows per poll (clamped 10..1000, default 500).
+  optional int32 max_rows = 6 [(buf.validate.field).int32 = {
+    gte: 10
+    lte: 1000
+  }];
+  bool skip_initial_messages = 7;
+}
+
+message StreamChatResponse {
+  ChatMessage message = 1;
+}
+
+service ChatService {
+  rpc GetChat(GetChatRequest) returns (GetChatResponse);
+  rpc StreamChat(StreamChatRequest) returns (stream StreamChatResponse);
+}

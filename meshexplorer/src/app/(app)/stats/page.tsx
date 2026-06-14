@@ -49,7 +49,7 @@ export default function StatsPage() {
                repeaterPrefixesQuery.error;
   
   // Extract data with fallbacks
-  const totalNodes = totalNodesQuery.data?.total_nodes ?? null;
+  const totalNodes = totalNodesQuery.data?.totalNodes ?? null;
   const nodesOverTime = nodesOverTimeQuery.data?.data ?? [];
   const popularChannels = popularChannelsQuery.data?.data ?? [];
   const repeaterPrefixes = repeaterPrefixesQuery.data?.data ?? [];
@@ -131,11 +131,11 @@ export default function StatsPage() {
                   {nodesOverTime.map((row, i) => (
                     <tr key={i} className="border-t">
                       <td className="border px-3 py-2 text-center min-w-[120px]">{row.day}</td>
-                      <td className="border px-3 py-2 text-center">{row.cumulative_unique_nodes}</td>
-                      <td className="border px-3 py-2 text-center">{row.nodes_with_location}</td>
-                      <td className="border px-3 py-2 text-center">{row.nodes_without_location}</td>
+                      <td className="border px-3 py-2 text-center">{row.cumulativeUniqueNodes}</td>
+                      <td className="border px-3 py-2 text-center">{row.nodesWithLocation}</td>
+                      <td className="border px-3 py-2 text-center">{row.nodesWithoutLocation}</td>
                       <td className="border px-3 py-2 text-center">{row.repeaters}</td>
-                      <td className="border px-3 py-2 text-center">{row.room_servers}</td>
+                      <td className="border px-3 py-2 text-center">{row.roomServers}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -158,8 +158,8 @@ export default function StatsPage() {
               <tbody>
                 {popularChannels.map((row, i) => (
                   <tr key={i}>
-                    <td className="border px-2 py-1">{row.channel_hash}</td>
-                    <td className="border px-2 py-1">{row.message_count}</td>
+                    <td className="border px-2 py-1">{row.channelHash}</td>
+                    <td className="border px-2 py-1">{row.messageCount}</td>
                   </tr>
                 ))}
               </tbody>
@@ -186,9 +186,9 @@ export default function StatsPage() {
                   <tr key={i}>
                     <td className="border px-2 py-1 font-mono">{row.prefix}</td>
                     <td className="border px-2 py-1">
-                      {row.node_names && row.node_names.length > 0 ? (
+                      {row.nodeNames && row.nodeNames.length > 0 ? (
                         <div className="space-y-1">
-                          {row.node_names.map((name: string, j: number) => (
+                          {row.nodeNames.map((name: string, j: number) => (
                             <div key={j} className="text-xs">
                               {name || 'Unnamed Node'}
                             </div>

@@ -1,69 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { buildApiUrl } from '@/lib/api';
-
-export interface NodeInfo {
-  public_key: string;
-  node_name: string;
-  latitude: number | null;
-  longitude: number | null;
-  has_location: number;
-  is_repeater: number;
-  is_chat_node: number;
-  is_room_server: number;
-  has_name: number;
-  broker: string | null;
-  topic: string | null;
-  first_seen: string;
-  last_seen: string;
-}
-
-export interface Advert {
-  group_id: number;
-  origin_path_pubkey_tuples: Array<[string, string, string]>; // Array of [origin, path, origin_pubkey] tuples
-  advert_count: number;
-  earliest_timestamp: string;
-  latest_timestamp: string;
-  latitude: number | null;
-  longitude: number | null;
-  is_repeater: number;
-  is_chat_node: number;
-  is_room_server: number;
-  has_location: number;
-  packet_hash: string;
-}
-
-export interface LocationHistory {
-  mesh_timestamp: string;
-  latitude: number;
-  longitude: number;
-}
-
-export interface MqttTopic {
-  topic: string;
-  broker: string;
-  last_packet_time: string;
-  is_recent: boolean;
-}
-
-export interface MqttInfo {
-  is_uplinked: boolean;
-  has_packets: boolean;
-  topics: MqttTopic[];
-}
-
-export interface NodeData {
-  node: NodeInfo;
-  recentAdverts: Advert[];
-  locationHistory: LocationHistory[];
-  mqtt: MqttInfo;
-  region: string | null;
-}
-
-export interface NodeError {
-  error: string;
-  code: string;
-  publicKey?: string;
-}
+import { useQuery } from '@connectrpc/connect-query';
+import { Code, ConnectError } from '@connectrpc/connect';
+import { NodeService } from '@/gen/meshexplorer/v1/node_pb';
 
 interface UseNodeDataParams {
   publicKey: string | null;
@@ -71,55 +8,37 @@ interface UseNodeDataParams {
   enabled?: boolean;
 }
 
+// Maps a ConnectError to the string code the node page uses to pick an
+// error icon/title/description. (Error-code mapping, not a proto-type mirror.)
+export function nodeErrorCode(err: ConnectError | null): string | null {
+  if (!err) return null;
+  switch (err.code) {
+    case Code.NotFound:
+      return 'NODE_NOT_FOUND';
+    case Code.InvalidArgument:
+      return 'INVALID_PUBLIC_KEY';
+    case Code.Unavailable:
+      return 'DATABASE_ERROR';
+    default:
+      return 'INTERNAL_ERROR';
+  }
+}
+
 export function useNodeData({ publicKey, limit = 50, enabled = true }: UseNodeDataParams) {
-  return useQuery<NodeData, NodeError>({
-    queryKey: ['node-data', publicKey, limit],
-    queryFn: async (): Promise<NodeData> => {
-      if (!publicKey) {
-        throw { error: "Public key is required", code: "MISSING_PUBLIC_KEY" } as NodeError;
-      }
-      
-      const params = new URLSearchParams();
-      if (limit !== 50) {
-        params.append('limit', limit.toString());
-      }
-      
-      const url = `/api/meshcore/node/${publicKey}${params.toString() ? `?${params.toString()}` : ''}`;
-      
-      const response = await fetch(buildApiUrl(url));
-      
-      // Handle specific error responses
-      if (!response.ok) {
-        let errorData: NodeError;
-        try {
-          errorData = await response.json();
-        } catch {
-          errorData = { 
-            error: `HTTP ${response.status}: ${response.statusText}`,
-            code: 'UNKNOWN_ERROR'
-          };
+  return useQuery(
+    NodeService.method.getNode,
+    { publicKey: publicKey ?? '', limit },
+    {
+      enabled: enabled && !!publicKey,
+      staleTime: 15 * 60 * 1000, // 15 minutes
+      gcTime: 15 * 60 * 1000, // 15 minutes
+      retry: (failureCount, error) => {
+        // Don't retry client errors (bad key / not found).
+        if (error.code === Code.NotFound || error.code === Code.InvalidArgument) {
+          return false;
         }
-        
-        // Add status information to error for better handling
-        throw {
-          ...errorData,
-          status: response.status
-        } as NodeError & { status: number };
-      }
-      
-      return response.json();
+        return failureCount < 1;
+      },
     },
-    enabled: enabled && !!publicKey,
-    staleTime: 15 * 60 * 1000, // 15 minutes
-    gcTime: 15 * 60 * 1000, // 15 minutes
-    retry: (failureCount, error) => {
-      // Don't retry for client errors (4xx)
-      const status = (error as NodeError & { status?: number })?.status;
-      if (status && status >= 400 && status < 500) {
-        return false;
-      }
-      // Retry up to 1 time for server errors
-      return failureCount < 1;
-    },
-  });
+  );
 }

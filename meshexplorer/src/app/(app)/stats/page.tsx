@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useConfig } from "@/components/ConfigContext";
-import { getRegionConfig } from "@/lib/regions";
+import { selectorLabel } from "@/lib/regions";
 import { 
   useTotalNodes, 
   useNodesOverTime, 
@@ -54,10 +54,8 @@ export default function StatsPage() {
   const repeaterPrefixes = repeaterPrefixesQuery.data?.data ?? [];
   const unusedPrefixes = unusedPrefixesQuery.data ?? [];
 
-  // Get the friendly name for the selected region
-  const regionFriendlyName = config?.selectedRegion 
-    ? getRegionConfig(config.selectedRegion)?.friendlyName || config.selectedRegion
-    : null;
+  // Get the display label for the selected region/group
+  const regionFriendlyName = selectorLabel(config?.selectedRegion);
 
   // Handle scrolling to anchor after data loads
   useEffect(() => {

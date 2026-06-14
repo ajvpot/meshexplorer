@@ -14,9 +14,9 @@ export async function GET(req: NextRequest) {
   const maxRows = searchParams.get('maxRows');
   const skipInitialMessages = searchParams.has('skipInitialMessages');
 
-  // Validate region against allowed values (same as packets endpoint)
-  const allowedRegions = ['seattle', 'portland', 'boston'];
-  const validRegion = region && allowedRegions.includes(region) ? region : undefined;
+  // Region/group filtering is resolved downstream (createChatMessagesStreamerConfig ->
+  // region helpers); an unknown selector resolves to no filter. Pass it straight through.
+  const validRegion = region || undefined;
 
   // Validate channel ID (should be hex string if provided)
   let validChannelId: string | undefined;

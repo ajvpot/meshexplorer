@@ -12,6 +12,7 @@
 
 import { createClickHouseStreamer, createChatMessagesStreamerConfig } from '../src/lib/clickhouse/streaming';
 import { decryptMeshcoreGroupMessage } from '../src/lib/meshcore';
+import { resolveSelector } from '../src/lib/regions';
 import { DiscordWebhookClient, formatMeshcoreMessageForDiscord } from './lib/discord';
 
 interface BotConfig {
@@ -135,7 +136,7 @@ async function main() {
   // Get configuration from environment variables
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   const threadId = process.env.DISCORD_THREAD_ID;
-  const region = process.env.MESH_REGION || 'seattle';
+  const region = process.env.MESH_REGION || 'SEA';
   const pollInterval = parseInt(process.env.POLL_INTERVAL || '1000', 10);
   const maxRowsPerPoll = parseInt(process.env.MAX_ROWS_PER_POLL || '50', 10);
   const privateKeys = process.env.PRIVATE_KEYS ? process.env.PRIVATE_KEYS.split(',').filter(key => key.trim()) : [];
@@ -152,10 +153,9 @@ async function main() {
     process.exit(1);
   }
 
-  // Validate region
-  const allowedRegions = ['seattle', 'portland', 'boston'];
-  if (!allowedRegions.includes(region)) {
-    console.error(`Error: MESH_REGION must be one of: ${allowedRegions.join(', ')}`);
+  // Validate region selector (legacy slug, IATA code, or group code all accepted).
+  if (resolveSelector(region).length === 0) {
+    console.error(`Error: MESH_REGION='${region}' is not a known region or group code`);
     process.exit(1);
   }
 

@@ -446,7 +446,7 @@
           },
           "pluginVersion": "4.10.2",
           "queryType": "timeseries",
-          "rawSql": "WITH all_nodes AS (\n  SELECT \n    $__timeInterval(ingest_timestamp) AS time_bucket, \n    public_key, \n    latitude, \n    longitude, \n    is_repeater, \n    is_room_server\n  FROM meshcore_adverts\n  WHERE ingest_timestamp >= ($__fromTime - INTERVAL 7 DAY) \n    AND ingest_timestamp <= $__toTime\n),\nfiltered_time_buckets AS (\n  SELECT DISTINCT time_bucket \n  FROM all_nodes\n  WHERE time_bucket >= $__timeInterval($__fromTime)\n    AND time_bucket <= $__timeInterval($__toTime)\n  ORDER BY time_bucket ASC\n),\nrolling_window AS (\n  SELECT \n    tb.time_bucket as time,\n    n.public_key,\n    n.latitude,\n    n.longitude,\n    n.is_repeater,\n    n.is_room_server\n  FROM filtered_time_buckets tb\n  INNER JOIN all_nodes n ON n.time_bucket BETWEEN (tb.time_bucket - INTERVAL 7 DAY) AND tb.time_bucket\n)\nSELECT \n  time,\n  count(DISTINCT public_key) AS cumulative_unique_nodes,\n  count(DISTINCT CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL AND latitude != 0 AND longitude != 0 THEN public_key END) AS nodes_with_location,\n  count(DISTINCT CASE WHEN latitude IS NULL OR longitude IS NULL OR latitude = 0 OR longitude = 0 THEN public_key END) AS nodes_without_location,\n  count(DISTINCT CASE WHEN is_repeater = 1 THEN public_key END) AS repeaters,\n  count(DISTINCT CASE WHEN is_room_server = 1 THEN public_key END) AS room_servers\nFROM rolling_window\nGROUP BY time\nORDER BY time ASC",
+          "rawSql": "WITH all_nodes AS (\n  SELECT \n    $__timeInterval(ingest_timestamp) AS time_bucket, \n    public_key, \n    latitude, \n    longitude, \n    is_repeater, \n    is_room_server\n  FROM meshcore_adverts\n  WHERE ingest_timestamp >= ($__fromTime - INTERVAL 7 DAY) \n    AND ingest_timestamp <= $__toTime AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\n),\nfiltered_time_buckets AS (\n  SELECT DISTINCT time_bucket \n  FROM all_nodes\n  WHERE time_bucket >= $__timeInterval($__fromTime)\n    AND time_bucket <= $__timeInterval($__toTime)\n  ORDER BY time_bucket ASC\n),\nrolling_window AS (\n  SELECT \n    tb.time_bucket as time,\n    n.public_key,\n    n.latitude,\n    n.longitude,\n    n.is_repeater,\n    n.is_room_server\n  FROM filtered_time_buckets tb\n  INNER JOIN all_nodes n ON n.time_bucket BETWEEN (tb.time_bucket - INTERVAL 7 DAY) AND tb.time_bucket\n)\nSELECT \n  time,\n  count(DISTINCT public_key) AS cumulative_unique_nodes,\n  count(DISTINCT CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL AND latitude != 0 AND longitude != 0 THEN public_key END) AS nodes_with_location,\n  count(DISTINCT CASE WHEN latitude IS NULL OR longitude IS NULL OR latitude = 0 OR longitude = 0 THEN public_key END) AS nodes_without_location,\n  count(DISTINCT CASE WHEN is_repeater = 1 THEN public_key END) AS repeaters,\n  count(DISTINCT CASE WHEN is_room_server = 1 THEN public_key END) AS room_servers\nFROM rolling_window\nGROUP BY time\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -609,7 +609,7 @@
           },
           "pluginVersion": "4.10.2",
           "queryType": "timeseries",
-          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    SUM(length(packet) * 8) / (toUInt32($__timeInterval(ingest_timestamp)) / 1000) as throughput\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\nGROUP BY time\nORDER BY time ASC",
+          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    SUM(length(packet) * 8) / (toUInt32($__timeInterval(ingest_timestamp)) / 1000) as throughput\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\nGROUP BY time\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -804,7 +804,7 @@
           },
           "pluginVersion": "4.10.2",
           "queryType": "timeseries",
-          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        payload_type = 0, 'REQ',\n        payload_type = 1, 'RESPONSE', \n        payload_type = 2, 'TXT_MSG',\n        payload_type = 3, 'ACK',\n        payload_type = 4, 'ADVERT',\n        payload_type = 5, 'GRP_TXT',\n        payload_type = 6, 'GRP_DATA',\n        payload_type = 7, 'ANON_REQ',\n        payload_type = 8, 'PATH',\n        payload_type = 9, 'TRACE',\n        payload_type = 15, 'RAW_CUSTOM',\n        toString(payload_type)\n    ) as payload_type,\n    COUNT(DISTINCT payload) as count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\n  AND hex(origin_pubkey) IN ($origin_pubkey)\nGROUP BY time, payload_type\nORDER BY time ASC",
+          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        payload_type = 0, 'REQ',\n        payload_type = 1, 'RESPONSE', \n        payload_type = 2, 'TXT_MSG',\n        payload_type = 3, 'ACK',\n        payload_type = 4, 'ADVERT',\n        payload_type = 5, 'GRP_TXT',\n        payload_type = 6, 'GRP_DATA',\n        payload_type = 7, 'ANON_REQ',\n        payload_type = 8, 'PATH',\n        payload_type = 9, 'TRACE',\n        payload_type = 15, 'RAW_CUSTOM',\n        toString(payload_type)\n    ) as payload_type,\n    COUNT(DISTINCT payload) as count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\n  AND hex(origin_pubkey) IN ($origin_pubkey)\nGROUP BY time, payload_type\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -999,7 +999,7 @@
           },
           "pluginVersion": "4.10.2",
           "queryType": "timeseries",
-          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        payload_type = 0, 'REQ',\n        payload_type = 1, 'RESPONSE', \n        payload_type = 2, 'TXT_MSG',\n        payload_type = 3, 'ACK',\n        payload_type = 4, 'ADVERT',\n        payload_type = 5, 'GRP_TXT',\n        payload_type = 6, 'GRP_DATA',\n        payload_type = 7, 'ANON_REQ',\n        payload_type = 8, 'PATH',\n        payload_type = 9, 'TRACE',\n        payload_type = 15, 'RAW_CUSTOM',\n        toString(payload_type)\n    ) as payload_type,\n    COUNT(payload_type) as count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\n  AND hex(origin_pubkey) IN ($origin_pubkey)\nGROUP BY time, payload_type\nORDER BY time ASC",
+          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        payload_type = 0, 'REQ',\n        payload_type = 1, 'RESPONSE', \n        payload_type = 2, 'TXT_MSG',\n        payload_type = 3, 'ACK',\n        payload_type = 4, 'ADVERT',\n        payload_type = 5, 'GRP_TXT',\n        payload_type = 6, 'GRP_DATA',\n        payload_type = 7, 'ANON_REQ',\n        payload_type = 8, 'PATH',\n        payload_type = 9, 'TRACE',\n        payload_type = 15, 'RAW_CUSTOM',\n        toString(payload_type)\n    ) as payload_type,\n    COUNT(payload_type) as count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\n  AND hex(origin_pubkey) IN ($origin_pubkey)\nGROUP BY time, payload_type\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -1116,7 +1116,7 @@
           },
           "pluginVersion": "4.10.2",
           "queryType": "timeseries",
-          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    channel_hash,\n    COUNT(DISTINCT message_id) as count\nFROM meshcore_public_channel_messages \nWHERE $__timeFilter(ingest_timestamp)\n  AND channel_hash != ''\nGROUP BY time, channel_hash\nORDER BY time ASC",
+          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    channel_hash,\n    COUNT(DISTINCT message_id) as count\nFROM meshcore_public_channel_messages \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR has(regions, '$region')) AND ('$region_group' = '__ALL__' OR hasAny(regions, (SELECT groupArray(region_code) FROM region_groups WHERE group_code = '$region_group')))\n  AND channel_hash != ''\nGROUP BY time, channel_hash\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -1233,7 +1233,7 @@
           },
           "pluginVersion": "4.10.2",
           "queryType": "timeseries",
-          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(DISTINCT payload) as unique_payloads\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\nGROUP BY time, route_type\nORDER BY time ASC",
+          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(DISTINCT payload) as unique_payloads\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\nGROUP BY time, route_type\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -1337,7 +1337,7 @@
           },
           "pluginVersion": "4.10.2",
           "queryType": "timeseries",
-          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(*) as packet_count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\nGROUP BY time, route_type\nORDER BY time ASC",
+          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(*) as packet_count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\nGROUP BY time, route_type\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -1441,7 +1441,7 @@
           },
           "pluginVersion": "4.10.2",
           "queryType": "timeseries",
-          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(DISTINCT payload) as unique_payloads\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\nGROUP BY time, route_type\nORDER BY time ASC",
+          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(DISTINCT payload) as unique_payloads\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\nGROUP BY time, route_type\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -1545,7 +1545,7 @@
           },
           "pluginVersion": "4.10.2",
           "queryType": "timeseries",
-          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(*) as packet_count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\nGROUP BY time, route_type\nORDER BY time ASC",
+          "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(*) as packet_count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\nGROUP BY time, route_type\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -1659,7 +1659,7 @@
               },
               "pluginVersion": "4.10.2",
               "queryType": "timeseries",
-              "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(DISTINCT payload) as unique_payloads\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\n  AND payload_type IN ($payload_type)\nGROUP BY time, route_type\nORDER BY time ASC",
+              "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(DISTINCT payload) as unique_payloads\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\n  AND payload_type IN ($payload_type)\nGROUP BY time, route_type\nORDER BY time ASC",
               "refId": "A"
             }
           ],
@@ -1763,7 +1763,7 @@
               },
               "pluginVersion": "4.10.2",
               "queryType": "timeseries",
-              "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(*) as count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\n  AND payload_type IN ($payload_type)\nGROUP BY time, route_type\nORDER BY time ASC",
+              "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(*) as count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\n  AND payload_type IN ($payload_type)\nGROUP BY time, route_type\nORDER BY time ASC",
               "refId": "A"
             }
           ],
@@ -1867,7 +1867,7 @@
               },
               "pluginVersion": "4.10.2",
               "queryType": "timeseries",
-              "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(DISTINCT payload) as unique_payloads\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\n  AND payload_type IN ($payload_type)\nGROUP BY time, route_type\nORDER BY time ASC",
+              "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(DISTINCT payload) as unique_payloads\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\n  AND payload_type IN ($payload_type)\nGROUP BY time, route_type\nORDER BY time ASC",
               "refId": "A"
             }
           ],
@@ -1971,7 +1971,7 @@
               },
               "pluginVersion": "4.10.2",
               "queryType": "timeseries",
-              "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(*) as count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\n  AND payload_type IN ($payload_type)\nGROUP BY time, route_type\nORDER BY time ASC",
+              "rawSql": "SELECT \n    $__timeInterval(ingest_timestamp) as time,\n    multiIf(\n        route_type = 0, 'TRANSPORT_FLOOD',\n        route_type = 1, 'FLOOD',\n        route_type = 2, 'DIRECT', \n        route_type = 3, 'TRANSPORT_DIRECT',\n        concat('UNKNOWN_', toString(route_type))\n    ) as route_type_name,\n    COUNT(*) as count\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp) AND ('$region' = '__ALL__' OR region = '$region') AND ('$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group'))\n  AND payload_type IN ($payload_type)\nGROUP BY time, route_type\nORDER BY time ASC",
               "refId": "A"
             }
           ],
@@ -2045,6 +2045,41 @@
         "query": "SELECT \n    concat(\n        multiIf(\n            payload_type = 0, 'REQ',\n            payload_type = 1, 'RESPONSE', \n            payload_type = 2, 'TXT_MSG',\n            payload_type = 3, 'ACK',\n            payload_type = 4, 'ADVERT',\n            payload_type = 5, 'GRP_TXT',\n            payload_type = 6, 'GRP_DATA',\n            payload_type = 7, 'ANON_REQ',\n            payload_type = 8, 'PATH',\n            payload_type = 9, 'TRACE',\n            payload_type = 15, 'RAW_CUSTOM',\n            'UNK'\n        ),\n        ' (',\n        hex(payload_type),\n        ')|',\n       payload_type\n    ) as combined\nFROM meshcore_packets \nWHERE $__timeFilter(ingest_timestamp)\n  AND payload_type IS NOT NULL\nGROUP BY payload_type\nORDER BY payload_type ASC",
         "refresh": 1,
         "regex": "/^(?<text>.*?)\\|(?<value>.*)$/",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "__ALL__"
+        },
+        "allValue": "__ALL__",
+        "definition": "SELECT DISTINCT concat(group_name,'|',group_code) AS combined FROM region_groups ORDER BY group_name",
+        "includeAll": true,
+        "label": "Region Group",
+        "multi": false,
+        "name": "region_group",
+        "options": [],
+        "query": "SELECT DISTINCT concat(group_name,'|',group_code) AS combined FROM region_groups ORDER BY group_name",
+        "refresh": 1,
+        "regex": "/^(?<text>.*?)\\|(?<value>.*)$/",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "__ALL__"
+        },
+        "allValue": "__ALL__",
+        "definition": "SELECT region FROM meshcore_regions WHERE '$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group') ORDER BY region",
+        "includeAll": true,
+        "label": "Region",
+        "multi": false,
+        "name": "region",
+        "options": [],
+        "query": "SELECT region FROM meshcore_regions WHERE '$region_group' = '__ALL__' OR region IN (SELECT region_code FROM region_groups WHERE group_code = '$region_group') ORDER BY region",
+        "refresh": 1,
+        "sort": 1,
         "type": "query"
       }
     ]

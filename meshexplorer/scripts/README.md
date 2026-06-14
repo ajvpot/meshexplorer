@@ -22,7 +22,7 @@ The bot is configured via environment variables:
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `DISCORD_WEBHOOK_URL` | Discord webhook URL | - | Yes |
-| `MESH_REGION` | Mesh region to monitor | `seattle` | No |
+| `MESH_REGION` | Region/group to monitor — IATA code (e.g. `SEA`, `PDX`) or group code (e.g. `PNW`) | `SEA` | No |
 | `POLL_INTERVAL` | Polling interval in milliseconds | `1000` | No |
 | `MAX_ROWS_PER_POLL` | Maximum rows to fetch per poll | `50` | No |
 | `PRIVATE_KEYS` | Comma-separated list of private keys | - | No |
@@ -52,7 +52,7 @@ Create a `.env.local` file in the project root:
 
 ```bash
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_URL
-MESH_REGION=seattle
+MESH_REGION=SEA
 POLL_INTERVAL=1000
 MAX_ROWS_PER_POLL=50
 PRIVATE_KEYS=key1,key2,key3
@@ -158,7 +158,7 @@ All configuration is loaded from environment variables:
 | `CLICKHOUSE_PASSWORD` | ClickHouse password | `password` | No |
 | `NEXT_PUBLIC_API_URL` | Override API base URL | - | No |
 | `DISCORD_WEBHOOK_URL` | Discord webhook URL | - | Yes |
-| `MESH_REGION` | Mesh region to monitor | `seattle` | No |
+| `MESH_REGION` | Region/group to monitor — IATA code (e.g. `SEA`, `PDX`) or group code (e.g. `PNW`) | `SEA` | No |
 | `POLL_INTERVAL` | Polling interval in milliseconds | `1000` | No |
 | `MAX_ROWS_PER_POLL` | Maximum rows to fetch per poll | `50` | No |
 | `PRIVATE_KEYS` | Comma-separated private keys | - | No |

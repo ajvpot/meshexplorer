@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   const pollInterval = searchParams.get('pollInterval');
   const maxRows = searchParams.get('maxRows');
 
-  // Validate region against allowed values
-  const allowedRegions = ['seattle', 'portland', 'boston'];
-  const validRegion = region && allowedRegions.includes(region) ? region : undefined;
+  // Region/group filtering is resolved downstream (createMeshcorePacketsStreamerConfig ->
+  // region helpers); an unknown selector resolves to no filter. Pass it straight through.
+  const validRegion = region || undefined;
 
   // Validate payload type (0-15 based on the schema)
   let validPayloadType: number | undefined;

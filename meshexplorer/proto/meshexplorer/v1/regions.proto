@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package meshexplorer.v1;
+
+// A dynamically-discovered region (meshcore_regions MV).
+message Region {
+  // Canonical IATA region code, e.g. "SEA".
+  string name = 1;
+  string friendly_name = 2;
+  // Distinct nodes seen in this region (last 30 days).
+  int32 node_count = 3;
+  string last_seen = 4;
+}
+
+// A named set of IATA region codes (region_groups table).
+message RegionGroup {
+  string code = 1;
+  string name = 2;
+  repeated string members = 3;
+}
+
+message GetRegionsRequest {}
+
+message GetRegionsResponse {
+  repeated Region regions = 1;
+  repeated RegionGroup groups = 2;
+}
+
+service RegionsService {
+  rpc GetRegions(GetRegionsRequest) returns (GetRegionsResponse);
+}

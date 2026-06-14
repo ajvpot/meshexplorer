@@ -1,14 +1,16 @@
 "use server";
 import { clickhouse } from "./clickhouse";
-import { generateRegionWhereClauseFromArray, generateRegionWhereClause, detectRegionFromBrokerTopic, detectRegion } from "@/lib/regionFilters";
-import { getRegionConfig } from "@/lib/regions";
+import { generateRegionWhereClauseFromArray, generateRegionWhereClause } from "@/lib/regionFilters";
+import { regionFromTopic, normalizeRegion, groupCodeOf } from "@/lib/regions";
 import { publicChannelMessagesSubquery } from "./chatMessages";
 
 export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen }: { minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], lastSeen?: string | null } = {}) {
   try {
     let where = [
       "latitude IS NOT NULL",
-      "longitude IS NOT NULL"
+      "longitude IS NOT NULL",
+      // Exclude the (0,0) "null island" sentinel (location bit set but no real GPS fix)
+      "(abs(latitude) > 0.01 OR abs(longitude) > 0.01)"
     ];
     const params: Record<string, any> = {};
     if (minLat !== null && minLat !== undefined && minLat !== "") {
@@ -271,8 +273,8 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
     const hasPackets = mqttTopics.length > 0;
     const isUplinked = mqttTopics.some(topic => topic.is_recent);
     
-    // Detect region from MQTT topics and advert data
-    const detectedRegion = detectRegion(mqttTopics, nodeInfo[0].broker, nodeInfo[0].topic);
+    // Derive the node's region from its most recent uplink topic (else its latest advert topic).
+    const detectedRegion = regionFromTopic(mqttTopics[0]?.topic ?? nodeInfo[0].topic);
     
     return {
       node: nodeInfo[0],
@@ -296,9 +298,18 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
     // Reads the precomputed (hourly-refreshed) neighbor edge graph and filters it
     // by region + bounding box + lastSeen. The heavy graph computation lives in the
     // refreshable materialized view meshcore_all_neighbor_edges.
-    const params: Record<string, any> = { region: region || 'seattle' };
+    // Region filter for the precomputed neighbor graph: a region selector -> that region; a group
+    // selector -> its member regions (resolved in-DB against region_groups); else default to SEA.
+    // The MV only holds intra-region edges, so a group never produces cross-region neighbors.
+    const params: Record<string, any> = {};
+    const nbrCode = normalizeRegion(region);
+    const nbrGroup = groupCodeOf(region);
+    let nbrRegionFilter: string;
+    if (nbrCode) { nbrRegionFilter = "region = {region:String}"; params.region = nbrCode; }
+    else if (nbrGroup) { nbrRegionFilter = "region IN (SELECT region_code FROM region_groups WHERE group_code = {grp:String})"; params.grp = nbrGroup; }
+    else { nbrRegionFilter = "region = {region:String}"; params.region = "SEA"; }
     const whereConditions = [
-      "region = {region:String}",
+      nbrRegionFilter,
       "source_has_location = 1",
       "target_has_location = 1",
       "source_latitude IS NOT NULL",
@@ -543,8 +554,9 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
             min(ingest_timestamp) as first_heard,
             max(ingest_timestamp) as last_seen,
             argMax(broker, ingest_timestamp) as broker,
-            argMax(topic, ingest_timestamp) as topic
-          FROM meshcore_adverts 
+            argMax(topic, ingest_timestamp) as topic,
+            argMax(region, ingest_timestamp) as region
+          FROM meshcore_adverts
           GROUP BY public_key
         ) 
         ${whereClause} 

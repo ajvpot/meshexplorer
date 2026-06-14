@@ -6,7 +6,8 @@ import { getChannelIdFromKey } from "@/lib/meshcore";
 import ChatMessageItem from "./ChatMessageItem";
 import RefreshButton from "./RefreshButton";
 import RegionSelector from "./RegionSelector";
-import { getRegionConfig } from "@/lib/regions";
+import { selectorLabel } from "@/lib/regions";
+import { useRegionGroups } from "@/hooks/useRegions";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { useQueryParams } from "@/hooks/useQueryParams";
@@ -34,6 +35,7 @@ export default function ChatBox({
   startExpanded = false,
 }: ChatBoxProps) {
   const { config, openKeyModal } = useConfig();
+  const { groups: regionGroups } = useRegionGroups();
   const meshcoreKeys: TabItem[] = [
     { channelName: "Public", privateKey: "izOH6cXN6mrJ5e26oRXNcg==" },
     ...(config?.meshcoreKeys || []),
@@ -122,9 +124,9 @@ export default function ChatBox({
           </span>
           <span
             className="text-xs text-gray-500 dark:text-gray-400 truncate"
-            title={getRegionConfig(config.selectedRegion!)?.friendlyName || config.selectedRegion}
+            title={selectorLabel(config.selectedRegion, regionGroups) ?? undefined}
           >
-            {getRegionConfig(config.selectedRegion!)?.friendlyName || config.selectedRegion}
+            {selectorLabel(config.selectedRegion, regionGroups)}
           </span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

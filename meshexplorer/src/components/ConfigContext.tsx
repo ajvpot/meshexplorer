@@ -1,8 +1,9 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
 import { getChannelIdFromKey, deriveKeyFromChannelName } from "@/lib/meshcore";
-import { getRegionFriendlyNames } from "@/lib/regions";
+import { normalizeRegion } from "@/lib/regions";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import RegionSelect from "./RegionSelect";
 import Modal from "./Modal";
 
 // Config shape
@@ -43,6 +44,17 @@ const ConfigContext = createContext<any>(null);
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useLocalStorage<Config>("meshExplorerConfig", DEFAULT_CONFIG);
+
+  // One-time migration of stored selectors: legacy slugs (seattle/portland/boston) -> IATA codes.
+  // Region codes and group slugs pass through unchanged.
+  useEffect(() => {
+    const sel = config.selectedRegion;
+    if (!sel) return;
+    const canonical = normalizeRegion(sel) ?? sel;
+    if (canonical !== sel) setConfig({ ...config, selectedRegion: canonical });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [open, setOpen] = useState(false);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const configButtonRef = useRef<HTMLElement | null>(null);
@@ -130,16 +142,11 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
       </div>
       <div className="mb-2">
         <div className="font-medium mb-2">Region</div>
-        <select
+        <RegionSelect
           className="w-full p-2 border rounded"
           value={config.selectedRegion || ''}
-          onChange={e => setConfig({ ...config, selectedRegion: e.target.value || undefined })}
-        >
-          <option value="">Select a region...</option>
-          {getRegionFriendlyNames().map(({ name, friendlyName }) => (
-            <option key={name} value={name}>{friendlyName}</option>
-          ))}
-        </select>
+          onChange={(v) => setConfig({ ...config, selectedRegion: v || undefined })}
+        />
         <p className="text-xs text-gray-500 mt-1">
           Select a region to filter chat messages and stats
         </p>

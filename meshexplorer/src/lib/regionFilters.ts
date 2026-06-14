@@ -1,60 +1,29 @@
-import { getRegionConfig, generateRegionCondition, generateRegionArrayCondition, detectRegionFromBrokerTopic, detectRegion } from "@/lib/regions";
-
-// Re-export region detection functions for backward compatibility
-export { detectRegionFromBrokerTopic, detectRegion };
+import { generateRegionCondition, generateRegionArrayCondition } from "@/lib/regions";
 
 /**
- * Generates a ClickHouse WHERE clause for filtering by region using broker and topic fields
- * @param region The region name to filter by
+ * ClickHouse WHERE clause for filtering by a region selector (an IATA region or a group code).
+ * Groups are resolved in-DB (region_groups); region values are validated literals, so no params.
+ * @param region The selector to filter by (region code, group code, or legacy slug)
  * @param tableAlias Optional table alias for the query
- * @returns Object containing the where clause and parameters
  */
-export function generateRegionWhereClause(region?: string, tableAlias: string = '') {
-  if (!region) {
-    return { whereClause: '', params: {} };
-  }
-
-  const regionCondition = generateRegionCondition(region, tableAlias);
-  return {
-    whereClause: regionCondition,
-    params: {}
-  };
+export function generateRegionWhereClause(region?: string, tableAlias: string = "") {
+  return { whereClause: generateRegionCondition(region, tableAlias), params: {} };
 }
 
 /**
- * Generates a ClickHouse WHERE clause for filtering by region using origin_path_info
- * This is for views that have the origin_path_info field
- * @param region The region name to filter by
- * @returns Object containing the where clause and parameters
+ * ClickHouse WHERE clause for filtering by a region selector using the origin_path_info array
+ * (for views that expose it instead of a scalar region column).
  */
 export function generateRegionWhereClauseFromArray(region?: string) {
-  if (!region) {
-    return { whereClause: '', params: {} };
-  }
-
-  const arrayCondition = generateRegionArrayCondition(region);
-  return {
-    whereClause: arrayCondition,
-    params: {}
-  };
+  return { whereClause: generateRegionArrayCondition(region), params: {} };
 }
 
-/**
- * Generates a simple region condition string for streaming queries
- * @param region The region name to filter by
- * @returns The condition string or empty string if no region specified
- */
+/** Region condition string for streaming queries (column-based). '' when no/unknown selector. */
 export function generateRegionConditionForStreaming(region?: string): string {
-  if (!region) return '';
   return generateRegionCondition(region);
 }
 
-/**
- * Generates a region condition string for streaming queries using origin_path_info
- * @param region The region name to filter by
- * @returns The condition string or empty string if no region specified
- */
+/** Region condition string for streaming queries over origin_path_info. '' when no/unknown selector. */
 export function generateRegionArrayConditionForStreaming(region?: string): string {
-  if (!region) return '';
   return generateRegionArrayCondition(region);
 }

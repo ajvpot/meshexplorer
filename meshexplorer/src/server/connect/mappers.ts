@@ -24,6 +24,12 @@ export function num(v: unknown): number {
   return Number(v ?? 0);
 }
 
+// ClickHouse returns UInt8 boolean-ish columns (e.g. is_recent) as JSON numbers
+// (1/0). Coerce before feeding a proto `bool` field.
+export function bool(v: unknown): boolean {
+  return v === true || v === 1 || v === "1";
+}
+
 /** Maps a ClickHouse neighbor-edge row to the NeighborEdge proto init shape. */
 export function toNeighborEdge(row: NeighborEdgeRow): MessageInitShape<typeof NeighborEdgeSchema> {
   return {

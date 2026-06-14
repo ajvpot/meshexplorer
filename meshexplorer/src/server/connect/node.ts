@@ -7,7 +7,7 @@ import {
   getMeshcoreNodeNeighbors,
   searchMeshcoreNodes,
 } from "@/lib/clickhouse/actions";
-import { num } from "./mappers";
+import { bool, num } from "./mappers";
 
 interface SearchResultRow {
   public_key: string;
@@ -112,13 +112,13 @@ export const nodeServiceImpl: ServiceImpl<typeof NodeService> = {
         longitude: l.longitude,
       })),
       mqtt: {
-        isUplinked: nodeInfo.mqtt.is_uplinked,
-        hasPackets: nodeInfo.mqtt.has_packets,
+        isUplinked: bool(nodeInfo.mqtt.is_uplinked),
+        hasPackets: bool(nodeInfo.mqtt.has_packets),
         topics: nodeInfo.mqtt.topics.map((t) => ({
           topic: t.topic,
           broker: t.broker,
           lastPacketTime: t.last_packet_time,
-          isRecent: t.is_recent,
+          isRecent: bool(t.is_recent),
         })),
       },
       region: nodeInfo.region ?? undefined,

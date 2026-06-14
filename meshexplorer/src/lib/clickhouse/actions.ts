@@ -1,7 +1,7 @@
 "use server";
 import { clickhouse } from "./clickhouse";
 import { generateRegionWhereClauseFromArray, generateRegionWhereClause } from "@/lib/regionFilters";
-import { regionFromTopic, resolveSelector } from "@/lib/regions";
+import { regionFromTopic, normalizeRegion, groupCodeOf } from "@/lib/regions";
 import { publicChannelMessagesSubquery } from "./chatMessages";
 
 export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen }: { minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], lastSeen?: string | null } = {}) {
@@ -298,12 +298,18 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
     // Reads the precomputed (hourly-refreshed) neighbor edge graph and filters it
     // by region + bounding box + lastSeen. The heavy graph computation lives in the
     // refreshable materialized view meshcore_all_neighbor_edges.
-    // The neighbor graph is single-region and ignores region groups: a group selector
-    // collapses to its representative (first) member rather than blending regions in one
-    // graph (the MV never produces cross-region edges). Empty/unknown -> SEA (prior default).
-    const params: Record<string, any> = { region: resolveSelector(region)[0] ?? 'SEA' };
+    // Region filter for the precomputed neighbor graph: a region selector -> that region; a group
+    // selector -> its member regions (resolved in-DB against region_groups); else default to SEA.
+    // The MV only holds intra-region edges, so a group never produces cross-region neighbors.
+    const params: Record<string, any> = {};
+    const nbrCode = normalizeRegion(region);
+    const nbrGroup = groupCodeOf(region);
+    let nbrRegionFilter: string;
+    if (nbrCode) { nbrRegionFilter = "region = {region:String}"; params.region = nbrCode; }
+    else if (nbrGroup) { nbrRegionFilter = "region IN (SELECT region_code FROM region_groups WHERE group_code = {grp:String})"; params.grp = nbrGroup; }
+    else { nbrRegionFilter = "region = {region:String}"; params.region = "SEA"; }
     const whereConditions = [
-      "region = {region:String}",
+      nbrRegionFilter,
       "source_has_location = 1",
       "target_has_location = 1",
       "source_latitude IS NOT NULL",

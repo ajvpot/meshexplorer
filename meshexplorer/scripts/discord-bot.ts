@@ -12,7 +12,7 @@
 
 import { createClickHouseStreamer, createChatMessagesStreamerConfig } from '../src/lib/clickhouse/streaming';
 import { decryptMeshcoreGroupMessage } from '../src/lib/meshcore';
-import { resolveSelector } from '../src/lib/regions';
+import { normalizeRegion, groupCodeOf } from '../src/lib/regions';
 import { DiscordWebhookClient, formatMeshcoreMessageForDiscord } from './lib/discord';
 
 interface BotConfig {
@@ -153,9 +153,9 @@ async function main() {
     process.exit(1);
   }
 
-  // Validate region selector (legacy slug, IATA code, or group code all accepted).
-  if (resolveSelector(region).length === 0) {
-    console.error(`Error: MESH_REGION='${region}' is not a known region or group code`);
+  // Validate region selector (legacy slug, IATA code, or group code all accepted; groups resolve in SQL).
+  if (!normalizeRegion(region) && !groupCodeOf(region)) {
+    console.error(`Error: MESH_REGION='${region}' is not a valid region or group code`);
     process.exit(1);
   }
 

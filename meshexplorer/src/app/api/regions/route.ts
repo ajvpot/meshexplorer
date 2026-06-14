@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import { getAvailableRegions } from "@/lib/clickhouse/regions";
-import { REGION_GROUPS } from "@/lib/regionGroups";
+import { getAvailableRegions, getRegionGroups } from "@/lib/clickhouse/regions";
 
-// Returns the dynamically-discovered region list (from the meshcore_regions MV) plus the
-// region groups. Groups come straight from the TS source of truth (REGION_GROUPS), which the
-// parity script keeps identical to the seeded region_groups table that Grafana reads.
+// Returns the dynamically-discovered region list (meshcore_regions MV) plus the region groups,
+// both read from ClickHouse (region_groups is the single source of truth; getRegionGroups caches it).
 export async function GET() {
   try {
-    const regions = await getAvailableRegions();
+    const [regions, groups] = await Promise.all([getAvailableRegions(), getRegionGroups()]);
     return NextResponse.json(
-      { regions, groups: REGION_GROUPS },
+      { regions, groups },
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } },
     );
   } catch (error) {

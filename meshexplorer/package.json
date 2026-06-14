@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check:regions": "tsx scripts/region-parity.ts",
     "discord-bot": "tsx scripts/discord-bot.ts",
     "discord-bot:dev": "tsx watch scripts/discord-bot.ts"
   },

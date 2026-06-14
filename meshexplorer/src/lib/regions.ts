@@ -1,4 +1,4 @@
-import { getRegionGroup, groupNameOf } from "@/lib/regionGroups";
+import type { RegionGroup } from "@/lib/regionGroups";
 
 // Legacy base topics that don't carry an IATA segment but belong to a region.
 // davekeogh's bare `meshcore` and `meshcore/salish` are the Seattle catch-all.
@@ -22,7 +22,9 @@ export const LEGACY_SLUGS: Record<string, string> = {
 };
 
 const IATA_RE = /^[a-z]{3}$/;
-const IATA_LITERAL = /^[A-Z]{3}$/;
+// Group codes are slugs (lowercase alnum + hyphen, length >= 2): never collide with an IATA
+// region, and safe to embed as SQL literals (no quotes possible).
+const GROUP_CODE_RE = /^[a-z0-9][a-z0-9-]+$/;
 
 /**
  * Derives the IATA region code from a stored base topic (case-insensitive).
@@ -49,18 +51,39 @@ export function normalizeRegion(input?: string | null): string | null {
   return IATA_RE.test(lower) ? v.toUpperCase() : null;
 }
 
+/**
+ * If a selector is not an IATA region, treat it as a region-group code. Returns the sanitized
+ * (lowercased slug) code or null. Used to resolve groups in SQL via the region_groups table.
+ */
+export function groupCodeOf(selector?: string | null): string | null {
+  const v = selector?.trim().toLowerCase();
+  if (!v || normalizeRegion(v)) return null; // empty, or a region (not a group)
+  return GROUP_CODE_RE.test(v) ? v : null;
+}
+
 /** Display name for a region code (override map, else the bare code). */
 export function friendlyName(code: string): string {
   return REGION_FRIENDLY_NAMES[code] ?? code;
 }
 
 /**
+ * Display label for a selector. Group names come from `groups` (the DB-sourced list, e.g. from
+ * useRegionGroups()); regions use the friendly-name map; otherwise the raw selector.
+ */
+export function selectorLabel(selector?: string | null, groups?: RegionGroup[]): string | null {
+  if (!selector) return null;
+  const g = groups?.find((x) => x.code.toLowerCase() === selector.trim().toLowerCase());
+  if (g) return g.name;
+  const code = normalizeRegion(selector);
+  return code ? friendlyName(code) : selector;
+}
+
+/**
  * Canonical topic -> IATA region SQL expression — the single source of truth.
  *
- * REGION-DERIVATION-CANONICAL: kept byte-for-byte equal to the `region` ALIAS body in
- * ingest/migrations/004_region_handle_and_groups.sql. The parity script
- * (scripts/region-parity.ts) compares regionSql('topic') against the migration's
- * sentinel-wrapped expression and fails CI on drift.
+ * Keep this byte-for-byte equal to the `region` ALIAS body (and the inline copies in the
+ * neighbor / regions materialized views) in ingest/migrations/004_region_handle_and_groups.sql
+ * — they are kept in sync by hand.
  *
  * Services both the topic column (regionSql('topic')) and origin_path_info array
  * elements (regionSql('x.5')).
@@ -74,59 +97,31 @@ export function regionSql(t: string): string {
 }
 
 /**
- * Resolves a selector (an IATA region OR a group code) to a list of canonical IATA codes.
- * Group-first (so a group code always means the group); unknown/empty -> [] (caller = no filter).
+ * ClickHouse condition over the `region` column for a selector (an IATA region OR a group code).
+ * Groups are resolved in-DB against region_groups (no app-side membership). '' = no filter.
  */
-export function resolveSelector(input?: string | null): string[] {
-  const group = getRegionGroup(input);
-  if (group) {
-    const seen = new Set<string>();
-    for (const m of group.members) {
-      const code = normalizeRegion(m);
-      if (code) seen.add(code);
-    }
-    return [...seen];
-  }
-  const code = normalizeRegion(input);
-  return code ? [code] : [];
-}
-
-/** Display label for a selector: group name, else friendly region name, else the raw input. */
-export function selectorLabel(input?: string | null): string | null {
-  if (!input) return null;
-  const groupName = groupNameOf(input);
-  if (groupName) return groupName;
-  const code = normalizeRegion(input);
-  return code ? friendlyName(code) : input;
-}
-
-// Defensive quoting: only emit codes that are exactly 3 uppercase letters (injection-safe literals).
-function quoteCodes(codes: string[]): string {
-  return codes
-    .filter((c) => IATA_LITERAL.test(c))
-    .map((c) => `'${c}'`)
-    .join(", ");
-}
-
-/**
- * ClickHouse condition over the `region` column for already-resolved IATA codes.
- * Empty list -> '' (no filter). One code -> `region = 'X'`; many -> `region IN ('X','Y')`.
- */
-export function generateRegionCondition(codes: string[], alias: string = ""): string {
-  const valid = codes.filter((c) => IATA_LITERAL.test(c));
-  if (valid.length === 0) return "";
+export function generateRegionCondition(selector?: string, alias: string = ""): string {
   const col = alias ? `${alias}.region` : "region";
-  return valid.length === 1 ? `${col} = '${valid[0]}'` : `${col} IN (${quoteCodes(valid)})`;
+  const code = normalizeRegion(selector);
+  if (code) return `${col} = '${code}'`;
+  const g = groupCodeOf(selector);
+  if (g) return `${col} IN (SELECT region_code FROM region_groups WHERE group_code = '${g}')`;
+  return "";
 }
 
 /**
- * ClickHouse condition over the origin_path_info array (which has no `region` column),
- * deriving region per element via regionSql('x.5'). Empty list -> '' (no filter).
+ * ClickHouse condition over the origin_path_info array (no `region` column). Region derived per
+ * element via regionSql('x.5'); groups resolved in-DB. '' = no filter.
  */
-export function generateRegionArrayCondition(codes: string[]): string {
-  const valid = codes.filter((c) => IATA_LITERAL.test(c));
-  if (valid.length === 0) return "";
-  const expr = regionSql("x.5");
-  const test = valid.length === 1 ? `${expr} = '${valid[0]}'` : `${expr} IN (${quoteCodes(valid)})`;
-  return `arrayExists(x -> ${test}, origin_path_info)`;
+export function generateRegionArrayCondition(selector?: string): string {
+  const code = normalizeRegion(selector);
+  if (code) return `arrayExists(x -> ${regionSql("x.5")} = '${code}', origin_path_info)`;
+  const g = groupCodeOf(selector);
+  if (g) {
+    return (
+      `hasAny(arrayMap(x -> ${regionSql("x.5")}, origin_path_info), ` +
+      `(SELECT groupArray(region_code) FROM region_groups WHERE group_code = '${g}'))`
+    );
+  }
+  return "";
 }

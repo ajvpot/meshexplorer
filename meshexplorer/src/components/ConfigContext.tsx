@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useLayoutEffect, ReactNode } from "react";
 import { getChannelIdFromKey, deriveKeyFromChannelName } from "@/lib/meshcore";
 import { normalizeRegion } from "@/lib/regions";
-import { getRegionGroup } from "@/lib/regionGroups";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import RegionSelect from "./RegionSelect";
 import Modal from "./Modal";
@@ -46,13 +45,12 @@ const ConfigContext = createContext<any>(null);
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useLocalStorage<Config>("meshExplorerConfig", DEFAULT_CONFIG);
 
-  // One-time migration of stored selectors: legacy slugs (seattle/portland/boston) -> IATA
-  // codes, group codes uppercased. Group selections (e.g. PNW) are preserved.
+  // One-time migration of stored selectors: legacy slugs (seattle/portland/boston) -> IATA codes.
+  // Region codes and group slugs pass through unchanged.
   useEffect(() => {
     const sel = config.selectedRegion;
     if (!sel) return;
-    const group = getRegionGroup(sel);
-    const canonical = group ? group.code : (normalizeRegion(sel) ?? sel);
+    const canonical = normalizeRegion(sel) ?? sel;
     if (canonical !== sel) setConfig({ ...config, selectedRegion: canonical });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

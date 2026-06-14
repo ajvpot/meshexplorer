@@ -1,5 +1,6 @@
 import { clickhouse } from "./clickhouse";
 import { friendlyName } from "@/lib/regions";
+import type { RegionGroup } from "@/lib/regionGroups";
 
 export interface RegionOption {
   /** Canonical IATA region code, e.g. "SEA". */
@@ -37,4 +38,25 @@ export async function getAvailableRegions(): Promise<RegionOption[]> {
       nodeCount: Number(r.node_count),
       lastSeen: r.last_seen,
     }));
+}
+
+// In-memory cache for the DB-sourced region groups (single source of truth = region_groups table).
+let groupsCache: { at: number; groups: RegionGroup[] } | null = null;
+const GROUPS_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Region groups, read from the region_groups ClickHouse table and cached (5 min TTL). This is the
+ * app's source for group display (the dropdown / labels). Filtering resolves groups directly in
+ * SQL (see generateRegionCondition), so it does not depend on this.
+ */
+export async function getRegionGroups(): Promise<RegionGroup[]> {
+  if (groupsCache && Date.now() - groupsCache.at < GROUPS_TTL_MS) return groupsCache.groups;
+  const resultSet = await clickhouse.query({
+    query: `SELECT group_code AS code, any(group_name) AS name, groupArray(region_code) AS members
+            FROM region_groups GROUP BY group_code ORDER BY name`,
+    format: "JSONEachRow",
+  });
+  const groups = (await resultSet.json()) as RegionGroup[];
+  groupsCache = { at: Date.now(), groups };
+  return groups;
 }

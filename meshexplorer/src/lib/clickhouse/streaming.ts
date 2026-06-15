@@ -244,25 +244,26 @@ export function createChatMessagesStreamerConfig(
   channelId?: string,
   region?: string
 ): StreamingConfig {
-  let additionalWhereClause = '';
-  
+  // Push the poll cursor — and the channel filter when scoped to one channel — into the inner
+  // meshcore_public_channel_messages_raw scan so the (channel_hash, ingest_timestamp) primary key
+  // limits it to the last few seconds of packets, instead of re-grouping the whole payload_type=5
+  // history every 250ms. Inner columns are table-qualified so they bind to the scan, not the
+  // aggregate output aliases.
+  const innerConditions = ['meshcore_public_channel_messages_raw.ingest_timestamp > {lastTimestamp:DateTime64}'];
   if (channelId) {
-    additionalWhereClause = `channel_hash = {channelId:String}`;
+    innerConditions.push('meshcore_public_channel_messages_raw.channel_hash = {channelId:String}');
   }
 
+  // Region filtering keys off origin_path_info, which only exists post-group, so it stays as an
+  // outer predicate spliced in by the streamer.
+  let additionalWhereClause = '';
   if (region) {
-    // Add region filtering for chat messages using origin_path_info
     const regionClause = generateRegionArrayConditionForStreaming(region);
     if (regionClause) {
-      additionalWhereClause += (additionalWhereClause ? ' AND ' : '') + regionClause;
+      additionalWhereClause = regionClause;
     }
   }
 
-  // Push the poll cursor into the inner meshcore_packets scan so partition /
-  // primary-key pruning limits it to the last few seconds of packets, instead
-  // of re-aggregating the entire payload_type=5 history every 250ms. The outer
-  // WHERE keeps the same predicate so the streamer can still splice in
-  // channel_hash / region filters (origin_path_info only exists post-group).
   return {
     queryTemplate: `
       SELECT
@@ -274,7 +275,7 @@ export function createChatMessagesStreamerConfig(
         message_count,
         origin_path_info,
         message_id
-      FROM ${publicChannelMessagesSubquery(['meshcore_packets.ingest_timestamp > {lastTimestamp:DateTime64}'])}
+      FROM ${publicChannelMessagesSubquery(innerConditions)}
       WHERE ingest_timestamp > {lastTimestamp:DateTime64}
       ORDER BY ingest_timestamp DESC
       LIMIT {maxRows:UInt32}

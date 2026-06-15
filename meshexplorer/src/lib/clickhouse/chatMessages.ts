@@ -1,40 +1,39 @@
 /**
  * Builds the public-channel-messages aggregation as an inline subquery.
  *
- * This mirrors the `meshcore_public_channel_messages` view (group meshcore
- * packets by payload to dedup the same message seen via multiple gateways), but
- * lets callers push filters into the inner `meshcore_packets` scan instead of
- * filtering the fully-aggregated view output.
+ * Reads the live, pre-decoded `meshcore_public_channel_messages_raw` materialized
+ * view (one row per gateway-copy of a payload_type=5 packet) and dedups the same
+ * message seen via multiple gateways with `GROUP BY message_id`. Callers push
+ * filters into the inner scan instead of filtering the fully-aggregated output.
  *
- * Why this matters: in the view, `ingest_timestamp` is `max(ingest_timestamp)`
- * and `channel_hash` is derived from the grouped `payload`. A WHERE on those
- * columns can't be pushed below the GROUP BY, so ClickHouse must aggregate the
- * entire payload_type=5 history (millions of rows) on every query before the
- * filter applies — the timestamp primary key never gets used. Pushing the time
- * and channel filters into `innerConditions` lets partition + primary-key
- * pruning (ORDER BY starts with ingest_timestamp) kick in, turning a ~1 GiB
- * full scan into a few-millisecond ranged read.
+ * Why this matters: in the output, `ingest_timestamp` is `max(ingest_timestamp)`
+ * and `channel_hash`/`mac`/`encrypted_message` are `any(...)` over the message_id
+ * group. A WHERE on those columns can't be pushed below the GROUP BY. Pushing the
+ * time and channel filters into `innerConditions` lets partition + primary-key
+ * pruning kick in — the table's ORDER BY is `(channel_hash, ingest_timestamp)`, so
+ * a per-channel timestamp range is a few-millisecond ranged read instead of a full
+ * scan + merge.
  *
- * @param innerConditions Extra predicates applied to the meshcore_packets scan,
- *   before grouping. `payload_type = 5` is always included. Reference
- *   `ingest_timestamp` as `meshcore_packets.ingest_timestamp` — unqualified it
- *   binds to the `max(ingest_timestamp)` output alias and the query is rejected
- *   with ILLEGAL_AGGREGATION.
+ * @param innerConditions Extra predicates applied to the
+ *   meshcore_public_channel_messages_raw scan, before grouping. Reference columns
+ *   table-qualified (e.g. `meshcore_public_channel_messages_raw.ingest_timestamp`,
+ *   `meshcore_public_channel_messages_raw.channel_hash`) — unqualified they bind to
+ *   the aggregate output aliases and the query is rejected with ILLEGAL_AGGREGATION.
  */
 export function publicChannelMessagesSubquery(innerConditions: string[] = []): string {
-  const where = ["payload_type = 5", ...innerConditions].join(" AND ");
+  const where = innerConditions.length > 0 ? `WHERE ${innerConditions.join(" AND ")}` : "";
   return `(
     SELECT
+      any(channel_hash) AS channel_hash,
       max(ingest_timestamp) AS ingest_timestamp,
       min(mesh_timestamp) AS mesh_timestamp,
-      hex(substring(payload, 1, 1)) AS channel_hash,
-      hex(substring(payload, 2, 2)) AS mac,
-      substring(payload, 4) AS encrypted_message,
+      any(mac) AS mac,
+      any(encrypted_message) AS encrypted_message,
       count() AS message_count,
-      groupArray((origin, hex(origin_pubkey), hex(path), broker, topic)) AS origin_path_info,
-      any(packet_hash) AS message_id
-    FROM meshcore_packets
-    WHERE ${where}
-    GROUP BY payload
+      groupArray((origin, origin_pubkey, path, broker, topic)) AS origin_path_info,
+      message_id
+    FROM meshcore_public_channel_messages_raw
+    ${where}
+    GROUP BY message_id
   )`;
 }

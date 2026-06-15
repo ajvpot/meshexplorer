@@ -67,20 +67,20 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
     const outerWhere: string[] = [];
     const params: Record<string, any> = { limit };
 
-    // ingest_timestamp must be table-qualified: unqualified, the analyzer binds
-    // it to the `max(ingest_timestamp) AS ingest_timestamp` output alias and
-    // rejects the WHERE (ILLEGAL_AGGREGATION).
+    // Inner-scan columns must be table-qualified: unqualified, the analyzer binds
+    // them to the aggregate output aliases (max(ingest_timestamp) etc.) and rejects
+    // the WHERE (ILLEGAL_AGGREGATION). Qualified, they push onto the decoded table's
+    // (channel_hash, ingest_timestamp) primary key before the GROUP BY message_id.
     if (before) {
-      innerWhere.push('meshcore_packets.ingest_timestamp < {before:DateTime64}');
+      innerWhere.push('meshcore_public_channel_messages_raw.ingest_timestamp < {before:DateTime64}');
       params.before = before;
     }
     if (after) {
-      innerWhere.push('meshcore_packets.ingest_timestamp > {after:DateTime64}');
+      innerWhere.push('meshcore_public_channel_messages_raw.ingest_timestamp > {after:DateTime64}');
       params.after = after;
     }
     if (channelId) {
-      // channel_hash == hex(substring(payload, 1, 1)); push to the raw scan.
-      innerWhere.push('hex(substring(payload, 1, 1)) = {channelId:String}');
+      innerWhere.push('meshcore_public_channel_messages_raw.channel_hash = {channelId:String}');
       params.channelId = channelId;
     }
 
@@ -524,8 +524,12 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
       
       const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
       
+      // Reads the live, state-backed meshcore_adverts_latest view (incremental MV over
+      // meshcore_adverts_latest_state) instead of re-aggregating meshcore_adverts on every
+      // request. All filter columns (public_key, node_name, last_seen, region, is_repeater)
+      // exist on the view, so the WHERE pushes straight onto it.
       const queryPart = `
-        SELECT 
+        SELECT
           public_key,
           node_name,
           latitude,
@@ -540,27 +544,9 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
           broker,
           topic,
           ${index} as query_index
-        FROM (
-          SELECT 
-            public_key,
-            argMax(node_name, ingest_timestamp) as node_name,
-            argMax(latitude, ingest_timestamp) as latitude,
-            argMax(longitude, ingest_timestamp) as longitude,
-            argMax(has_location, ingest_timestamp) as has_location,
-            argMax(is_repeater, ingest_timestamp) as is_repeater,
-            argMax(is_chat_node, ingest_timestamp) as is_chat_node,
-            argMax(is_room_server, ingest_timestamp) as is_room_server,
-            argMax(has_name, ingest_timestamp) as has_name,
-            min(ingest_timestamp) as first_heard,
-            max(ingest_timestamp) as last_seen,
-            argMax(broker, ingest_timestamp) as broker,
-            argMax(topic, ingest_timestamp) as topic,
-            argMax(region, ingest_timestamp) as region
-          FROM meshcore_adverts
-          GROUP BY public_key
-        ) 
-        ${whereClause} 
-        ORDER BY last_seen DESC 
+        FROM meshcore_adverts_latest
+        ${whereClause}
+        ORDER BY last_seen DESC
         LIMIT {limit_${index}:UInt32}
       `;
       

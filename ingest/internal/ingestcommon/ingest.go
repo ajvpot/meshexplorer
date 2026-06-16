@@ -146,7 +146,10 @@ func (d *Daemon) connectToBroker(broker MQTTBrokerConfig, idx int, maxRetries in
 		opts.SetConnectRetry(true)
 		opts.SetConnectTimeout(10 * time.Second)
 		opts.SetMaxReconnectInterval(30 * time.Second)
-		opts.SetKeepAlive(30 * time.Second)
+		// As a near-silent subscriber we send a PINGREQ roughly every KeepAlive
+		// seconds; lowering it keeps the Cloudflare WebSocket path warm in the
+		// client->server direction (a lever for the residual mid-stream stalls).
+		opts.SetKeepAlive(time.Duration(GetEnvIntOrDefault("MQTT_KEEPALIVE_SECONDS", 30)) * time.Second)
 		// Allow extra margin for PINGRESP to survive the Cloudflare WebSocket
 		// proxy's buffering/jitter; 10s was tight and produced false
 		// "pingresp not received" disconnects. Configurable for tuning.

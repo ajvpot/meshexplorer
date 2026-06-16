@@ -57,6 +57,9 @@ const IndividualMarker = React.memo(function IndividualMarker({
   const map = useMap();
   const markerRef = useRef<L.Marker | null>(null);
   const onNodeClickRef = useRef(onNodeClick);
+  // Tracks the icon-affecting state last applied to this marker, so the update
+  // effect can skip re-rendering the icon when nothing visible changed.
+  const lastIconStateRef = useRef<string | null>(null);
 
   // Keep the callback ref updated
   useEffect(() => {
@@ -83,8 +86,13 @@ const IndividualMarker = React.memo(function IndividualMarker({
 
     const marker = L.marker([node.latitude, node.longitude], { icon });
     (marker as any).options.nodeData = node;
-    marker.bindPopup(renderToString(<PopupContent node={node} target={target} />));
-    
+    // Bind popup lazily: Leaflet calls this function only when the popup opens,
+    // so we never render PopupContent for the thousands of markers that are
+    // never clicked. Read the node from the marker so it reflects current data.
+    marker.bindPopup((layer: any) =>
+      renderToString(<PopupContent node={layer.options.nodeData} target={target} />)
+    );
+
     // Add hover handler for meshcore nodes
     if (node.type === "meshcore") {
       marker.on('mouseover', () => {
@@ -105,25 +113,33 @@ const IndividualMarker = React.memo(function IndividualMarker({
 
   // Update marker when visual properties change (but don't recreate marker)
   useEffect(() => {
-    if (markerRef.current) {
-      // Update icon and popup content only
-      const isSelected = selectedNodeId === node.node_id;
-      const icon = L.divIcon({
-        className: 'custom-node-marker-container',
-        iconSize: [12, 24],
-        iconAnchor: [6, 6],
-        html: renderToString(
-          <NodeMarker 
-            node={node} 
-            showNodeNames={showNodeNames} 
-            isSelected={isSelected}
-            isLoadingNeighbors={isSelected && isLoadingNeighbors}
-          />
-        ),
-      });
-      markerRef.current.setIcon(icon);
-      markerRef.current.getPopup()?.setContent(renderToString(<PopupContent node={node} target={target} />));
-    }
+    if (!markerRef.current) return;
+
+    // Keep the node reference on the marker fresh so the lazily-rendered popup
+    // (bound above) reflects the latest data when opened.
+    (markerRef.current as any).options.nodeData = node;
+
+    // Only re-render the icon when something that affects its appearance has
+    // actually changed for this node — avoids needless renderToString churn.
+    const isSelected = selectedNodeId === node.node_id;
+    const iconState = `${isSelected}|${showNodeNames}|${isSelected && isLoadingNeighbors}|${node.short_name ?? ''}|${node.name ?? ''}`;
+    if (iconState === lastIconStateRef.current) return;
+    lastIconStateRef.current = iconState;
+
+    const icon = L.divIcon({
+      className: 'custom-node-marker-container',
+      iconSize: [12, 24],
+      iconAnchor: [6, 6],
+      html: renderToString(
+        <NodeMarker
+          node={node}
+          showNodeNames={showNodeNames}
+          isSelected={isSelected}
+          isLoadingNeighbors={isSelected && isLoadingNeighbors}
+        />
+      ),
+    });
+    markerRef.current.setIcon(icon);
   }, [node, showNodeNames, selectedNodeId, isLoadingNeighbors]);
 
   // Handle position updates separately to avoid recreating marker
@@ -158,6 +174,12 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
   const map = useMap();
   const clusterGroupRef = useRef<any>(null);
   const onNodeClickRef = useRef(onNodeClick);
+  // node_id -> marker, for O(1) lookup when only the selected marker changes.
+  const markerByIdRef = useRef<Map<string, L.Marker>>(new Map());
+  // Selection/showNodeNames last applied across the group, so the update effect
+  // can re-skin only the two markers whose selected state flipped.
+  const prevSelectedRef = useRef<string | null>(null);
+  const prevShowNamesRef = useRef<boolean>(showNodeNames);
 
   // Keep the callback ref updated
   useEffect(() => {
@@ -167,6 +189,9 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
   // Create cluster group only when map or nodes array changes
   useEffect(() => {
     if (!map) return;
+
+    const markerById = new Map<string, L.Marker>();
+    markerByIdRef.current = markerById;
 
     const iconCreateFunction = (cluster: any) => {
       const children = cluster.getAllChildMarkers();
@@ -200,21 +225,29 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
       });
       const marker = L.marker([node.latitude, node.longitude], { icon });
       (marker as any).options.nodeData = node;
-      marker.bindPopup(renderToString(<PopupContent node={node} target={target} />));
-      
+      // Bind popup lazily so PopupContent is only rendered when the popup opens.
+      marker.bindPopup((layer: any) =>
+        renderToString(<PopupContent node={layer.options.nodeData} target={target} />)
+      );
+
       // Add hover handler for meshcore nodes
       if (node.type === "meshcore") {
         marker.on('mouseover', () => {
           onNodeClickRef.current(node.node_id);
         });
       }
-      
+
+      markerById.set(node.node_id, marker);
       markers.addLayer(marker);
     });
 
     markers._isClusterLayer = true;
     map.addLayer(markers);
     clusterGroupRef.current = markers;
+    // Markers were just rendered reflecting the current selection/labels, so
+    // baseline the update effect's trackers to match this freshly-built group.
+    prevSelectedRef.current = selectedNodeId;
+    prevShowNamesRef.current = showNodeNames;
 
     return () => {
       if (clusterGroupRef.current && map.hasLayer(clusterGroupRef.current)) {
@@ -228,27 +261,47 @@ const ClusteredMarkersGroup = React.memo(function ClusteredMarkersGroup({
   useEffect(() => {
     if (!clusterGroupRef.current) return;
 
-    clusterGroupRef.current.eachLayer((marker: any) => {
+    const reskin = (marker: any) => {
       const nodeData = marker.options.nodeData;
-      if (nodeData) {
-        const isSelected = selectedNodeId === nodeData.node_id;
-        const icon = L.divIcon({
-          className: 'custom-node-marker-container',
-          iconSize: [16, 32],
-          iconAnchor: [8, 8],
-          html: renderToString(
-            <NodeMarker 
-              node={nodeData} 
-              showNodeNames={showNodeNames} 
-              isSelected={isSelected}
-              isLoadingNeighbors={isSelected && isLoadingNeighbors}
-            />
-          ),
-        });
-        marker.setIcon(icon);
-        marker.getPopup()?.setContent(renderToString(<PopupContent node={nodeData} target={target} />));
+      if (!nodeData) return;
+      const isSelected = selectedNodeId === nodeData.node_id;
+      const icon = L.divIcon({
+        className: 'custom-node-marker-container',
+        iconSize: [16, 32],
+        iconAnchor: [8, 8],
+        html: renderToString(
+          <NodeMarker
+            node={nodeData}
+            showNodeNames={showNodeNames}
+            isSelected={isSelected}
+            isLoadingNeighbors={isSelected && isLoadingNeighbors}
+          />
+        ),
+      });
+      marker.setIcon(icon);
+    };
+
+    // showNodeNames affects every marker's label, so it requires a full pass.
+    // Otherwise, only the markers whose selected state flipped change
+    // appearance (isLoadingNeighbors only affects the selected marker), so we
+    // re-skin just those two instead of all ~5k.
+    if (prevShowNamesRef.current !== showNodeNames) {
+      clusterGroupRef.current.eachLayer(reskin);
+    } else {
+      const map = markerByIdRef.current;
+      const prev = prevSelectedRef.current;
+      if (prev && prev !== selectedNodeId) {
+        const m = map.get(prev);
+        if (m) reskin(m);
       }
-    });
+      if (selectedNodeId) {
+        const m = map.get(selectedNodeId);
+        if (m) reskin(m);
+      }
+    }
+
+    prevSelectedRef.current = selectedNodeId;
+    prevShowNamesRef.current = showNodeNames;
   }, [showNodeNames, selectedNodeId, isLoadingNeighbors]);
 
   return null;

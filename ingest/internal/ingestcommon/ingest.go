@@ -154,6 +154,10 @@ func (d *Daemon) connectToBroker(broker MQTTBrokerConfig, idx int, maxRetries in
 		// proxy's buffering/jitter; 10s was tight and produced false
 		// "pingresp not received" disconnects. Configurable for tuning.
 		opts.SetPingTimeout(time.Duration(GetEnvIntOrDefault("MQTT_PING_TIMEOUT_SECONDS", 20)) * time.Second)
+		// Bound writes (PINGREQ/SUBSCRIBE) so a stalled write through the
+		// Cloudflare WebSocket proxy can't hang the client. 0 (paho default)
+		// disables it; set MQTT_WRITE_TIMEOUT_SECONDS to enable.
+		opts.SetWriteTimeout(time.Duration(GetEnvIntOrDefault("MQTT_WRITE_TIMEOUT_SECONDS", 0)) * time.Second)
 		// Start a fresh session on every (re)connect and resubscribe explicitly in
 		// the OnConnect handler below. This avoids depending on broker-side session
 		// persistence — which is exactly what left the client connected-but-

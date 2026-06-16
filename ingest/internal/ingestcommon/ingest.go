@@ -147,7 +147,10 @@ func (d *Daemon) connectToBroker(broker MQTTBrokerConfig, idx int, maxRetries in
 		opts.SetConnectTimeout(10 * time.Second)
 		opts.SetMaxReconnectInterval(30 * time.Second)
 		opts.SetKeepAlive(30 * time.Second)
-		opts.SetPingTimeout(10 * time.Second)
+		// Allow extra margin for PINGRESP to survive the Cloudflare WebSocket
+		// proxy's buffering/jitter; 10s was tight and produced false
+		// "pingresp not received" disconnects. Configurable for tuning.
+		opts.SetPingTimeout(time.Duration(GetEnvIntOrDefault("MQTT_PING_TIMEOUT_SECONDS", 20)) * time.Second)
 		// Start a fresh session on every (re)connect and resubscribe explicitly in
 		// the OnConnect handler below. This avoids depending on broker-side session
 		// persistence — which is exactly what left the client connected-but-
@@ -254,13 +257,12 @@ func (d *Daemon) ConnectMQTT() error {
 }
 
 func (d *Daemon) ConnectClickHouse() error {
+	// The ingest path now batches rows application-side (see meshcoreingest's
+	// batch writer), so each insert is already a large native block. Server-side
+	// async_insert buffering on top of that adds latency without benefit, so it
+	// is left off (default 0).
 	settings := clickhouse.Settings{
-		"max_execution_time":            60,
-		"async_insert":                  1,
-		"wait_for_async_insert":         1,
-		"async_insert_busy_timeout_ms":  2500,    // 2.5 seconds - flush if buffer is busy for this long
-		"async_insert_max_data_size":    1048576, // 1MB - flush when buffer reaches this size
-		"async_insert_max_query_number": 5000,    // flush after this many insert queries accumulate
+		"max_execution_time": 60,
 	}
 
 	conn, err := clickhouse.Open(&clickhouse.Options{

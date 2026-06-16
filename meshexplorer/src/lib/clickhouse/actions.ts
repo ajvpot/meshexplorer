@@ -3,6 +3,7 @@ import { clickhouse } from "./clickhouse";
 import { generateRegionWhereClauseFromArray, generateRegionWhereClause } from "@/lib/regionFilters";
 import { regionFromTopic, normalizeRegion, groupCodeOf } from "@/lib/regions";
 import { publicChannelMessagesSubquery } from "./chatMessages";
+import { isHiddenNodeName, visibleNodeSqlClause } from "@/lib/node-privacy";
 
 export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen }: { minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], lastSeen?: string | null } = {}) {
   try {
@@ -10,7 +11,9 @@ export async function getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTyp
       "latitude IS NOT NULL",
       "longitude IS NOT NULL",
       // Exclude the (0,0) "null island" sentinel (location bit set but no real GPS fix)
-      "(abs(latitude) > 0.01 OR abs(longitude) > 0.01)"
+      "(abs(latitude) > 0.01 OR abs(longitude) > 0.01)",
+      // Node privacy: hide nodes whose name carries an opt-out emoji.
+      visibleNodeSqlClause("name")
     ];
     const params: Record<string, any> = {};
     if (minLat !== null && minLat !== undefined && minLat !== "") {
@@ -166,7 +169,12 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
     if (!nodeInfo || nodeInfo.length === 0) {
       return null;
     }
-    
+
+    // Node privacy: a node that opted out via its name is treated as not found.
+    if (isHiddenNodeName(nodeInfo[0].node_name)) {
+      return null;
+    }
+
     // Get recent adverts grouped by adv_timestamp with origin_path_pubkey tuples
     const advertsQuery = `
       SELECT 
@@ -316,6 +324,9 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
       "source_longitude IS NOT NULL",
       "target_latitude IS NOT NULL",
       "target_longitude IS NOT NULL",
+      // Node privacy: drop the edge if either endpoint opted out via its name.
+      visibleNodeSqlClause("source_name"),
+      visibleNodeSqlClause("target_name"),
     ];
 
     // Bounding box: both endpoints must be within view (matches the old visible_nodes behavior)
@@ -391,7 +402,11 @@ export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: stri
     // Reads the precomputed (hourly-refreshed) per-node direct adjacency from the
     // refreshable materialized view meshcore_node_direct_neighbors.
     const params: Record<string, any> = { publicKey };
-    const whereConditions = ["node_public_key = {publicKey:String}"];
+    const whereConditions = [
+      "node_public_key = {publicKey:String}",
+      // Node privacy: hide neighbors that opted out via their name.
+      visibleNodeSqlClause("neighbor_name"),
+    ];
     if (lastSeen !== null) {
       whereConditions.push("neighbor_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND");
       params.lastSeen = Number(lastSeen);
@@ -473,7 +488,8 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
         is_repeater
       } = searchQuery;
       
-      const where: string[] = [];
+      // Node privacy: hidden nodes are unsearchable.
+      const where: string[] = [visibleNodeSqlClause("node_name")];
       const queryParams: Record<string, any> = {};
       
       // Add search conditions

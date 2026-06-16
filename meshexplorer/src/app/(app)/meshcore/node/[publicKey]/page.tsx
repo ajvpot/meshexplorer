@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import moment from "moment";
@@ -12,6 +14,9 @@ import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
 import { useNodeData, type NodeData, type NodeInfo, type Advert, type LocationHistory, type MqttInfo, type NodeError } from "@/hooks/useNodeData";
 import { ArrowRightEndOnRectangleIcon, ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
 import { RegionProvider } from "@/contexts/RegionContext";
+
+// Leaflet needs `window`, so load the location-history map client-side only.
+const LocationHistoryMap = dynamic(() => import("@/components/LocationHistoryMap"), { ssr: false });
 
 // Interfaces are now imported from useNodeData hook
 
@@ -27,6 +32,7 @@ export default function MeshcoreNodePage() {
   const params = useParams();
   const publicKey = params.publicKey as string;
   const { config } = useConfig();
+  const [showAllAdverts, setShowAllAdverts] = useState(false);
 
   // Use TanStack Query for node data
   const { 
@@ -353,7 +359,9 @@ export default function MeshcoreNodePage() {
           <div className="bg-white dark:bg-neutral-900 shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Recent Adverts</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Latest {recentAdverts.length} adverts</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Showing {Math.min(showAllAdverts ? recentAdverts.length : 5, recentAdverts.length)} of {recentAdverts.length} adverts
+              </p>
             </div>
             <div className="p-6 space-y-4">
               {recentAdverts.length === 0 ? (
@@ -361,9 +369,19 @@ export default function MeshcoreNodePage() {
                   No adverts found
                 </div>
               ) : (
-                recentAdverts.map((advert) => (
-                  <AdvertDetails key={advert.group_id} advert={advert} initiatingNodeKey={node.public_key} />
-                ))
+                <>
+                  {(showAllAdverts ? recentAdverts : recentAdverts.slice(0, 5)).map((advert) => (
+                    <AdvertDetails key={advert.group_id} advert={advert} initiatingNodeKey={node.public_key} />
+                  ))}
+                  {recentAdverts.length > 5 && (
+                    <button
+                      onClick={() => setShowAllAdverts((prev) => !prev)}
+                      className="w-full text-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 py-2"
+                    >
+                      {showAllAdverts ? "Show less" : `Show more (${recentAdverts.length - 5} more)`}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -374,32 +392,13 @@ export default function MeshcoreNodePage() {
               <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Location History</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">Recent location updates (last 30 days)</p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-neutral-800">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Timestamp</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Latitude</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Longitude</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-neutral-900 divide-y divide-gray-200 dark:divide-gray-700">
-                  {locationHistory.map((location, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                        {moment.utc(location.mesh_timestamp).format('MM-DD HH:mm:ss')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                        {location.latitude.toFixed(6)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                        {location.longitude.toFixed(6)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {locationHistory.length === 0 ? (
+              <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                No location data
+              </div>
+            ) : (
+              <LocationHistoryMap locations={locationHistory} />
+            )}
           </div>
         </div>
 

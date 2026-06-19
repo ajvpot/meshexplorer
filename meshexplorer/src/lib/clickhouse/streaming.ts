@@ -274,6 +274,7 @@ export function createChatMessagesStreamerConfig(
         hex(encrypted_message) AS encrypted_message,
         message_count,
         origin_path_info,
+        hash_size,
         message_id
       FROM ${publicChannelMessagesSubquery(innerConditions)}
       WHERE ingest_timestamp > {lastTimestamp:DateTime64}

@@ -2,6 +2,10 @@ export interface PathData {
   origin: string;
   pubkey: string;
   path: string;
+  // Bytes per path hop (MeshCore path hash size: 1/2/3). The hex `path` is a
+  // sequence of hop identifiers, each hashSize bytes (2*hashSize hex chars).
+  // Defaults to 1 for backward compatibility / unknown.
+  hashSize?: number;
 }
 
 export interface PathGroup {
@@ -22,10 +26,13 @@ export interface TreeNode {
 export function groupPathsByStructure(paths: PathData[]): PathGroup[] {
   const pathGroups: PathGroup[] = [];
   
-  paths.forEach(({ origin, pubkey, path }, index) => {
-    // Parse path into 2-character slices and include pubkey as final hop
-    const pathSlices = path.match(/.{1,2}/g) || [];
-    const pubkeyPrefix = pubkey.substring(0, 2);
+  paths.forEach(({ origin, pubkey, path, hashSize }, index) => {
+    // Each hop identifier is hashSize bytes = 2*hashSize hex chars. Split the path
+    // accordingly, and take the matching-length prefix of the origin pubkey as the
+    // final hop so it's comparable to the in-path hop identifiers.
+    const hopChars = 2 * (hashSize && hashSize > 0 ? hashSize : 1);
+    const pathSlices = path.match(new RegExp(`.{1,${hopChars}}`, "g")) || [];
+    const pubkeyPrefix = pubkey.substring(0, hopChars);
     const fullPathSlices = [...pathSlices, pubkeyPrefix];
     
     // Find existing group with same path structure
@@ -53,8 +60,9 @@ export function groupPathsByStructure(paths: PathData[]): PathGroup[] {
 /**
  * Builds a tree structure from path groups for visualization
  */
-export function buildTreeFromPathGroups(pathGroups: PathGroup[], initiatingNodeKey?: string): TreeNode {
-  const rootName = initiatingNodeKey ? initiatingNodeKey.substring(0, 2) : "??";
+export function buildTreeFromPathGroups(pathGroups: PathGroup[], initiatingNodeKey?: string, hashSize?: number): TreeNode {
+  const hopChars = 2 * (hashSize && hashSize > 0 ? hashSize : 1);
+  const rootName = initiatingNodeKey ? initiatingNodeKey.substring(0, hopChars) : "??";
   const root: TreeNode = { name: rootName, children: [] };
   
   pathGroups.forEach(group => {

@@ -94,7 +94,7 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
     }
 
     const whereClause = outerWhere.length > 0 ? `WHERE ${outerWhere.join(' AND ')}` : '';
-    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_info, message_id FROM ${publicChannelMessagesSubquery(innerWhere)} ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
+    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_info, hash_size, message_id FROM ${publicChannelMessagesSubquery(innerWhere)} ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
     const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
     const rows = await resultSet.json();
     return rows as Array<{
@@ -105,6 +105,7 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
       encrypted_message: string;
       message_count: number;
       origin_path_info: Array<[string, string, string, string, string]>; // Array of [origin, origin_pubkey, path, broker, topic] tuples
+      hash_size: number; // bytes per path hop (1/2/3); used to split path into hops
       message_id: string;
     }>;
   } catch (error) {
@@ -189,14 +190,16 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
         argMax(is_chat_node, ingest_timestamp) as is_chat_node,
         argMax(is_room_server, ingest_timestamp) as is_room_server,
         argMax(has_location, ingest_timestamp) as has_location,
+        any(hash_size) as hash_size,
         packet_hash
       FROM (
-        SELECT 
+        SELECT
           ingest_timestamp,
           mesh_timestamp,
           adv_timestamp,
           hex(path) as path,
           path_len,
+          hash_size,
           latitude,
           longitude,
           is_repeater,

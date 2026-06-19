@@ -31,6 +31,7 @@ export function publicChannelMessagesSubquery(innerConditions: string[] = []): s
       any(encrypted_message) AS encrypted_message,
       count() AS message_count,
       groupArray((origin, origin_pubkey, path, broker, topic)) AS origin_path_info,
+      any(hash_size) AS hash_size,
       message_id
     FROM meshcore_public_channel_messages_raw
     ${where}

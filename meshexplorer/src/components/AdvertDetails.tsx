@@ -19,6 +19,7 @@ interface AdvertDetailsProps {
     is_room_server: number;
     has_location: number;
     packet_hash: string;
+    hash_size?: number; // bytes per path hop (1/2/3); used to split path into hops
   };
   initiatingNodeKey?: string;
 }
@@ -95,7 +96,8 @@ export default function AdvertDetails({ advert, initiatingNodeKey }: AdvertDetai
                 paths={advert.origin_path_pubkey_tuples.map(([origin, path, origin_pubkey], index) => ({
                   origin: origin || origin_pubkey.substring(0, 8), // Use origin name if available, fallback to pubkey
                   pubkey: origin_pubkey,
-                  path: path
+                  path: path,
+                  hashSize: advert.hash_size
                 }))}
                 className="text-sm"
                 initiatingNodeKey={initiatingNodeKey}

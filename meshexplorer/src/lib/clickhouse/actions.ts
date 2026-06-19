@@ -309,17 +309,18 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
     // by region + bounding box + lastSeen. The heavy graph computation lives in the
     // refreshable materialized view meshcore_all_neighbor_edges.
     // Region filter for the precomputed neighbor graph: a region selector -> that region; a group
-    // selector -> its member regions (resolved in-DB against region_groups); else default to SEA.
-    // The MV only holds intra-region edges, so a group never produces cross-region neighbors.
+    // selector -> its member regions (resolved in-DB against region_groups); no selector -> all
+    // regions (no filter). The MV only holds intra-region edges, so neither a group nor the
+    // all-regions case ever produces cross-region neighbors.
     const params: Record<string, any> = {};
     const nbrCode = normalizeRegion(region);
     const nbrGroup = groupCodeOf(region);
-    let nbrRegionFilter: string;
+    let nbrRegionFilter: string | null;
     if (nbrCode) { nbrRegionFilter = "region = {region:String}"; params.region = nbrCode; }
     else if (nbrGroup) { nbrRegionFilter = "region IN (SELECT region_code FROM region_groups WHERE group_code = {grp:String})"; params.grp = nbrGroup; }
-    else { nbrRegionFilter = "region = {region:String}"; params.region = "SEA"; }
+    else { nbrRegionFilter = null; } // no selector -> all regions
     const whereConditions = [
-      nbrRegionFilter,
+      ...(nbrRegionFilter ? [nbrRegionFilter] : []),
       "source_has_location = 1",
       "target_has_location = 1",
       "source_latitude IS NOT NULL",

@@ -1,6 +1,6 @@
 "use server";
 import { clickhouse } from "./clickhouse";
-import { generateRegionWhereClauseFromArray, generateRegionWhereClause } from "@/lib/regionFilters";
+import { generateRegionWhereClause } from "@/lib/regionFilters";
 import { regionFromTopic, normalizeRegion, groupCodeOf } from "@/lib/regions";
 import { publicChannelMessagesSubquery } from "./chatMessages";
 
@@ -62,9 +62,6 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
     // ingest_timestamp primary key / partition pruning applies. See
     // publicChannelMessagesSubquery for why this avoids a full-history scan.
     const innerWhere: string[] = [];
-    // Filters that must run after aggregation (origin_path_info only exists on
-    // the grouped output).
-    const outerWhere: string[] = [];
     const params: Record<string, any> = { limit };
 
     // Inner-scan columns must be table-qualified: unqualified, the analyzer binds
@@ -84,14 +81,16 @@ export async function getLatestChatMessages({ limit = 20, before, after, channel
       params.channelId = channelId;
     }
 
-    // Region filtering keys off origin_path_info, which only exists post-group.
-    const regionFilter = generateRegionWhereClauseFromArray(region);
+    // Region filter pushes onto the raw table's stored `region` column (derived identically to
+    // regionSql) BEFORE the GROUP BY, so unmatched rows are pruned at the scan instead of via a
+    // post-aggregation arrayExists over origin_path_info. Table-qualify the column so it binds to
+    // the scan, not the aggregate output. '__ALL__'/unset/unknown -> no filter (empty clause).
+    const regionFilter = generateRegionWhereClause(region, "meshcore_public_channel_messages_raw");
     if (regionFilter.whereClause) {
-      outerWhere.push(regionFilter.whereClause);
+      innerWhere.push(regionFilter.whereClause);
     }
 
-    const whereClause = outerWhere.length > 0 ? `WHERE ${outerWhere.join(' AND ')}` : '';
-    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_info, message_id FROM ${publicChannelMessagesSubquery(innerWhere)} ${whereClause} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
+    const query = `SELECT ingest_timestamp, mesh_timestamp, channel_hash, mac, hex(encrypted_message) AS encrypted_message, message_count, origin_path_info, message_id FROM ${publicChannelMessagesSubquery(innerWhere)} ORDER BY ingest_timestamp DESC LIMIT {limit:UInt32}`;
     const resultSet = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
     const rows = await resultSet.json();
     return rows as Array<{
@@ -459,10 +458,18 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
       return [];
     }
     
-    // Build individual query parts
-    const queryParts: string[] = [];
+    // Build a per-query branch condition plus its limit. Instead of emitting one
+    // UNION ALL branch per query (each of which re-merges the entire
+    // meshcore_adverts_latest_state AggregatingMergeTree), we scan/merge the
+    // meshcore_adverts_latest view exactly ONCE and fan each surviving row out to
+    // every branch it matches via arrayJoin, then rank per branch with a window
+    // function. Per-query branch predicates are heterogeneous (name vs public_key,
+    // exact vs prefix/substring, plus independent region/lastSeen/is_repeater
+    // filters), so each branch keeps its own boolean expression.
+    const branchConditions: string[] = [];
+    const branchLimits: number[] = [];
     const allParams: Record<string, any> = {};
-    
+
     queries.forEach((searchQuery, index) => {
       const {
         query: searchString,
@@ -472,14 +479,14 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
         exact = false,
         is_repeater
       } = searchQuery;
-      
+
       const where: string[] = [];
       const queryParams: Record<string, any> = {};
-      
+
       // Add search conditions
       if (searchString && searchString.trim()) {
         const trimmedQuery = searchString.trim();
-        
+
         // Check if it looks like a public key (hex string)
         if (/^[0-9A-Fa-f]+$/.test(trimmedQuery)) {
           if (exact) {
@@ -503,67 +510,103 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
           }
         }
       }
-      
+
       // Add lastSeen filter if provided
       if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
         where.push(`last_seen >= now() - INTERVAL {lastSeen_${index}:UInt32} SECOND`);
         queryParams[`lastSeen_${index}`] = Number(lastSeen);
       }
-      
+
       // Add region filtering if specified
       const regionFilter = generateRegionWhereClause(region);
       if (regionFilter.whereClause) {
         where.push(regionFilter.whereClause);
       }
-      
+
       // Add is_repeater filter if specified
       if (is_repeater !== undefined) {
         where.push(`is_repeater = {isRepeater_${index}:UInt8}`);
         queryParams[`isRepeater_${index}`] = is_repeater ? 1 : 0;
       }
-      
-      const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-      
-      // Reads the live, state-backed meshcore_adverts_latest view (incremental MV over
-      // meshcore_adverts_latest_state) instead of re-aggregating meshcore_adverts on every
-      // request. All filter columns (public_key, node_name, last_seen, region, is_repeater)
-      // exist on the view, so the WHERE pushes straight onto it.
-      const queryPart = `
-        SELECT
-          public_key,
-          node_name,
-          latitude,
-          longitude,
-          has_location,
-          is_repeater,
-          is_chat_node,
-          is_room_server,
-          has_name,
-          first_heard,
-          last_seen,
-          broker,
-          topic,
-          ${index} as query_index
-        FROM meshcore_adverts_latest
-        ${whereClause}
-        ORDER BY last_seen DESC
-        LIMIT {limit_${index}:UInt32}
-      `;
-      
-      queryParts.push(queryPart);
-      queryParams[`limit_${index}`] = limit;
-      
+
+      // A branch with no predicates matches every row (preserves the previous
+      // behavior where an empty WHERE returned the whole table for that query).
+      branchConditions.push(where.length > 0 ? `(${where.join(' AND ')})` : '1');
+      branchLimits.push(limit);
+
       // Add query params to the global params object
       Object.assign(allParams, queryParams);
     });
-    
-    // Combine all queries with UNION ALL
-    const finalQuery = queryParts.join(' UNION ALL ');
-    
-    const resultSet = await clickhouse.query({ 
-      query: finalQuery, 
-      query_params: allParams, 
-      format: 'JSONEachRow' 
+
+    // The single scan only needs rows matching at least one branch.
+    const combinedFilter = branchConditions.some((c) => c === '1')
+      ? '1'
+      : branchConditions.join(' OR ');
+
+    // Per-branch match flags drive the arrayJoin fan-out: each row is emitted once
+    // per branch it satisfies (query_index = that branch; -1 for non-matching
+    // branches, filtered out below). We then rank within each branch by last_seen
+    // and keep up to the largest requested limit (exact per-branch limits are
+    // applied in TS below, since limits can differ per branch).
+    const matchFlags = branchConditions
+      .map((cond, index) => `if(${cond}, ${index}, -1)`)
+      .join(', ');
+    const maxLimit = branchLimits.length > 0 ? Math.max(...branchLimits) : 0;
+
+    // Reads the live, state-backed meshcore_adverts_latest view (incremental MV over
+    // meshcore_adverts_latest_state) once. All filter columns (public_key, node_name,
+    // last_seen, region, is_repeater) exist on the view, so the WHERE pushes straight
+    // onto it. The state table is merged a single time regardless of branch count.
+    const finalQuery = `
+      SELECT
+        public_key,
+        node_name,
+        latitude,
+        longitude,
+        has_location,
+        is_repeater,
+        is_chat_node,
+        is_room_server,
+        has_name,
+        first_heard,
+        last_seen,
+        broker,
+        topic,
+        query_index
+      FROM (
+        SELECT
+          *,
+          row_number() OVER (PARTITION BY query_index ORDER BY last_seen DESC) AS rn
+        FROM (
+          SELECT
+            public_key,
+            node_name,
+            latitude,
+            longitude,
+            has_location,
+            is_repeater,
+            is_chat_node,
+            is_room_server,
+            has_name,
+            first_heard,
+            last_seen,
+            broker,
+            topic,
+            arrayJoin([${matchFlags}]) AS query_index
+          FROM meshcore_adverts_latest
+          WHERE ${combinedFilter}
+        )
+        WHERE query_index >= 0
+      )
+      WHERE rn <= {maxLimit:UInt32}
+      ORDER BY query_index ASC, last_seen DESC
+    `;
+    allParams['maxLimit'] = maxLimit;
+
+    const resultSet = await clickhouse.query({
+      query: finalQuery,
+      query_params: allParams,
+      format: 'JSONEachRow'
     });
     const rows = await resultSet.json();
     
@@ -584,25 +627,26 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
       query_index?: number;
     };
     
-    // If single query, return results without query_index
-    if (!Array.isArray(searchParams)) {
-      return (rows as SearchResult[]).map(row => {
-        const { query_index, ...result } = row;
-        return result;
-      });
-    }
-    
-    // For batch queries, group results by query_index
+    // Group results by query_index. Rows arrive ordered by (query_index, last_seen
+    // DESC) and pre-trimmed to at most maxLimit per branch by the window function;
+    // we slice to each branch's exact limit here since branch limits can differ.
     const groupedResults = (rows as SearchResult[]).reduce((acc, row) => {
       const index = row.query_index || 0;
       if (!acc[index]) {
         acc[index] = [];
       }
       const { query_index, ...result } = row;
-      acc[index].push(result);
+      if (acc[index].length < branchLimits[index]) {
+        acc[index].push(result);
+      }
       return acc;
     }, {} as Record<number, SearchResult[]>);
-    
+
+    // If single query, return its results without query_index
+    if (!Array.isArray(searchParams)) {
+      return groupedResults[0] || [];
+    }
+
     // Return results in the same order as input queries
     return queries.map((_, index) => groupedResults[index] || []);
   } catch (error) {

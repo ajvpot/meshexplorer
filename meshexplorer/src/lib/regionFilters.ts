@@ -19,8 +19,8 @@ export function generateRegionWhereClauseFromArray(region?: string) {
 }
 
 /** Region condition string for streaming queries (column-based). '' when no/unknown selector. */
-export function generateRegionConditionForStreaming(region?: string): string {
-  return generateRegionCondition(region);
+export function generateRegionConditionForStreaming(region?: string, tableAlias: string = ""): string {
+  return generateRegionCondition(region, tableAlias);
 }
 
 /** Region condition string for streaming queries over origin_path_info. '' when no/unknown selector. */

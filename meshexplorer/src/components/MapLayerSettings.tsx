@@ -189,6 +189,24 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
             </span>
           </label>
 
+          {/* Only show MQTT neighbors - indented sub-option */}
+          <label className="flex items-center gap-2 ml-6 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={settings.onlyMqttNeighbors}
+              onChange={(e) => updateSetting('onlyMqttNeighbors', e.target.checked)}
+              disabled={!settings.showAllNeighbors}
+              className="rounded"
+            />
+            <span className={`text-sm ${
+              settings.showAllNeighbors
+                ? 'text-gray-700 dark:text-gray-300'
+                : 'text-gray-400 dark:text-gray-500'
+            }`}>
+              Only show MQTT neighbors
+            </span>
+          </label>
+
           {/* Minimum packet count - indented sub-option */}
           <div className="ml-6 mb-3">
             <label className={`block text-sm ${

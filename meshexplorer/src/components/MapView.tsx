@@ -420,13 +420,15 @@ function AllNeighborLines({
   nodes,
   useColors = true,
   minPacketCount = 1,
-  strokeWidth = 2
-}: { 
-  connections: AllNeighborsConnection[]; 
+  strokeWidth = 2,
+  onlyMqtt = false
+}: {
+  connections: AllNeighborsConnection[];
   nodes: NodePosition[];
   useColors?: boolean;
   minPacketCount?: number;
   strokeWidth?: number;
+  onlyMqtt?: boolean;
 }) {
   if (connections.length === 0) return null;
 
@@ -435,10 +437,11 @@ function AllNeighborLines({
 
   // Filter connections to only show lines between nodes that are visible on the map
   // and meet the minimum packet count threshold
-  const visibleConnections = connections.filter(connection => 
-    visibleNodeIds.has(connection.source_node) && 
+  const visibleConnections = connections.filter(connection =>
+    visibleNodeIds.has(connection.source_node) &&
     visibleNodeIds.has(connection.target_node) &&
-    connection.packet_count >= minPacketCount
+    connection.packet_count >= minPacketCount &&
+    (!onlyMqtt || connection.connection_type === 'direct')
   );
 
   // Calculate logarithmic thresholds based on packet counts for path connections
@@ -548,6 +551,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     tileLayer: "openstreetmap",
     showAllNeighbors: false,
     useColors: true,
+    onlyMqttNeighbors: false,
     nodeTypes: ["meshcore"],
     showMeshcoreCoverageOverlay: false,
     minPacketCount: 1,
@@ -891,6 +895,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
             useColors={mapLayerSettings.useColors}
             minPacketCount={mapLayerSettings.minPacketCount}
             strokeWidth={mapLayerSettings.strokeWidth}
+            onlyMqtt={mapLayerSettings.onlyMqttNeighbors}
           />
         )}
       </MapContainer>
@@ -920,7 +925,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
             t4: Math.round(Math.pow(10, logMin + logRange * 0.8)),
             max
           };
-        })() : null;
+        })() : (mapLayerSettings.onlyMqttNeighbors ? { min: 1, t1: 1, t2: 1, t3: 1, t4: 1, max: 1 } : null);
 
         return legendThresholds && (
           <div style={{ 
@@ -936,34 +941,38 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
             fontFamily: 'monospace'
           }}>
             <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
-              Path Traffic
+              {mapLayerSettings.onlyMqttNeighbors ? 'Neighbors' : 'Path Traffic'}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '20px', height: '2px', backgroundColor: '#dc2626' }}></div>
-                <span>High: {legendThresholds.t4}+ packets</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '20px', height: '2px', backgroundColor: '#ea580c' }}></div>
-                <span>Med-High: {legendThresholds.t3}-{legendThresholds.t4 - 1}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '20px', height: '2px', backgroundColor: '#f59e0b' }}></div>
-                <span>Medium: {legendThresholds.t2}-{legendThresholds.t3 - 1}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '20px', height: '2px', backgroundColor: '#eab308' }}></div>
-                <span>Low-Med: {legendThresholds.t1}-{legendThresholds.t2 - 1}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '20px', height: '2px', backgroundColor: '#84cc16' }}></div>
-                <span>Low: {legendThresholds.min + 1}-{legendThresholds.t1 - 1}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '20px', height: '2px', backgroundColor: '#6b7280' }}></div>
-                <span>Minimal: {legendThresholds.min}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', paddingTop: '4px', borderTop: '1px solid #e5e7eb' }}>
+              {!mapLayerSettings.onlyMqttNeighbors && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '20px', height: '2px', backgroundColor: '#dc2626' }}></div>
+                    <span>High: {legendThresholds.t4}+ packets</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '20px', height: '2px', backgroundColor: '#ea580c' }}></div>
+                    <span>Med-High: {legendThresholds.t3}-{legendThresholds.t4 - 1}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '20px', height: '2px', backgroundColor: '#f59e0b' }}></div>
+                    <span>Medium: {legendThresholds.t2}-{legendThresholds.t3 - 1}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '20px', height: '2px', backgroundColor: '#eab308' }}></div>
+                    <span>Low-Med: {legendThresholds.t1}-{legendThresholds.t2 - 1}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '20px', height: '2px', backgroundColor: '#84cc16' }}></div>
+                    <span>Low: {legendThresholds.min + 1}-{legendThresholds.t1 - 1}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '20px', height: '2px', backgroundColor: '#6b7280' }}></div>
+                    <span>Minimal: {legendThresholds.min}</span>
+                  </div>
+                </>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...(mapLayerSettings.onlyMqttNeighbors ? {} : { marginTop: '4px', paddingTop: '4px', borderTop: '1px solid #e5e7eb' }) }}>
                 <div style={{ width: '20px', height: '2px', backgroundColor: '#8b5cf6' }}></div>
                 <span>MQTT connections</span>
               </div>

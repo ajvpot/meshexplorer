@@ -177,25 +177,51 @@ func parseMeshCoreRawMessage(payload []byte) (origin string, originPubkey []byte
 	return cleanOrigin, originPubkeyBytes, meshTimestamp, packet, nil
 }
 
+// flexString unmarshals a JSON value that may be encoded as either a string or
+// a number into a string. Depending on gateway firmware, the numeric metric
+// fields below — SNR, len, etc. — arrive as JSON numbers (including negative
+// and fractional values) rather than strings; without this, a single numeric
+// field would fail the whole packet's unmarshal and drop the message, including
+// the raw packet bytes we actually need.
+type flexString string
+
+func (f *flexString) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || string(data) == "null" {
+		*f = ""
+		return nil
+	}
+	if data[0] == '"' {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		*f = flexString(s)
+		return nil
+	}
+	// Non-string (number, bool): keep the raw JSON token as its text form.
+	*f = flexString(data)
+	return nil
+}
+
 func parseMeshCorePacketsMessage(payload []byte) (origin string, originPubkey []byte, meshTimestamp time.Time, packet []byte, err error) {
 	type PacketMessage struct {
-		Origin     string `json:"origin"`
-		OriginID   string `json:"origin_id"`
-		Timestamp  string `json:"timestamp"`
-		Type       string `json:"type"`
-		Direction  string `json:"direction"`
-		Time       string `json:"time"`
-		Date       string `json:"date"`
-		Len        string `json:"len"`
-		PacketType string `json:"packet_type"`
-		Route      string `json:"route"`
-		PayloadLen string `json:"payload_len"`
-		Raw        string `json:"raw"`
-		SNR        string `json:"SNR"`
-		RSSI       string `json:"RSSI"`
-		Score      string `json:"score"`
-		Duration   string `json:"duration"`
-		Hash       string `json:"hash"`
+		Origin     string     `json:"origin"`
+		OriginID   string     `json:"origin_id"`
+		Timestamp  string     `json:"timestamp"`
+		Type       string     `json:"type"`
+		Direction  string     `json:"direction"`
+		Time       string     `json:"time"`
+		Date       string     `json:"date"`
+		Len        flexString `json:"len"`
+		PacketType flexString `json:"packet_type"`
+		Route      string     `json:"route"`
+		PayloadLen flexString `json:"payload_len"`
+		Raw        string     `json:"raw"`
+		SNR        flexString `json:"SNR"`
+		RSSI       flexString `json:"RSSI"`
+		Score      flexString `json:"score"`
+		Duration   flexString `json:"duration"`
+		Hash       string     `json:"hash"`
 	}
 	var pkt PacketMessage
 	if err = json.Unmarshal(payload, &pkt); err != nil {

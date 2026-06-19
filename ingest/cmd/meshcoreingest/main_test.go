@@ -265,3 +265,54 @@ func TestExtractGatewayID(t *testing.T) {
 		})
 	}
 }
+
+// Some gateways encode the numeric metric fields — SNR, RSSI, len, etc. — as
+// bare JSON numbers, including negative and fractional values, rather than
+// strings. These must parse rather than dropping the whole packet (and the raw
+// bytes we need with it).
+func TestParseMeshCorePacketsMessage_NumericMetrics(t *testing.T) {
+	payload := []byte(`{
+		"timestamp": "2026-06-19T07:03:43.000000",
+		"origin": "PDX Gateway Bridge 14",
+		"origin_id": "FACE69B85A0D184C7D122164BDFADE87F25069455C85DD2824CAD3F6AA0B1929",
+		"type": "PACKET", "direction": "rx", "len": 38, "payload_len": 20,
+		"packet_type": 1, "route": "F",
+		"raw": "05481D6B54CA61006000AEE498916968452A7994F827AFB6CE312721FFBE377BA3D113F924C6",
+		"SNR": -9.25, "RSSI": -95, "score": 1000, "duration": 0
+	}`)
+	origin, originPubkey, meshTimestamp, packet, err := parseMeshCorePacketsMessage(payload)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if origin != "PDX Gateway Bridge 14" {
+		t.Errorf("unexpected origin: %s", origin)
+	}
+	if hex.EncodeToString(originPubkey) != strings.ToLower("FACE69B85A0D184C7D122164BDFADE87F25069455C85DD2824CAD3F6AA0B1929") {
+		t.Errorf("unexpected origin_pubkey: %s", hex.EncodeToString(originPubkey))
+	}
+	if meshTimestamp.Format(time.RFC3339Nano) != "2026-06-19T07:03:43Z" {
+		t.Errorf("unexpected meshTimestamp: %s", meshTimestamp)
+	}
+	if len(packet) == 0 {
+		t.Error("packet should not be empty")
+	}
+}
+
+// The same fields quoted as strings (other gateways) must keep working too.
+func TestParseMeshCorePacketsMessage_StringMetrics(t *testing.T) {
+	payload := []byte(`{
+		"timestamp": "2026-06-19T07:03:43.000000",
+		"origin": "PDX Gateway Bridge 14",
+		"origin_id": "FACE69B85A0D184C7D122164BDFADE87F25069455C85DD2824CAD3F6AA0B1929",
+		"type": "PACKET", "direction": "rx", "len": "38", "payload_len": "20",
+		"raw": "05481D6B54CA61006000AEE498916968452A7994F827AFB6CE312721FFBE377BA3D113F924C6",
+		"SNR": "11.8", "RSSI": "-38"
+	}`)
+	_, _, _, packet, err := parseMeshCorePacketsMessage(payload)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(packet) == 0 {
+		t.Error("packet should not be empty")
+	}
+}

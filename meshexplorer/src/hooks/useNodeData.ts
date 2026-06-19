@@ -30,6 +30,7 @@ export interface Advert {
   is_room_server: number;
   has_location: number;
   packet_hash: string;
+  hash_size?: number; // bytes per path hop (1/2/3); used to split path into hops
 }
 
 export interface LocationHistory {

@@ -50,11 +50,14 @@ export default function PathVisualization({
     [paths]
   );
 
+  // All paths in one render share the same hash size (same message/advert).
+  const hashSize = paths[0]?.hashSize;
+
   // Process data for tree visualization
   const treeData = useMemo(() => {
     if (!showGraph || pathsCount === 0) return null;
-    return buildTreeFromPathGroups(pathGroups, initiatingNodeKey);
-  }, [showGraph, pathsCount, pathGroups, initiatingNodeKey]);
+    return buildTreeFromPathGroups(pathGroups, initiatingNodeKey, hashSize);
+  }, [showGraph, pathsCount, pathGroups, initiatingNodeKey, hashSize]);
 
   // Extract unique prefixes from tree data for name lookups
   const uniquePrefixes = useMemo(() => 

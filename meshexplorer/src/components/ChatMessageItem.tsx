@@ -19,6 +19,7 @@ export interface ChatMessage {
   encrypted_message: string;
   message_count: number;
   origin_path_info: Array<[string, string, string, string, string]>; // Array of [origin, origin_pubkey, path, broker, topic] tuples
+  hash_size?: number; // bytes per path hop (1/2/3); used to split path into hops
 }
 
 
@@ -134,9 +135,10 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
     originPathInfo.map(([origin, origin_pubkey, path, broker, topic]) => ({
       origin,
       pubkey: origin_pubkey,
-      path
+      path,
+      hashSize: msg.hash_size
     })),
-    [originPathInfo]
+    [originPathInfo, msg.hash_size]
   );
 
 

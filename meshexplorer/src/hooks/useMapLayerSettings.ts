@@ -10,6 +10,7 @@ export interface MapLayerSettings {
   tileLayer: string;
   showAllNeighbors: boolean;
   useColors: boolean;
+  onlyMqttNeighbors: boolean;
   nodeTypes: NodeType[];
   showMeshcoreCoverageOverlay: boolean;
   minPacketCount: number;
@@ -23,6 +24,7 @@ const DEFAULT_MAP_LAYER_SETTINGS: MapLayerSettings = {
   tileLayer: "openstreetmap",
   showAllNeighbors: false,
   useColors: true,
+  onlyMqttNeighbors: false,
   nodeTypes: ["meshcore"],
   showMeshcoreCoverageOverlay: false,
   minPacketCount: 1,

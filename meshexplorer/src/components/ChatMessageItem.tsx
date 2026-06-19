@@ -6,6 +6,7 @@ import PathVisualization from "./PathVisualization";
 import { PathData } from "@/lib/pathUtils";
 import NodeLinkWithHover from "./NodeLinkWithHover";
 import { findNodeMentions } from "@/lib/node-utils";
+import { isHiddenNodeName } from "@/lib/node-privacy";
 
 export interface ChatMessage {
   message_id: string;
@@ -140,6 +141,10 @@ function ChatMessageItem({ msg, showErrorRow }: { msg: ChatMessage, showErrorRow
 
 
   if (parsed) {
+    // Node privacy: a sender that opted out via its name has its message hidden entirely.
+    if (isHiddenNodeName(parsed.sender)) {
+      return null;
+    }
     return (
       <div className="border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
         <div className="text-xs text-gray-400 flex items-center gap-2">

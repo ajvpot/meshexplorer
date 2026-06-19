@@ -696,7 +696,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           setAllNeighborsLoading(false);
         }
       });
-  }, [mapLayerSettings.nodeTypes, config?.lastSeen]);
+  }, [mapLayerSettings.nodeTypes, config?.lastSeen, config?.selectedRegion]);
 
   function isBoundsInside(inner: [[number, number], [number, number]], outer: [[number, number], [number, number]]) {
     // inner: [[minLat, minLng], [maxLat, maxLng]]

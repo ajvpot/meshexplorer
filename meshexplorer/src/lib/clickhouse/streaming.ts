@@ -1,5 +1,5 @@
 import { clickhouse } from './clickhouse';
-import { generateRegionConditionForStreaming, generateRegionArrayConditionForStreaming } from '../regionFilters';
+import { generateRegionConditionForStreaming } from '../regionFilters';
 import { publicChannelMessagesSubquery } from './chatMessages';
 
 /**
@@ -254,13 +254,14 @@ export function createChatMessagesStreamerConfig(
     innerConditions.push('meshcore_public_channel_messages_raw.channel_hash = {channelId:String}');
   }
 
-  // Region filtering keys off origin_path_info, which only exists post-group, so it stays as an
-  // outer predicate spliced in by the streamer.
-  let additionalWhereClause = '';
+  // Region filter pushes onto the raw table's stored `region` column (derived identically to
+  // regionSql) BEFORE the GROUP BY, so unmatched rows are pruned at the scan instead of via a
+  // post-aggregation arrayExists over origin_path_info. Table-qualify the column so it binds to
+  // the scan, not the aggregate output. Unset/unknown selector -> no filter (empty clause).
   if (region) {
-    const regionClause = generateRegionArrayConditionForStreaming(region);
+    const regionClause = generateRegionConditionForStreaming(region, 'meshcore_public_channel_messages_raw');
     if (regionClause) {
-      additionalWhereClause = regionClause;
+      innerConditions.push(regionClause);
     }
   }
 
@@ -282,8 +283,7 @@ export function createChatMessagesStreamerConfig(
     `,
     timeColumn: 'ingest_timestamp',
     pollInterval: 250,
-    maxRowsPerPoll: 50,
-    additionalWhereClause: additionalWhereClause || undefined
+    maxRowsPerPoll: 50
   };
 }
 

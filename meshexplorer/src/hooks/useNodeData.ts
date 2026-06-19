@@ -10,6 +10,7 @@ export interface NodeInfo {
   is_repeater: number;
   is_chat_node: number;
   is_room_server: number;
+  is_sensor: number;
   has_name: number;
   broker: string | null;
   topic: string | null;
@@ -28,6 +29,7 @@ export interface Advert {
   is_repeater: number;
   is_chat_node: number;
   is_room_server: number;
+  is_sensor: number;
   has_location: number;
   packet_hash: string;
   hash_size?: number; // bytes per path hop (1/2/3); used to split path into hops

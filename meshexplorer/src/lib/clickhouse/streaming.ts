@@ -219,6 +219,7 @@ export function createMeshcoreAdvertsStreamerConfig(
         is_repeater,
         is_chat_node,
         is_room_server,
+        is_sensor,
         has_name,
         broker,
         topic,

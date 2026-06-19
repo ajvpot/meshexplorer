@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -92,6 +93,32 @@ func TestParseMeshCoreRawMessage_WithOriginID(t *testing.T) {
 	}
 	if len(packet) == 0 {
 		t.Error("packet should not be empty")
+	}
+}
+
+func TestEnqueuePacket_DropsEmpty(t *testing.T) {
+	// Use a real buffered channel so a successful enqueue is observable.
+	packetRows = make(chan meshcorePacketRow, 4)
+	t.Cleanup(func() { packetRows = nil })
+	atomic.StoreUint64(&droppedEmpty, 0)
+	atomic.StoreUint64(&droppedRows, 0)
+
+	// Empty packet: dropped and counted, never enqueued.
+	enqueuePacket(meshcorePacketRow{origin: "node", originPubkey: "key", packet: ""})
+	if got := atomic.LoadUint64(&droppedEmpty); got != 1 {
+		t.Errorf("droppedEmpty = %d, want 1", got)
+	}
+	if len(packetRows) != 0 {
+		t.Errorf("empty packet should not be enqueued, queue len = %d", len(packetRows))
+	}
+
+	// Non-empty packet: enqueued, not counted as empty.
+	enqueuePacket(meshcorePacketRow{origin: "node", originPubkey: "key", packet: "\x01\x02"})
+	if got := atomic.LoadUint64(&droppedEmpty); got != 1 {
+		t.Errorf("droppedEmpty = %d after non-empty enqueue, want 1", got)
+	}
+	if len(packetRows) != 1 {
+		t.Errorf("non-empty packet should be enqueued, queue len = %d", len(packetRows))
 	}
 }
 

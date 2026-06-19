@@ -134,6 +134,7 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
         argMax(is_repeater, ingest_timestamp) as is_repeater,
         argMax(is_chat_node, ingest_timestamp) as is_chat_node,
         argMax(is_room_server, ingest_timestamp) as is_room_server,
+        argMax(is_sensor, ingest_timestamp) as is_sensor,
         argMax(has_name, ingest_timestamp) as has_name,
         argMax(broker, ingest_timestamp) as broker,
         argMax(topic, ingest_timestamp) as topic,
@@ -159,6 +160,7 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
       is_repeater: number;
       is_chat_node: number;
       is_room_server: number;
+      is_sensor: number;
       has_name: number;
       broker: string | null;
       topic: string | null;
@@ -188,6 +190,7 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
         argMax(is_repeater, ingest_timestamp) as is_repeater,
         argMax(is_chat_node, ingest_timestamp) as is_chat_node,
         argMax(is_room_server, ingest_timestamp) as is_room_server,
+        argMax(is_sensor, ingest_timestamp) as is_sensor,
         argMax(has_location, ingest_timestamp) as has_location,
         any(hash_size) as hash_size,
         packet_hash
@@ -204,6 +207,7 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
           is_repeater,
           is_chat_node,
           is_room_server,
+          is_sensor,
           has_location,
           hex(origin_pubkey) as origin_pubkey,
           origin,
@@ -425,6 +429,7 @@ export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: stri
         any(neighbor_is_repeater) AS is_repeater,
         any(neighbor_is_chat_node) AS is_chat_node,
         any(neighbor_is_room_server) AS is_room_server,
+        any(neighbor_is_sensor) AS is_sensor,
         any(neighbor_has_name) AS has_name,
         groupUniqArray(direction) AS directions
       FROM meshcore_node_direct_neighbors
@@ -449,6 +454,7 @@ export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: stri
       is_repeater: number;
       is_chat_node: number;
       is_room_server: number;
+      is_sensor: number;
       has_name: number;
       directions: string[];
     }>;
@@ -587,6 +593,7 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
         is_repeater,
         is_chat_node,
         is_room_server,
+        is_sensor,
         has_name,
         first_heard,
         last_seen,
@@ -607,6 +614,7 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
             is_repeater,
             is_chat_node,
             is_room_server,
+            is_sensor,
             has_name,
             first_heard,
             last_seen,
@@ -639,6 +647,7 @@ export async function searchMeshcoreNodes(searchParams: SearchQuery | SearchQuer
       is_repeater: number;
       is_chat_node: number;
       is_room_server: number;
+      is_sensor: number;
       has_name: number;
       first_heard: string;
       last_seen: string;

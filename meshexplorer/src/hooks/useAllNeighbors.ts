@@ -5,6 +5,9 @@ export interface AllNeighborsConnection {
   source_node: string;
   target_node: string;
   connection_type: string;
+  method: string;
+  confidence: number;
+  observation_count: number;
   packet_count: number;
   source_name: string;
   source_latitude: number;
@@ -24,21 +27,23 @@ interface UseAllNeighborsParams {
   nodeTypes?: string[];
   lastSeen?: number | null;
   region?: string;
+  minConfidence?: number | null;
   enabled?: boolean;
 }
 
-export function useAllNeighbors({ 
-  minLat, 
-  maxLat, 
-  minLng, 
-  maxLng, 
-  nodeTypes, 
-  lastSeen, 
+export function useAllNeighbors({
+  minLat,
+  maxLat,
+  minLng,
+  maxLng,
+  nodeTypes,
+  lastSeen,
   region,
-  enabled = true 
+  minConfidence,
+  enabled = true
 }: UseAllNeighborsParams) {
   return useQuery({
-    queryKey: ['allNeighbors', minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen, region],
+    queryKey: ['allNeighbors', minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen, region, minConfidence],
     queryFn: async (): Promise<AllNeighborsConnection[]> => {
       const params = new URLSearchParams();
       
@@ -63,7 +68,10 @@ export function useAllNeighbors({
       if (region) {
         params.append('region', region);
       }
-      
+      if (minConfidence !== null && minConfidence !== undefined) {
+        params.append('minConfidence', minConfidence.toString());
+      }
+
       const url = `/api/neighbors/all${params.toString() ? `?${params.toString()}` : ''}`;
       
       const response = await fetch(buildApiUrl(url));

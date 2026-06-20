@@ -303,7 +303,7 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
   }
 }
 
-export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], region?: string) {
+export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], region?: string, minConfidence?: string | null, methods?: string[]) {
   try {
     // Reads the precomputed (hourly-refreshed) neighbor edge graph and filters it
     // by region + bounding box + lastSeen. The heavy graph computation lives in the
@@ -332,26 +332,34 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
       visibleNodeSqlClause("target_name"),
     ];
 
-    // Bounding box: both endpoints must be within view (matches the old visible_nodes behavior)
-    if (minLat !== null && minLat !== undefined && minLat !== "") {
-      whereConditions.push("source_latitude >= {minLat:Float64} AND target_latitude >= {minLat:Float64}");
+    // Bounding box: keep an edge if EITHER endpoint is within view, so connections that leave the
+    // viewport (one node on-screen, the other off-screen) stay visible. Both endpoints' coordinates
+    // are denormalized on the edge, so the off-screen end still draws.
+    const bbox = [minLat, maxLat, minLng, maxLng];
+    const hasBbox = bbox.every(v => v !== null && v !== undefined && v !== "");
+    if (hasBbox) {
+      whereConditions.push(`(
+        (source_latitude BETWEEN {minLat:Float64} AND {maxLat:Float64} AND source_longitude BETWEEN {minLng:Float64} AND {maxLng:Float64})
+        OR (target_latitude BETWEEN {minLat:Float64} AND {maxLat:Float64} AND target_longitude BETWEEN {minLng:Float64} AND {maxLng:Float64})
+      )`);
       params.minLat = Number(minLat);
-    }
-    if (maxLat !== null && maxLat !== undefined && maxLat !== "") {
-      whereConditions.push("source_latitude <= {maxLat:Float64} AND target_latitude <= {maxLat:Float64}");
       params.maxLat = Number(maxLat);
-    }
-    if (minLng !== null && minLng !== undefined && minLng !== "") {
-      whereConditions.push("source_longitude >= {minLng:Float64} AND target_longitude >= {minLng:Float64}");
       params.minLng = Number(minLng);
-    }
-    if (maxLng !== null && maxLng !== undefined && maxLng !== "") {
-      whereConditions.push("source_longitude <= {maxLng:Float64} AND target_longitude <= {maxLng:Float64}");
       params.maxLng = Number(maxLng);
     }
     if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
       whereConditions.push("source_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND AND target_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND");
       params.lastSeen = Number(lastSeen);
+    }
+    // Confidence floor: hide low-confidence edges (e.g. the noisy 1-byte path tier) by default.
+    if (minConfidence !== null && minConfidence !== undefined && minConfidence !== "") {
+      whereConditions.push("confidence >= {minConfidence:Float32}");
+      params.minConfidence = Number(minConfidence);
+    }
+    // Explicit derivation-method filter (e.g. only direct/anchor edges).
+    if (methods && methods.length > 0) {
+      whereConditions.push("method IN {methods:Array(String)}");
+      params.methods = methods;
     }
 
     const allNeighborsQuery = `
@@ -359,6 +367,9 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
         source_node,
         target_node,
         connection_type,
+        method,
+        confidence,
+        observation_count,
         packet_count,
         source_name,
         source_latitude,
@@ -384,6 +395,9 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
       source_node: string;
       target_node: string;
       connection_type: string;
+      method: string;
+      confidence: number;
+      observation_count: number;
       packet_count: number;
       source_name: string;
       source_latitude: number;
@@ -454,6 +468,81 @@ export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: stri
     }>;
   } catch (error) {
     console.error('ClickHouse error in getMeshcoreNodeNeighbors:', error);
+    throw error;
+  }
+}
+
+// A node's neighbors derived from the unified neighbor graph (meshcore_all_neighbor_edges) — the
+// same edges the map's "show all neighbors" layer draws — filtered to a minimum confidence. Returns
+// the other endpoint of each edge with its derivation method/confidence; dedups a neighbor seen in
+// multiple regions to its highest-confidence edge.
+export async function getMeshcoreNodeAllEdges(publicKey: string, minConfidence: number = 0, lastSeen: string | null = null) {
+  try {
+    const params: Record<string, any> = { publicKey, minConfidence: Number(minConfidence) };
+    const whereConditions = [
+      "(source_node = {publicKey:String} OR target_node = {publicKey:String})",
+      "confidence >= {minConfidence:Float32}",
+      visibleNodeSqlClause("source_name"),
+      visibleNodeSqlClause("target_name"),
+    ];
+    if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
+      whereConditions.push("source_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND AND target_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND");
+      params.lastSeen = Number(lastSeen);
+    }
+
+    const query = `
+      SELECT
+        e.public_key AS public_key,
+        any(e.node_name) AS node_name,
+        any(e.latitude) AS latitude,
+        any(e.longitude) AS longitude,
+        any(e.has_location) AS has_location,
+        argMax(e.method, e.confidence) AS method,
+        max(e.confidence) AS confidence,
+        argMax(e.connection_type, e.confidence) AS connection_type,
+        max(e.packet_count) AS packet_count,
+        any(a.is_repeater) AS is_repeater,
+        any(a.is_chat_node) AS is_chat_node,
+        any(a.is_room_server) AS is_room_server,
+        any(a.has_name) AS has_name
+      FROM (
+        SELECT
+          if(source_node = {publicKey:String}, target_node, source_node) AS public_key,
+          if(source_node = {publicKey:String}, target_name, source_name) AS node_name,
+          if(source_node = {publicKey:String}, target_latitude, source_latitude) AS latitude,
+          if(source_node = {publicKey:String}, target_longitude, source_longitude) AS longitude,
+          if(source_node = {publicKey:String}, target_has_location, source_has_location) AS has_location,
+          method, confidence, connection_type, packet_count
+        FROM meshcore_all_neighbor_edges
+        WHERE ${whereConditions.join(" AND ")}
+      ) AS e
+      LEFT JOIN (
+        SELECT public_key, is_repeater, is_chat_node, is_room_server, has_name FROM meshcore_adverts_latest
+      ) AS a ON a.public_key = e.public_key
+      WHERE e.public_key != {publicKey:String}
+      GROUP BY e.public_key
+      ORDER BY confidence DESC, public_key
+    `;
+
+    const result = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
+    const rows = await result.json();
+    return rows as Array<{
+      public_key: string;
+      node_name: string;
+      latitude: number | null;
+      longitude: number | null;
+      has_location: number;
+      method: string;
+      confidence: number;
+      connection_type: string;
+      packet_count: number;
+      is_repeater: number;
+      is_chat_node: number;
+      is_room_server: number;
+      has_name: number;
+    }>;
+  } catch (error) {
+    console.error('ClickHouse error in getMeshcoreNodeAllEdges:', error);
     throw error;
   }
 }

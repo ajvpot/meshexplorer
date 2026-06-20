@@ -549,6 +549,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     showNodeNames: true,
     enableClustering: true,
     tileLayer: "openstreetmap",
+    grayscaleTiles: false,
     showAllNeighbors: false,
     useColors: true,
     onlyMqttNeighbors: false,
@@ -849,7 +850,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
         center={mapCenter}
         zoom={mapZoom}
         style={{ width: "100%", height: "100%", zIndex: 1 }}
-        className="bg-gray-200"
+        className={`bg-gray-200${mapLayerSettings.grayscaleTiles ? ' grayscale-tiles' : ''}`}
       >
         <InitialBoundsSetter />
         <MapEventCatcher />

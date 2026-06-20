@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { useMapLayerSettings, TILE_LAYERS, NODE_TYPE_OPTIONS, type MapLayerSettings } from '@/hooks/useMapLayerSettings';
+import { useMapLayerSettings, TILE_LAYERS, NODE_TYPE_OPTIONS, NEIGHBOR_CONFIDENCE_OPTIONS, type MapLayerSettings } from '@/hooks/useMapLayerSettings';
 import { Square3Stack3DIcon } from '@heroicons/react/24/outline';
 
 interface MapLayerSettingsProps {
@@ -189,23 +189,38 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
             </span>
           </label>
 
-          {/* Only show MQTT neighbors - indented sub-option */}
-          <label className="flex items-center gap-2 ml-6 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={settings.onlyMqttNeighbors}
-              onChange={(e) => updateSetting('onlyMqttNeighbors', e.target.checked)}
-              disabled={!settings.showAllNeighbors}
-              className="rounded"
-            />
-            <span className={`text-sm ${
+          {/* Neighbor confidence - indented sub-option (subsumes the old "only MQTT" toggle:
+              "MQTT direct only" is the top tier) */}
+          <div className="ml-6 mb-3">
+            <label className={`block text-sm ${
               settings.showAllNeighbors
                 ? 'text-gray-700 dark:text-gray-300'
                 : 'text-gray-400 dark:text-gray-500'
+            } mb-1`}>
+              Neighbor confidence
+            </label>
+            <select
+              value={settings.minConfidence}
+              onChange={(e) => updateSetting('minConfidence', parseFloat(e.target.value))}
+              disabled={!settings.showAllNeighbors}
+              className={`w-full p-2 border border-gray-300 dark:border-neutral-600 rounded text-sm ${
+                settings.showAllNeighbors
+                  ? 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300'
+                  : 'bg-gray-100 dark:bg-neutral-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {NEIGHBOR_CONFIDENCE_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <p className={`text-xs mt-1 ${
+              settings.showAllNeighbors
+                ? 'text-gray-500 dark:text-gray-400'
+                : 'text-gray-400 dark:text-gray-500'
             }`}>
-              Only show MQTT neighbors
-            </span>
-          </label>
+              Higher tiers show only the most trustworthy links (MQTT-direct, then anchored / extended-hash)
+            </p>
+          </div>
 
           {/* Minimum packet count - indented sub-option */}
           <div className="ml-6 mb-3">

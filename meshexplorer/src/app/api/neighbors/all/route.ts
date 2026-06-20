@@ -11,8 +11,10 @@ export async function GET(req: Request) {
     const nodeTypes = searchParams.getAll("nodeTypes");
     const lastSeen = searchParams.get("lastSeen");
     const region = searchParams.get("region");
+    const minConfidence = searchParams.get("minConfidence");
+    const methods = searchParams.getAll("methods");
 
-    const neighbors = await getAllNodeNeighbors(lastSeen, minLat, maxLat, minLng, maxLng, nodeTypes, region || undefined);
+    const neighbors = await getAllNodeNeighbors(lastSeen, minLat, maxLat, minLng, maxLng, nodeTypes, region || undefined, minConfidence, methods);
     
     return NextResponse.json(neighbors);
   } catch (error) {

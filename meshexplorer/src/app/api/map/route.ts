@@ -11,12 +11,13 @@ export async function GET(req: Request) {
     const nodeTypes = searchParams.getAll("nodeTypes");
     const lastSeen = searchParams.get("lastSeen");
     const region = searchParams.get("region");
+    const minConfidence = searchParams.get("minConfidence");
     const includeNeighbors = searchParams.get("includeNeighbors") === "true";
-    
+
     const positions = await getNodePositions({ minLat, maxLat, minLng, maxLng, nodeTypes, lastSeen });
-    
+
     if (includeNeighbors) {
-      const neighbors = await getAllNodeNeighbors(lastSeen, minLat, maxLat, minLng, maxLng, nodeTypes, region || undefined);
+      const neighbors = await getAllNodeNeighbors(lastSeen, minLat, maxLat, minLng, maxLng, nodeTypes, region || undefined, minConfidence);
       return NextResponse.json({
         nodes: positions,
         neighbors: neighbors

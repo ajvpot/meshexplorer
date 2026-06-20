@@ -303,7 +303,7 @@ export async function getMeshcoreNodeInfo(publicKey: string, limit: number = 50)
   }
 }
 
-export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], region?: string) {
+export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat?: string | null, maxLat?: string | null, minLng?: string | null, maxLng?: string | null, nodeTypes?: string[], region?: string, minConfidence?: string | null, methods?: string[]) {
   try {
     // Reads the precomputed (hourly-refreshed) neighbor edge graph and filters it
     // by region + bounding box + lastSeen. The heavy graph computation lives in the
@@ -353,12 +353,25 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
       whereConditions.push("source_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND AND target_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND");
       params.lastSeen = Number(lastSeen);
     }
+    // Confidence floor: hide low-confidence edges (e.g. the noisy 1-byte path tier) by default.
+    if (minConfidence !== null && minConfidence !== undefined && minConfidence !== "") {
+      whereConditions.push("confidence >= {minConfidence:Float32}");
+      params.minConfidence = Number(minConfidence);
+    }
+    // Explicit derivation-method filter (e.g. only direct/anchor edges).
+    if (methods && methods.length > 0) {
+      whereConditions.push("method IN {methods:Array(String)}");
+      params.methods = methods;
+    }
 
     const allNeighborsQuery = `
       SELECT
         source_node,
         target_node,
         connection_type,
+        method,
+        confidence,
+        observation_count,
         packet_count,
         source_name,
         source_latitude,
@@ -384,6 +397,9 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
       source_node: string;
       target_node: string;
       connection_type: string;
+      method: string;
+      confidence: number;
+      observation_count: number;
       packet_count: number;
       source_name: string;
       source_latitude: number;

@@ -415,20 +415,18 @@ function NeighborLines({
 }
 
 // Component to render all neighbor lines for all nodes
-function AllNeighborLines({ 
-  connections, 
+function AllNeighborLines({
+  connections,
   nodes,
   useColors = true,
   minPacketCount = 1,
-  strokeWidth = 2,
-  onlyMqtt = false
+  strokeWidth = 2
 }: {
   connections: AllNeighborsConnection[];
   nodes: NodePosition[];
   useColors?: boolean;
   minPacketCount?: number;
   strokeWidth?: number;
-  onlyMqtt?: boolean;
 }) {
   if (connections.length === 0) return null;
 
@@ -436,12 +434,12 @@ function AllNeighborLines({
   const visibleNodeIds = new Set(nodes.map(node => node.node_id));
 
   // Filter connections to only show lines between nodes that are visible on the map
-  // and meet the minimum packet count threshold
+  // and meet the minimum packet count threshold. Confidence filtering happens server-side
+  // (the confidence selector drives a refetch), so no client-side confidence filter here.
   const visibleConnections = connections.filter(connection =>
     visibleNodeIds.has(connection.source_node) &&
     visibleNodeIds.has(connection.target_node) &&
-    connection.packet_count >= minPacketCount &&
-    (!onlyMqtt || connection.connection_type === 'direct')
+    connection.packet_count >= minPacketCount
   );
 
   // Calculate logarithmic thresholds based on packet counts for path connections
@@ -488,39 +486,41 @@ function AllNeighborLines({
           [connection.target_latitude, connection.target_longitude]
         ];
         
-        // Different colors based on connection type and logarithmic packet count
-        const getConnectionColor = (connectionType: string, packetCount: number) => {
+        // Color by derivation method; path-inferred edges use a logarithmic packet-count gradient.
+        const getConnectionColor = (method: string, connectionType: string, packetCount: number) => {
           if (!useColors) {
-            // If colors are disabled, use consistent colors based on connection type
-            return connectionType === 'direct' ? '#8b5cf6' : '#6b7280'; // Purple for direct, gray for path
+            return method === 'direct' ? '#8b5cf6'
+              : method.startsWith('anchor-') ? '#3b82f6'
+              : '#6b7280'; // purple direct, blue anchor, gray path
           }
-          
-          if (connectionType === 'direct') {
-            return '#8b5cf6'; // Purple for direct connections
-          }
-          
-          // For path connections, use logarithmic thresholds for color intensity
+
+          if (method === 'direct') return '#8b5cf6';      // Purple for literal MQTT-direct edges
+          if (method.startsWith('anchor-')) return '#3b82f6'; // Blue for anchored single-hop edges
+
+          // For path-inferred connections, use logarithmic thresholds for color intensity
           if (packetCount >= thresholds.t4) return '#dc2626'; // Red for highest log range
-          if (packetCount >= thresholds.t3) return '#ea580c'; // Dark orange 
+          if (packetCount >= thresholds.t3) return '#ea580c'; // Dark orange
           if (packetCount >= thresholds.t2) return '#f59e0b'; // Orange
           if (packetCount >= thresholds.t1) return '#eab308'; // Yellow
           if (packetCount > thresholds.min) return '#84cc16';  // Light green for above minimum
           return '#6b7280'; // Gray for minimum traffic
         };
-        
-        const lineColor = getConnectionColor(connection.connection_type, connection.packet_count);
-        
-        // Use strokeWidth setting for line weight
+
+        const lineColor = getConnectionColor(connection.method, connection.connection_type, connection.packet_count);
+
+        // Use strokeWidth setting for line weight; inferred (path) edges are drawn slightly thinner.
         const lineWeight = connection.connection_type === 'direct' ? strokeWidth : Math.max(1, strokeWidth - 1);
-        
+        // Fade lower-confidence edges so the trustworthy ones stand out.
+        const lineOpacity = Math.max(0.25, Math.min(0.9, 0.25 + 0.65 * (connection.confidence ?? 0.5)));
+
         return (
           <Polyline
-            key={`${connection.source_node}-${connection.target_node}-${connection.connection_type}`}
+            key={`${connection.source_node}-${connection.target_node}-${connection.method}`}
             positions={positions}
             pathOptions={{
               color: lineColor,
               weight: lineWeight,
-              opacity: 0.7,
+              opacity: lineOpacity,
             }}
           />
         );
@@ -551,7 +551,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     tileLayer: "openstreetmap",
     showAllNeighbors: false,
     useColors: true,
-    onlyMqttNeighbors: false,
+    minConfidence: 0.5,
     nodeTypes: ["meshcore"],
     showMeshcoreCoverageOverlay: false,
     minPacketCount: 1,
@@ -651,6 +651,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     }
     if (includeNeighbors) {
       params.push('includeNeighbors=true');
+      params.push(`minConfidence=${mapLayerSettings.minConfidence}`);
     }
     if (params.length > 0) {
       url += `?${params.join("&")}`;
@@ -696,7 +697,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           setAllNeighborsLoading(false);
         }
       });
-  }, [mapLayerSettings.nodeTypes, config?.lastSeen, config?.selectedRegion]);
+  }, [mapLayerSettings.nodeTypes, mapLayerSettings.minConfidence, config?.lastSeen, config?.selectedRegion]);
 
   function isBoundsInside(inner: [[number, number], [number, number]], outer: [[number, number], [number, number]]) {
     // inner: [[minLat, minLng], [maxLat, maxLng]]
@@ -889,19 +890,21 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           strokeWidth={mapLayerSettings.strokeWidth}
         />
         {showAllNeighbors && (
-          <AllNeighborLines 
+          <AllNeighborLines
             connections={allNeighborConnections}
             nodes={nodePositions}
             useColors={mapLayerSettings.useColors}
             minPacketCount={mapLayerSettings.minPacketCount}
             strokeWidth={mapLayerSettings.strokeWidth}
-            onlyMqtt={mapLayerSettings.onlyMqttNeighbors}
           />
         )}
       </MapContainer>
       
       {/* Traffic Legend */}
       {showAllNeighbors && mapLayerSettings.useColors && allNeighborConnections.length > 0 && (() => {
+        // At the top confidence notch only literal MQTT-direct edges are shown.
+        const directOnly = mapLayerSettings.minConfidence >= 1;
+        const hasAnchor = allNeighborConnections.some(conn => conn.method?.startsWith('anchor-'));
         // Calculate logarithmic thresholds for legend display
         const pathConnections = allNeighborConnections.filter(conn => conn.connection_type === 'path');
         const packetCounts = pathConnections.map(conn => conn.packet_count).sort((a, b) => a - b);
@@ -925,7 +928,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
             t4: Math.round(Math.pow(10, logMin + logRange * 0.8)),
             max
           };
-        })() : (mapLayerSettings.onlyMqttNeighbors ? { min: 1, t1: 1, t2: 1, t3: 1, t4: 1, max: 1 } : null);
+        })() : (directOnly ? { min: 1, t1: 1, t2: 1, t3: 1, t4: 1, max: 1 } : null);
 
         return legendThresholds && (
           <div style={{ 
@@ -941,10 +944,10 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
             fontFamily: 'monospace'
           }}>
             <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
-              {mapLayerSettings.onlyMqttNeighbors ? 'Neighbors' : 'Path Traffic'}
+              {directOnly ? 'Neighbors' : 'Path Traffic'}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {!mapLayerSettings.onlyMqttNeighbors && (
+              {!directOnly && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '20px', height: '2px', backgroundColor: '#dc2626' }}></div>
@@ -972,10 +975,16 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
                   </div>
                 </>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...(mapLayerSettings.onlyMqttNeighbors ? {} : { marginTop: '4px', paddingTop: '4px', borderTop: '1px solid #e5e7eb' }) }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...(directOnly ? {} : { marginTop: '4px', paddingTop: '4px', borderTop: '1px solid #e5e7eb' }) }}>
                 <div style={{ width: '20px', height: '2px', backgroundColor: '#8b5cf6' }}></div>
-                <span>MQTT connections</span>
+                <span>MQTT direct</span>
               </div>
+              {hasAnchor && !directOnly && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '20px', height: '2px', backgroundColor: '#3b82f6' }}></div>
+                  <span>Anchored neighbor</span>
+                </div>
+              )}
             </div>
           </div>
         );

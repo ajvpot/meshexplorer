@@ -165,7 +165,10 @@ WITH
   ),
   all_edges AS (
     SELECT region, source_node, target_node, method, obs,
-      multiIf(method = 'direct', 0, method LIKE 'anchor-%', 1, method = 'path-uniq-3b', 1, method = 'path-uniq-2b', 2, 3) AS rank
+      -- rank orders confidence (lower=better). Anchors are demoted BELOW the path-uniq tiers
+      -- (substandard, just above the noisy 1-byte tier): an anchor bind is inferred geographically,
+      -- not an observed consecutive hop, so it's less trustworthy than any path-uniq edge.
+      multiIf(method = 'direct', 0, method = 'path-uniq-3b', 1, method = 'path-uniq-2b', 2, method LIKE 'anchor-%', 3, 4) AS rank
     FROM (
       SELECT region, source_node, target_node, method, obs FROM edges_path_uniq
       UNION ALL SELECT region, source_node, target_node, method, obs FROM edges_anchor_gw
@@ -193,8 +196,11 @@ SELECT
   -- are single-hop but inferred, so they group with 'path'. Fine-grained tier is in `method`.
   if(ec.method = 'direct', 'direct', 'path') AS connection_type,
   ec.method AS method,
-  -- tier base (direct 1.0 .. path-uniq-1b 0.4) plus a small capped consensus bonus
-  least(1.0, greatest(0.0, (1.0 - 0.2 * ec.best_rank) + least(0.08, 0.04 * log10(ec.observation_count + 1)))) AS confidence,
+  -- tier base: direct 1.0, path-uniq-3b 0.8, path-uniq-2b 0.6, anchor 0.45 (substandard), 1b 0.4,
+  -- plus a small capped consensus bonus (<0.05 so anchors stay below the 0.5 default and above 1b).
+  least(1.0, greatest(0.0,
+    multiIf(ec.best_rank = 0, 1.0, ec.best_rank = 1, 0.8, ec.best_rank = 2, 0.6, ec.best_rank = 3, 0.45, 0.4)
+    + least(0.04, 0.02 * log10(ec.observation_count + 1)))) AS confidence,
   ec.observation_count AS observation_count,
   ec.observation_count AS packet_count,
   sd.node_name AS source_name,

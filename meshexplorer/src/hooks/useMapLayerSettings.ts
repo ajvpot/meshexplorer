@@ -48,10 +48,13 @@ export const NODE_TYPE_OPTIONS = [
 ];
 
 // Neighbor confidence tiers, mapped to the minimum edge confidence emitted by
-// meshcore_all_neighbor_edges (direct=1.0, anchored/3-byte≈0.8, 2-byte≈0.6, 1-byte≈0.4).
+// meshcore_all_neighbor_edges (direct=1.0, 3-byte≈0.8, 2-byte≈0.6, anchored≈0.45, 1-byte≈0.4).
+// Anchored edges are geographically inferred (not observed hops) so they rank just above the noisy
+// 1-byte tier and are hidden at the default "Standard" threshold.
 export const NEIGHBOR_CONFIDENCE_OPTIONS = [
   { value: 1.0, label: "MQTT direct only" },
-  { value: 0.7, label: "High (anchored + extended hash)" },
+  { value: 0.7, label: "High (extended hash)" },
   { value: 0.5, label: "Standard" },
+  { value: 0.45, label: "Include anchored (lower confidence)" },
   { value: 0, label: "All (include weak 1-byte)" },
 ];

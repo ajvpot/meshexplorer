@@ -10,6 +10,7 @@ export interface Neighbor {
   is_repeater: number;
   is_chat_node: number;
   is_room_server: number;
+  is_sensor: number;
   has_name: number;
   directions: string[];
 }

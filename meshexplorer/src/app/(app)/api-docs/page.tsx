@@ -266,6 +266,7 @@ export default function ApiDocsPage() {
                       <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_repeater</code> - Whether the node acts as a repeater (0/1)</li>
                       <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_chat_node</code> - Whether the node supports chat (0/1)</li>
                       <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_room_server</code> - Whether the node is a room server (0/1)</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_sensor</code> - Whether the node is a sensor (0/1)</li>
                       <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">has_name</code> - Whether the node has a name (0/1)</li>
                       <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">last_seen</code> - Most recent activity timestamp</li>
                       <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">first_seen</code> - First time this node was observed</li>
@@ -280,7 +281,7 @@ export default function ApiDocsPage() {
                       <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">advert_count</code> - Number of adverts in this group</li>
                       <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">earliest_timestamp/latest_timestamp</code> - Time range for this advert group</li>
                       <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">latitude/longitude</code> - Position at time of advert</li>
-                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_repeater/is_chat_node/is_room_server/has_location</code> - Node capabilities at time of advert</li>
+                      <li><code className="bg-gray-200 dark:bg-neutral-700 px-1 rounded">is_repeater/is_chat_node/is_room_server/is_sensor/has_location</code> - Node capabilities at time of advert</li>
                     </ul>
                   </div>
                   
@@ -325,6 +326,7 @@ export default function ApiDocsPage() {
     "is_repeater": 1,
     "is_chat_node": 1,
     "is_room_server": 0,
+    "is_sensor": 0,
     "has_name": 1,
     "last_seen": "2025-09-07T00:59:18",
     "first_seen": "2025-09-01T10:00:00"
@@ -343,6 +345,7 @@ export default function ApiDocsPage() {
       "is_repeater": 1,
       "is_chat_node": 1,
       "is_room_server": 0,
+      "is_sensor": 0,
       "has_location": 1
     }
   ],

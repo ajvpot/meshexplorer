@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPinIcon, WifiIcon, ChatBubbleLeftRightIcon, ServerIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon, WifiIcon, ChatBubbleLeftRightIcon, ServerIcon, SignalIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import moment from 'moment';
 import { formatPublicKey } from '@/lib/meshcore';
@@ -15,6 +15,7 @@ export interface NodeCardData {
   is_repeater: number;
   is_chat_node: number;
   is_room_server: number;
+  is_sensor: number;
   last_seen: string;
   topic?: string;
   broker?: string;
@@ -31,6 +32,7 @@ export default function NodeCard({ node, className = "", showTopicInfo = true }:
   const isRepeater = node.is_repeater === 1;
   const isChatNode = node.is_chat_node === 1;
   const isRoomServer = node.is_room_server === 1;
+  const isSensor = node.is_sensor === 1;
 
   return (
     <Link
@@ -60,6 +62,12 @@ export default function NodeCard({ node, className = "", showTopicInfo = true }:
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                   <ServerIcon className="h-3 w-3 mr-1" />
                   Room Server
+                </span>
+              )}
+              {isSensor && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">
+                  <SignalIcon className="h-3 w-3 mr-1" />
+                  Sensor
                 </span>
               )}
             </div>

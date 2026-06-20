@@ -54,10 +54,23 @@ var packetRows chan meshcorePacketRow
 // or unreachable). The writer logs and resets it on each flush.
 var droppedRows uint64
 
+// droppedEmpty counts rows dropped because the decoded packet was empty. A
+// growing number of upstream publishers emit an otherwise-valid envelope
+// (origin/origin_id present) with no packet bytes; storing those produces rows
+// that decode to an empty payload and a degenerate packet_hash and carry no
+// signal. The writer logs and resets this on each flush.
+var droppedEmpty uint64
+
 // enqueuePacket hands a row to the batch writer without ever blocking the
 // caller. Blocking here would defeat the whole purpose — it runs on paho's
 // inbound goroutine. If the buffer is full we drop and count instead.
 func enqueuePacket(row meshcorePacketRow) {
+	// Skip envelopes that carry no packet bytes: there is nothing to decode and
+	// they only add noise (empty payload, degenerate hash). Counted, not stored.
+	if len(row.packet) == 0 {
+		atomic.AddUint64(&droppedEmpty, 1)
+		return
+	}
 	select {
 	case packetRows <- row:
 	default:
@@ -77,6 +90,9 @@ func runBatchWriter(d *ingestcommon.Daemon, flushInterval time.Duration, maxRows
 	flush := func() {
 		if dropped := atomic.SwapUint64(&droppedRows, 0); dropped > 0 {
 			zap.L().Warn("Dropped MeshCore packets: insert buffer full", zap.Uint64("dropped", dropped))
+		}
+		if dropped := atomic.SwapUint64(&droppedEmpty, 0); dropped > 0 {
+			zap.L().Info("Dropped MeshCore packets: empty packet (no bytes to decode)", zap.Uint64("dropped", dropped))
 		}
 		if len(batch) == 0 {
 			return

@@ -25,7 +25,8 @@ function getNodeType(node: NodeInfo): number {
   if (node.is_chat_node) return 1; // companion
   if (node.is_repeater) return 2; // repeater
   if (node.is_room_server) return 3; // room
-  return 4; // sensor (default for standard nodes)
+  if (node.is_sensor) return 4; // sensor
+  return 1; // default to companion for QR contact import when the type is unadvertised
 }
 
 export default function MeshcoreNodePage() {
@@ -242,7 +243,12 @@ export default function MeshcoreNodePage() {
                       Room Server
                     </span>
                   ) || null}
-                  {!node.is_repeater && !node.is_chat_node && !node.is_room_server && (
+                  {node.is_sensor && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                      Sensor
+                    </span>
+                  ) || null}
+                  {!node.is_repeater && !node.is_chat_node && !node.is_room_server && !node.is_sensor && (
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       Unknown
                     </span>
@@ -470,6 +476,11 @@ export default function MeshcoreNodePage() {
                         {neighbor.is_room_server && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                             Room
+                          </span>
+                        ) || null}
+                        {neighbor.is_sensor && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                            Sensor
                           </span>
                         ) || null}
                       </div>

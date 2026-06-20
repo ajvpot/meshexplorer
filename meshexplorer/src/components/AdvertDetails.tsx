@@ -17,6 +17,7 @@ interface AdvertDetailsProps {
     is_repeater: number;
     is_chat_node: number;
     is_room_server: number;
+    is_sensor: number;
     has_location: number;
     packet_hash: string;
     hash_size?: number; // bytes per path hop (1/2/3); used to split path into hops
@@ -64,6 +65,11 @@ export default function AdvertDetails({ advert, initiatingNodeKey }: AdvertDetai
               {advert.is_room_server && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                   S
+                </span>
+              ) || null}
+              {advert.is_sensor && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                  Se
                 </span>
               ) || null}
             </div>
@@ -158,7 +164,12 @@ export default function AdvertDetails({ advert, initiatingNodeKey }: AdvertDetai
                     Room Server
                   </span>
                 ) || null}
-                {!advert.is_repeater && !advert.is_chat_node && !advert.is_room_server && (
+                {advert.is_sensor && (
+                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                    Sensor
+                  </span>
+                ) || null}
+                {!advert.is_repeater && !advert.is_chat_node && !advert.is_room_server && !advert.is_sensor && (
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     Unknown
                   </span>

@@ -10,7 +10,7 @@ import { selectorLabel } from "@/lib/regions";
 import { useRegionGroups } from "@/hooks/useRegions";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
-import { useQueryParams } from "@/hooks/useQueryParams";
+import { useQueryState, parseAsInteger } from "nuqs";
 
 
 interface ChatBoxProps {
@@ -23,10 +23,6 @@ interface TabItem {
   channelName: string;
   privateKey: string;
   isAllMessages?: boolean;
-}
-
-interface ChatBoxQuery {
-  selectedTab?: number;
 }
 
 export default function ChatBox({
@@ -47,16 +43,15 @@ export default function ChatBox({
     : meshcoreKeys;
 
   // Use query params to persist selected tab across navigation
-  const { query, setParam } = useQueryParams<ChatBoxQuery>({
-    selectedTab: showAllMessagesTab ? 1 : 0,
-  });
-  
+  const [rawSelectedTab, setSelectedTab] = useQueryState(
+    'selectedTab',
+    parseAsInteger.withDefault(showAllMessagesTab ? 1 : 0)
+  );
+
   // Ensure selectedTab is within bounds of available tabs
-  const rawSelectedTab = query.selectedTab ?? (showAllMessagesTab ? 1 : 0);
-  const selectedTab = rawSelectedTab >= 0 && rawSelectedTab < allTabs.length 
-    ? rawSelectedTab 
+  const selectedTab = rawSelectedTab >= 0 && rawSelectedTab < allTabs.length
+    ? rawSelectedTab
     : (showAllMessagesTab ? 1 : 0);
-  const setSelectedTab = (tabIndex: number) => setParam('selectedTab', tabIndex);
   
   const [minimized, setMinimized] = useState(!startExpanded); // Use startExpanded as default for minimized state
 

@@ -1,26 +1,24 @@
 "use client";
 
 import { useConfig } from '@/components/ConfigContext';
-import { useSearchQuery } from '@/hooks/useQueryParams';
+import { useQueryStates, parseAsString, parseAsInteger, parseAsBoolean } from 'nuqs';
 import { useMeshcoreSearch } from '@/hooks/useMeshcoreSearch';
 import SearchInput from '@/components/SearchInput';
 import SearchResults from '@/components/SearchResults';
 import RegionSelect from '@/components/RegionSelect';
 import { LAST_SEEN_OPTIONS } from '@/components/ConfigContext';
 import { useState, Suspense, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 
 function SearchPageContent() {
   const { config } = useConfig();
-  const { query, setQuery, setLimit, setExact, setIsRepeater } = useSearchQuery();
+  const [query, setQuery] = useQueryStates({
+    q: parseAsString.withDefault(''),
+    limit: parseAsInteger.withDefault(50),
+    exact: parseAsBoolean.withDefault(false),
+    is_repeater: parseAsBoolean.withDefault(false),
+  });
   const [showFilters, setShowFilters] = useState(false);
-
-  // Helper function to check if exact search is enabled
-  const isExactEnabled = query.exact === true || (typeof query.exact === 'string' && (query.exact === 'true' || query.exact === ''));
-  
-  // Helper function to check if is_repeater search is enabled
-  const isRepeaterEnabled = query.is_repeater === true || (typeof query.is_repeater === 'string' && (query.is_repeater === 'true' || query.is_repeater === ''));
 
   // Always use config values for region and lastSeen
   const searchParams = {
@@ -28,8 +26,8 @@ function SearchPageContent() {
     region: config.selectedRegion,
     lastSeen: config.lastSeen,
     limit: query.limit || 50,
-    exact: isExactEnabled,
-    is_repeater: isRepeaterEnabled,
+    exact: query.exact,
+    is_repeater: query.is_repeater,
   };
 
   const { data, isLoading, error } = useMeshcoreSearch({
@@ -48,7 +46,7 @@ function SearchPageContent() {
   };
 
   const handleLimitChange = (limit: number) => {
-    setLimit(limit);
+    setQuery({ limit });
   };
 
   return (
@@ -68,7 +66,7 @@ function SearchPageContent() {
         <div className="mb-6">
           <SearchInput
             value={query.q}
-            onChange={setQuery}
+            onChange={(q) => setQuery({ q })}
             placeholder="Search by node name or public key..."
             autoFocus
           />
@@ -144,8 +142,8 @@ function SearchPageContent() {
                     <input
                       type="checkbox"
                       id="exact-match"
-                      checked={isExactEnabled}
-                      onChange={(e) => setExact(e.target.checked)}
+                      checked={query.exact}
+                      onChange={(e) => setQuery({ exact: e.target.checked })}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <label htmlFor="exact-match" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
@@ -163,8 +161,8 @@ function SearchPageContent() {
                     <input
                       type="checkbox"
                       id="is-repeater"
-                      checked={isRepeaterEnabled}
-                      onChange={(e) => setIsRepeater(e.target.checked)}
+                      checked={query.is_repeater}
+                      onChange={(e) => setQuery({ is_repeater: e.target.checked })}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <label htmlFor="is-repeater" className="ml-2 text-sm text-gray-700 dark:text-gray-300">

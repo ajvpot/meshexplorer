@@ -17,11 +17,18 @@
 -- and aggregate prefix pairs BEFORE joining (keeps the refresh ~20s, not minutes):
 --   * direct        - path_len=0 adverts: gateway heard advertiser at zero hops. (unchanged)
 --   * anchor-origin - advert originator (full key + location) was heard by the first path hop;
---                     resolve that hop to the single in-region repeater within MAX_HOP of the originator.
+--                     resolve that hop to the region-unique repeater of that prefix, confirmed within
+--                     100 km of the originator.
 --   * anchor-gateway- the uploading gateway (full key + location) heard the last path hop;
---                     resolve to the single in-region repeater within MAX_HOP of the gateway.
--- MAX_HOP (206 km) is an upper bound on a plausible single LoRa hop between two located nodes;
--- adjacencies longer than this are treated as hash-collision artifacts and dropped.
+--                     resolve to the region-unique repeater of that prefix, confirmed within 100 km
+--                     of the gateway.
+-- Anchors REQUIRE a region-unique prefix (same basis as path-uniq): without it, a 1-byte hop whose
+-- true (unlocated) forwarder is out of set would mis-bind to a coincidental same-prefix repeater that
+-- merely happens to be the lone nearby candidate. The 100 km check is a sanity confirm, not the
+-- disambiguator.
+-- Geographic caps: anchored edges bind a hop to the single nearby repeater of a prefix, so a wrong
+-- bind is indistinguishable from a real one -> strict 100 km gate. path-uniq and direct edges come
+-- from observed consecutive flood hops / zero-hop adverts, so they keep a looser 206 km backstop.
 --   * path-uniq-3b / -2b / -1b - consecutive path hops resolved by region-wide prefix uniqueness
 --                     at the pair's own hash width (3-/2-byte are high quality; 1-byte is the noisy
 --                     low-confidence fallback).
@@ -115,9 +122,10 @@ WITH
     SELECT lhc.region AS region, lhc.gateway_key AS source_node, any(R.public_key) AS target_node,
       'anchor-gateway' AS method, any(lhc.obs) AS obs
     FROM last_hop_counts lhc
+    INNER JOIN prefix_uniq pu ON pu.region = lhc.region AND pu.w = lhc.hash_size AND pu.prefix = lhc.last_prefix AND pu.n = 1
     INNER JOIN node_details g ON g.public_key = lhc.gateway_key AND g.loc_ok
     INNER JOIN repeaters_loc R ON R.region = lhc.region AND substring(R.public_key, 1, 2*lhc.hash_size) = lhc.last_prefix
-      AND R.public_key != lhc.gateway_key AND greatCircleDistance(R.lon, R.lat, g.lon, g.lat) <= 206000
+      AND R.public_key != lhc.gateway_key AND greatCircleDistance(R.lon, R.lat, g.lon, g.lat) <= 100000
     GROUP BY lhc.region, lhc.gateway_key, lhc.hash_size, lhc.last_prefix
     HAVING count() = 1
   ),
@@ -139,9 +147,10 @@ WITH
     SELECT afc.region AS region, afc.origin_key AS source_node, any(R.public_key) AS target_node,
       'anchor-origin' AS method, any(afc.obs) AS obs
     FROM advert_first_counts afc
+    INNER JOIN prefix_uniq pu ON pu.region = afc.region AND pu.w = afc.hash_size AND pu.prefix = afc.first_prefix AND pu.n = 1
     INNER JOIN node_details o ON o.public_key = afc.origin_key AND o.loc_ok
     INNER JOIN repeaters_loc R ON R.region = afc.region AND substring(R.public_key, 1, 2*afc.hash_size) = afc.first_prefix
-      AND R.public_key != afc.origin_key AND greatCircleDistance(R.lon, R.lat, o.lon, o.lat) <= 206000
+      AND R.public_key != afc.origin_key AND greatCircleDistance(R.lon, R.lat, o.lon, o.lat) <= 100000
     GROUP BY afc.region, afc.origin_key, afc.hash_size, afc.first_prefix
     HAVING count() = 1
   ),
@@ -201,8 +210,8 @@ SELECT
 FROM edge_consensus AS ec
 INNER JOIN node_details AS sd ON ec.source_node = sd.public_key
 INNER JOIN node_details AS td ON ec.target_node = td.public_key
--- Backstop: drop geographically implausible adjacencies between two located nodes (a single LoRa
--- hop beyond MAX_HOP / 206 km is not realistic and indicates a hash-collision false positive).
+-- Backstop for path-uniq/direct edges: drop adjacencies between two located nodes beyond 206 km
+-- (not a plausible single hop). Anchored edges are already constrained to 100 km in their joins.
 WHERE NOT (sd.loc_ok AND td.loc_ok AND greatCircleDistance(sd.lon, sd.lat, td.lon, td.lat) > 206000);
 -- +goose StatementEnd
 

@@ -266,3 +266,8 @@ html {
 .slider::-moz-range-thumb:hover {
   background: #1d4ed8;
 }
+
+/* Desaturate only the base map tiles so colored route lines/markers stand out */
+.grayscale-tiles .leaflet-tile-pane {
+  filter: grayscale(1);
+}

@@ -238,7 +238,18 @@ export default function MapLayerSettingsComponent({ onSettingsChange }: MapLayer
             </select>
           </div>
 
-          {/* Show meshcore coverage overlay 
+          {/* Grayscale map */}
+          <label className="flex items-center gap-2 mb-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={settings.grayscaleTiles}
+              onChange={(e) => updateSetting('grayscaleTiles', e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Grayscale map</span>
+          </label>
+
+          {/* Show meshcore coverage overlay
           <label className="flex items-center gap-2 mb-3 cursor-pointer">
             <input
               type="checkbox"

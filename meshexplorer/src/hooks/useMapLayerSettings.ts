@@ -8,6 +8,7 @@ export interface MapLayerSettings {
   showNodeNames: boolean;
   enableClustering: boolean;
   tileLayer: string;
+  grayscaleTiles: boolean;
   showAllNeighbors: boolean;
   useColors: boolean;
   nodeTypes: NodeType[];
@@ -21,6 +22,7 @@ const DEFAULT_MAP_LAYER_SETTINGS: MapLayerSettings = {
   showNodeNames: true,
   enableClustering: true,
   tileLayer: "openstreetmap",
+  grayscaleTiles: false,
   showAllNeighbors: false,
   useColors: true,
   nodeTypes: ["meshcore"],

@@ -7,7 +7,7 @@ import L from "leaflet";
 import 'leaflet.markercluster/dist/leaflet.markercluster.js';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import { useConfig } from "./ConfigContext";
+import { useConfig, neighborMinConfidenceOf } from "./ConfigContext";
 import RefreshButton from "@/components/RefreshButton";
 import MapLayerSettingsComponent from "@/components/MapLayerSettings";
 import { type MapLayerSettings } from "@/hooks/useMapLayerSettings";
@@ -373,11 +373,6 @@ function NeighborLines({
     .map(neighbor => {
       // Check if the neighbor is also visible on the map
       const neighborOnMap = nodes.find(node => node.node_id === neighbor.public_key);
-      
-      const hasIncoming = neighbor.directions?.includes('incoming') || false;
-      const hasOutgoing = neighbor.directions?.includes('outgoing') || false;
-      const isBidirectional = hasIncoming && hasOutgoing;
-      
       return {
         neighbor,
         positions: [
@@ -385,26 +380,29 @@ function NeighborLines({
           [neighbor.latitude!, neighbor.longitude!] as [number, number]
         ],
         isNeighborVisible: !!neighborOnMap,
-        hasIncoming,
-        hasOutgoing,
-        isBidirectional
       };
     });
 
+  // Color by derivation method, matching the "show all neighbors" layer.
+  const methodColor = (method?: string) =>
+    method === 'direct' ? '#8b5cf6'           // purple: literal MQTT-direct
+    : method?.startsWith('anchor-') ? '#3b82f6' // blue: anchored
+    : '#14b8a6';                                // teal: path-inferred
 
   return (
     <>
-      {lines.map(({ neighbor, positions, isNeighborVisible, isBidirectional }) => {
-        const lineColor = isNeighborVisible ? (isBidirectional ? '#10b981' : '#3b82f6') : '#94a3b8';
-        
+      {lines.map(({ neighbor, positions, isNeighborVisible }) => {
+        const lineColor = isNeighborVisible ? methodColor(neighbor.method) : '#94a3b8';
+        const opacity = Math.max(0.3, Math.min(0.9, 0.3 + 0.6 * (neighbor.confidence ?? 0.6)));
+
         return (
           <Polyline
             key={`${selectedNodeId}-${neighbor.public_key}`}
             positions={positions}
             pathOptions={{
               color: lineColor,
-              weight: isBidirectional ? strokeWidth + 1 : strokeWidth,
-              opacity: 0.7,
+              weight: strokeWidth,
+              opacity,
               dashArray: isNeighborVisible ? undefined : '5, 5'
             }}
           />
@@ -551,7 +549,6 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     tileLayer: "openstreetmap",
     showAllNeighbors: false,
     useColors: true,
-    minConfidence: 0.5,
     nodeTypes: ["meshcore"],
     showMeshcoreCoverageOverlay: false,
     minPacketCount: 1,
@@ -583,9 +580,13 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
   }, [mapLayerSettings.showAllNeighbors]);
   
   // Use TanStack Query for neighbors data
+  // Hover neighbors come from the same unified graph as "show all neighbors", filtered by the
+  // user's global confidence preference, so the two views are consistent.
   const { data: neighbors = [], isLoading: neighborsLoading } = useNeighbors({
     nodeId: selectedNodeId,
     lastSeen: config?.lastSeen,
+    mode: 'all',
+    minConfidence: neighborMinConfidenceOf(config),
     enabled: !!selectedNodeId
   });
 
@@ -651,7 +652,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
     }
     if (includeNeighbors) {
       params.push('includeNeighbors=true');
-      params.push(`minConfidence=${mapLayerSettings.minConfidence}`);
+      params.push(`minConfidence=${neighborMinConfidenceOf(config)}`);
     }
     if (params.length > 0) {
       url += `?${params.join("&")}`;
@@ -697,7 +698,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
           setAllNeighborsLoading(false);
         }
       });
-  }, [mapLayerSettings.nodeTypes, mapLayerSettings.minConfidence, config?.lastSeen, config?.selectedRegion]);
+  }, [mapLayerSettings.nodeTypes, config?.neighborMinConfidence, config?.lastSeen, config?.selectedRegion]);
 
   function isBoundsInside(inner: [[number, number], [number, number]], outer: [[number, number], [number, number]]) {
     // inner: [[minLat, minLng], [maxLat, maxLng]]
@@ -903,7 +904,7 @@ export default function MapView({ target = '_self' }: MapViewProps = {}) {
       {/* Traffic Legend */}
       {showAllNeighbors && mapLayerSettings.useColors && allNeighborConnections.length > 0 && (() => {
         // At the top confidence notch only literal MQTT-direct edges are shown.
-        const directOnly = mapLayerSettings.minConfidence >= 1;
+        const directOnly = neighborMinConfidenceOf(config) >= 1;
         const hasAnchor = allNeighborConnections.some(conn => conn.method?.startsWith('anchor-'));
         // Calculate logarithmic thresholds for legend display
         const pathConnections = allNeighborConnections.filter(conn => conn.connection_type === 'path');

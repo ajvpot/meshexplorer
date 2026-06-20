@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMeshcoreNodeNeighbors } from "@/lib/clickhouse/actions";
+import { getMeshcoreNodeNeighbors, getMeshcoreNodeAllEdges } from "@/lib/clickhouse/actions";
 
 export async function GET(
   req: Request,
@@ -9,7 +9,11 @@ export async function GET(
     const { publicKey: rawPublicKey } = await params;
     const { searchParams } = new URL(req.url);
     const lastSeen = searchParams.get("lastSeen");
-    
+    // mode=all -> unified neighbor graph (same edges as the map's "show all neighbors"), filtered by
+    // minConfidence. Default mode -> the legacy direct-adjacency list (with incoming/outgoing).
+    const mode = searchParams.get("mode");
+    const minConfidence = searchParams.get("minConfidence");
+
     if (!rawPublicKey) {
       return NextResponse.json({ 
         error: "Public key is required",
@@ -28,8 +32,10 @@ export async function GET(
     // Normalize public key to uppercase for database query
     const publicKey = rawPublicKey.toUpperCase();
 
-    const neighbors = await getMeshcoreNodeNeighbors(publicKey, lastSeen);
-    
+    const neighbors = mode === "all"
+      ? await getMeshcoreNodeAllEdges(publicKey, minConfidence ? Number(minConfidence) : 0, lastSeen)
+      : await getMeshcoreNodeNeighbors(publicKey, lastSeen);
+
     // Check if the parent node exists by trying to get basic node info
     // This is a lightweight check to ensure the node exists before returning neighbors
     if (!neighbors || neighbors.length === 0) {

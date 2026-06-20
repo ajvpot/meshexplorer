@@ -474,6 +474,81 @@ export async function getMeshcoreNodeNeighbors(publicKey: string, lastSeen: stri
   }
 }
 
+// A node's neighbors derived from the unified neighbor graph (meshcore_all_neighbor_edges) — the
+// same edges the map's "show all neighbors" layer draws — filtered to a minimum confidence. Returns
+// the other endpoint of each edge with its derivation method/confidence; dedups a neighbor seen in
+// multiple regions to its highest-confidence edge.
+export async function getMeshcoreNodeAllEdges(publicKey: string, minConfidence: number = 0, lastSeen: string | null = null) {
+  try {
+    const params: Record<string, any> = { publicKey, minConfidence: Number(minConfidence) };
+    const whereConditions = [
+      "(source_node = {publicKey:String} OR target_node = {publicKey:String})",
+      "confidence >= {minConfidence:Float32}",
+      visibleNodeSqlClause("source_name"),
+      visibleNodeSqlClause("target_name"),
+    ];
+    if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {
+      whereConditions.push("source_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND AND target_last_seen >= now() - INTERVAL {lastSeen:UInt32} SECOND");
+      params.lastSeen = Number(lastSeen);
+    }
+
+    const query = `
+      SELECT
+        e.public_key AS public_key,
+        any(e.node_name) AS node_name,
+        any(e.latitude) AS latitude,
+        any(e.longitude) AS longitude,
+        any(e.has_location) AS has_location,
+        argMax(e.method, e.confidence) AS method,
+        max(e.confidence) AS confidence,
+        argMax(e.connection_type, e.confidence) AS connection_type,
+        max(e.packet_count) AS packet_count,
+        any(a.is_repeater) AS is_repeater,
+        any(a.is_chat_node) AS is_chat_node,
+        any(a.is_room_server) AS is_room_server,
+        any(a.has_name) AS has_name
+      FROM (
+        SELECT
+          if(source_node = {publicKey:String}, target_node, source_node) AS public_key,
+          if(source_node = {publicKey:String}, target_name, source_name) AS node_name,
+          if(source_node = {publicKey:String}, target_latitude, source_latitude) AS latitude,
+          if(source_node = {publicKey:String}, target_longitude, source_longitude) AS longitude,
+          if(source_node = {publicKey:String}, target_has_location, source_has_location) AS has_location,
+          method, confidence, connection_type, packet_count
+        FROM meshcore_all_neighbor_edges
+        WHERE ${whereConditions.join(" AND ")}
+      ) AS e
+      LEFT JOIN (
+        SELECT public_key, is_repeater, is_chat_node, is_room_server, has_name FROM meshcore_adverts_latest
+      ) AS a ON a.public_key = e.public_key
+      WHERE e.public_key != {publicKey:String}
+      GROUP BY e.public_key
+      ORDER BY confidence DESC, public_key
+    `;
+
+    const result = await clickhouse.query({ query, query_params: params, format: 'JSONEachRow' });
+    const rows = await result.json();
+    return rows as Array<{
+      public_key: string;
+      node_name: string;
+      latitude: number | null;
+      longitude: number | null;
+      has_location: number;
+      method: string;
+      confidence: number;
+      connection_type: string;
+      packet_count: number;
+      is_repeater: number;
+      is_chat_node: number;
+      is_room_server: number;
+      has_name: number;
+    }>;
+  } catch (error) {
+    console.error('ClickHouse error in getMeshcoreNodeAllEdges:', error);
+    throw error;
+  }
+}
+
 interface SearchQuery {
   query?: string;
   region?: string;

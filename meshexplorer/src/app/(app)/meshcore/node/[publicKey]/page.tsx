@@ -9,7 +9,7 @@ import { formatPublicKey } from "@/lib/meshcore";
 import { getNameIconLabel } from "@/lib/meshcore-map-nodeutils";
 import AdvertDetails from "@/components/AdvertDetails";
 import ContactQRCode from "@/components/ContactQRCode";
-import { useConfig, LAST_SEEN_OPTIONS } from "@/components/ConfigContext";
+import { useConfig, LAST_SEEN_OPTIONS, neighborMinConfidenceOf } from "@/components/ConfigContext";
 import { useNeighbors, type Neighbor } from "@/hooks/useNeighbors";
 import { useNodeData, type NodeData, type NodeInfo, type Advert, type LocationHistory, type MqttInfo, type NodeError } from "@/hooks/useNodeData";
 import { ArrowRightEndOnRectangleIcon, ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
@@ -53,6 +53,34 @@ export default function MeshcoreNodePage() {
     lastSeen: config.lastSeen,
     enabled: !!publicKey
   });
+
+  // Inferred neighbors from the unified neighbor graph (path/anchor derived), filtered by the user's
+  // global confidence preference. Exclude 'direct' (already shown above) and any neighbor already in
+  // the direct list, so this section only adds genuinely inferred links.
+  const {
+    data: allEdges = [],
+    isLoading: inferredLoading
+  } = useNeighbors({
+    nodeId: publicKey,
+    lastSeen: config.lastSeen,
+    mode: 'all',
+    minConfidence: neighborMinConfidenceOf(config),
+    enabled: !!publicKey
+  });
+  const directKeys = new Set(neighbors.map(n => n.public_key));
+  const inferredNeighbors = allEdges.filter(n => n.method !== 'direct' && !directKeys.has(n.public_key));
+  const methodLabel = (m?: string) =>
+    m === 'anchor-gateway' || m === 'anchor-origin' ? 'Anchored'
+    : m === 'path-uniq-3b' ? 'Path (3-byte)'
+    : m === 'path-uniq-2b' ? 'Path (2-byte)'
+    : m === 'path-uniq-1b' ? 'Path (1-byte)'
+    : 'Inferred';
+  // One list: directly-heard neighbors first, then inferred ones, each flagged so the card can show
+  // either direction arrows (direct) or an inference indicator (inferred).
+  const combinedNeighbors = [
+    ...neighbors.map(n => ({ ...n, inferred: false })),
+    ...inferredNeighbors.map(n => ({ ...n, inferred: true })),
+  ];
 
   // Extract error information from TanStack Query error
   const error = queryError?.error || null;
@@ -406,10 +434,10 @@ export default function MeshcoreNodePage() {
         <div className="mt-6 bg-white dark:bg-neutral-900 shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                Neighbors ({neighborsLoading ? "..." : neighbors.length})
+                Neighbors ({neighborsLoading || inferredLoading ? "..." : combinedNeighbors.length})
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Nodes heard directly by this node
+                Heard directly, or inferred from routing paths &amp; adverts
                 {config.lastSeen !== null && (
                   <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                     Last {(() => {
@@ -421,18 +449,18 @@ export default function MeshcoreNodePage() {
               </p>
             </div>
             <div className="p-6">
-              {neighborsLoading ? (
+              {(neighborsLoading || inferredLoading) ? (
                 <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                   Loading neighbors...
                 </div>
-              ) : neighbors.length === 0 ? (
+              ) : combinedNeighbors.length === 0 ? (
                 <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                   No neighbors found
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {neighbors.map((neighbor) => (
+                  {combinedNeighbors.map((neighbor) => (
                     <div key={neighbor.public_key} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
@@ -480,13 +508,25 @@ export default function MeshcoreNodePage() {
                             Location: {neighbor.latitude.toFixed(4)}, {neighbor.longitude.toFixed(4)}
                           </div>
                         ) || null}
-                        {neighbor.directions && neighbor.directions.length > 0 && (
+                        {neighbor.inferred ? (
+                          <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200"
+                              title="Inferred from routing paths / adverts — not heard directly"
+                            >
+                              Inferred · {methodLabel(neighbor.method)}
+                            </span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-neutral-700 dark:text-gray-300">
+                              {Math.round((neighbor.confidence ?? 0) * 100)}% conf
+                            </span>
+                          </div>
+                        ) : (neighbor.directions && neighbor.directions.length > 0 && (
                           <div className="flex items-center gap-1">
                             <span>Direction:</span>
                             {neighbor.directions.includes('incoming') && <ArrowRightEndOnRectangleIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" title="Incoming - This node hears the neighbor" />}
                             {neighbor.directions.includes('outgoing') && <ArrowRightStartOnRectangleIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" title="Outgoing - The neighbor hears this node" />}
                           </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                   ))}

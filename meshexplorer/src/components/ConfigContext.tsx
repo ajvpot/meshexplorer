@@ -15,6 +15,7 @@ export type Config = {
   lastSeen: number | null; // seconds, or null for forever
   meshcoreKeys?: MeshcoreKey[]; // meshcore private keys
   selectedRegion?: string; // selected region for chat messages
+  neighborMinConfidence?: number; // min confidence for derived/inferred neighbor edges (0..1)
 };
 
 
@@ -22,7 +23,26 @@ const DEFAULT_CONFIG: Config = {
   lastSeen: 604800, // 1 week by default
   meshcoreKeys: [], // default empty
   selectedRegion: undefined, // no region selected by default
+  neighborMinConfidence: 0.5, // "Standard": direct + extended-hash path edges; hides anchored/1-byte
 };
+
+// Neighbor-edge confidence tiers, mapped to the minimum `confidence` emitted by
+// meshcore_all_neighbor_edges (direct=1.0, 3-byte≈0.8, 2-byte≈0.6, anchored≈0.45, 1-byte≈0.4).
+// Anchored edges are geographically inferred (not observed hops) so they rank just above the noisy
+// 1-byte tier and are hidden at the default "Standard" threshold.
+export const NEIGHBOR_CONFIDENCE_OPTIONS = [
+  { value: 1.0, label: "MQTT direct only" },
+  { value: 0.7, label: "High (extended hash)" },
+  { value: 0.5, label: "Standard" },
+  { value: 0.45, label: "Include anchored (lower confidence)" },
+  { value: 0, label: "All (include weak 1-byte)" },
+];
+
+// Resolve the effective confidence floor (handles older stored configs missing the field).
+export function neighborMinConfidenceOf(config: Config | undefined | null): number {
+  const v = config?.neighborMinConfidence;
+  return typeof v === "number" ? v : 0.5;
+}
 
 export const LAST_SEEN_OPTIONS = [
   { value: 1800, label: "30m" },
@@ -68,7 +88,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   return (
     <ConfigContext.Provider value={{ config, setConfig, openConfig, openKeyModal, configButtonRef }}>
       {children}
-      {open && <ConfigPopover config={config} setConfig={setConfig} onClose={closeConfig} anchorRef={configButtonRef} onOpenKeyModal={openKeyModal} />}
+      {open && <ConfigPopover config={config} setConfig={setConfig} onClose={closeConfig} anchorRef={configButtonRef} />}
       {keyModalOpen && (
         <MeshcoreKeyModal
           config={config}
@@ -90,7 +110,7 @@ export function useConfig() {
   return useContext(ConfigContext);
 }
 
-function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }: { config: Config, setConfig: (c: Config) => void, onClose: () => void, anchorRef: React.RefObject<HTMLElement | null>, onOpenKeyModal: () => void }) {
+function ConfigPopover({ config, setConfig, onClose, anchorRef }: { config: Config, setConfig: (c: Config) => void, onClose: () => void, anchorRef: React.RefObject<HTMLElement | null> }) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Click outside to close
@@ -152,12 +172,19 @@ function ConfigPopover({ config, setConfig, onClose, anchorRef, onOpenKeyModal }
         </p>
       </div>
       <div className="mb-2">
-        <button
-          className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
-          onClick={onOpenKeyModal}
+        <div className="font-medium mb-2">Neighbor confidence</div>
+        <select
+          className="w-full p-2 border rounded"
+          value={config.neighborMinConfidence ?? 0.5}
+          onChange={e => setConfig({ ...config, neighborMinConfidence: parseFloat(e.target.value) })}
         >
-          Manage Channel Keys
-        </button>
+          {NEIGHBOR_CONFIDENCE_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-1">
+          Minimum confidence for inferred neighbor links (map &amp; node pages)
+        </p>
       </div>
     </div>
   );

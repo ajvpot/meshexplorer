@@ -431,12 +431,12 @@ function AllNeighborLines({
   // Create a set of visible node IDs for quick lookup
   const visibleNodeIds = new Set(nodes.map(node => node.node_id));
 
-  // Filter connections to only show lines between nodes that are visible on the map
-  // and meet the minimum packet count threshold. Confidence filtering happens server-side
+  // Keep a line if EITHER endpoint is visible on the map, so connections that leave the viewport
+  // (one node on-screen, the other off-screen) stay drawn. Each edge carries both endpoints'
+  // coordinates, so the off-screen end renders fine. Confidence filtering happens server-side
   // (the confidence selector drives a refetch), so no client-side confidence filter here.
   const visibleConnections = connections.filter(connection =>
-    visibleNodeIds.has(connection.source_node) &&
-    visibleNodeIds.has(connection.target_node) &&
+    (visibleNodeIds.has(connection.source_node) || visibleNodeIds.has(connection.target_node)) &&
     connection.packet_count >= minPacketCount
   );
 

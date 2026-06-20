@@ -332,21 +332,19 @@ export async function getAllNodeNeighbors(lastSeen: string | null = null, minLat
       visibleNodeSqlClause("target_name"),
     ];
 
-    // Bounding box: both endpoints must be within view (matches the old visible_nodes behavior)
-    if (minLat !== null && minLat !== undefined && minLat !== "") {
-      whereConditions.push("source_latitude >= {minLat:Float64} AND target_latitude >= {minLat:Float64}");
+    // Bounding box: keep an edge if EITHER endpoint is within view, so connections that leave the
+    // viewport (one node on-screen, the other off-screen) stay visible. Both endpoints' coordinates
+    // are denormalized on the edge, so the off-screen end still draws.
+    const bbox = [minLat, maxLat, minLng, maxLng];
+    const hasBbox = bbox.every(v => v !== null && v !== undefined && v !== "");
+    if (hasBbox) {
+      whereConditions.push(`(
+        (source_latitude BETWEEN {minLat:Float64} AND {maxLat:Float64} AND source_longitude BETWEEN {minLng:Float64} AND {maxLng:Float64})
+        OR (target_latitude BETWEEN {minLat:Float64} AND {maxLat:Float64} AND target_longitude BETWEEN {minLng:Float64} AND {maxLng:Float64})
+      )`);
       params.minLat = Number(minLat);
-    }
-    if (maxLat !== null && maxLat !== undefined && maxLat !== "") {
-      whereConditions.push("source_latitude <= {maxLat:Float64} AND target_latitude <= {maxLat:Float64}");
       params.maxLat = Number(maxLat);
-    }
-    if (minLng !== null && minLng !== undefined && minLng !== "") {
-      whereConditions.push("source_longitude >= {minLng:Float64} AND target_longitude >= {minLng:Float64}");
       params.minLng = Number(minLng);
-    }
-    if (maxLng !== null && maxLng !== undefined && maxLng !== "") {
-      whereConditions.push("source_longitude <= {maxLng:Float64} AND target_longitude <= {maxLng:Float64}");
       params.maxLng = Number(maxLng);
     }
     if (lastSeen !== null && lastSeen !== undefined && lastSeen !== "") {

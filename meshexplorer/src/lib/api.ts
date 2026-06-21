@@ -17,6 +17,14 @@ export function getAppName(): string {
 }
 
 /**
+ * Get the Grafana dashboard URL. Returns undefined when NEXT_PUBLIC_GRAFANA_URL
+ * is not set, in which case the Stats page hides the Grafana link.
+ */
+export function getGrafanaUrl(): string | undefined {
+  return process.env.NEXT_PUBLIC_GRAFANA_URL || undefined;
+}
+
+/**
  * Build a full API URL by combining the base URL with the endpoint path.
  * @param endpoint - The API endpoint path (e.g., '/api/stats/total-nodes')
  * @returns The full URL to use for API calls

@@ -4,13 +4,13 @@ import { useEffect } from "react";
 import { useConfig } from "@/components/ConfigContext";
 import { selectorLabel } from "@/lib/regions";
 import { useRegionGroups } from "@/hooks/useRegions";
-import { 
-  useTotalNodes, 
-  useNodesOverTime, 
-  usePopularChannels, 
-  useRepeaterPrefixes, 
-  useUnusedPrefixes 
+import {
+  useTotalNodes,
+  useRepeaterPrefixes,
+  useUnusedPrefixes
 } from "@/hooks/useStats";
+import { getGrafanaUrl } from "@/lib/api";
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 // Component for anchor links next to section headings
@@ -31,29 +31,24 @@ export default function StatsPage() {
   
   // Use TanStack Query hooks for data fetching
   const totalNodesQuery = useTotalNodes(region);
-  const nodesOverTimeQuery = useNodesOverTime(region);
-  const popularChannelsQuery = usePopularChannels(region);
   const repeaterPrefixesQuery = useRepeaterPrefixes(region);
   const unusedPrefixesQuery = useUnusedPrefixes(region);
-  
+
   // Combine loading states - show loading if any query is loading
-  const isLoading = totalNodesQuery.isLoading || 
-                   nodesOverTimeQuery.isLoading || 
-                   popularChannelsQuery.isLoading || 
+  const isLoading = totalNodesQuery.isLoading ||
                    repeaterPrefixesQuery.isLoading;
-  
+
   // Combine error states
-  const error = totalNodesQuery.error || 
-               nodesOverTimeQuery.error || 
-               popularChannelsQuery.error || 
+  const error = totalNodesQuery.error ||
                repeaterPrefixesQuery.error;
-  
+
   // Extract data with fallbacks
   const totalNodes = totalNodesQuery.data?.total_nodes ?? null;
-  const nodesOverTime = nodesOverTimeQuery.data?.data ?? [];
-  const popularChannels = popularChannelsQuery.data?.data ?? [];
   const repeaterPrefixes = repeaterPrefixesQuery.data?.data ?? [];
   const unusedPrefixes = unusedPrefixesQuery.data ?? [];
+
+  // Grafana dashboard link (only shown when configured)
+  const grafanaUrl = getGrafanaUrl();
 
   // Get the display label for the selected region/group
   const { groups } = useRegionGroups();
@@ -87,6 +82,17 @@ export default function StatsPage() {
           </div>
         )}
       </div>
+      {grafanaUrl && (
+        <a
+          href={grafanaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 mb-6 text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          <ExternalLink size={16} />
+          View Grafana dashboard
+        </a>
+      )}
       {error ? (
         <div className="text-red-600 dark:text-red-400">
           <h2 className="text-lg font-semibold mb-2">Error Loading Stats</h2>
@@ -105,65 +111,6 @@ export default function StatsPage() {
               <AnchorLink id="total-nodes" />
             </div>
             <div className="text-3xl font-mono">{totalNodes}</div>
-          </div>
-
-          <div className="mb-6">
-            <div className="group flex items-center">
-              <h2 id="nodes-over-time" className="text-lg font-semibold mb-2">Nodes Heard Over Time</h2>
-              <AnchorLink id="nodes-over-time" />
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Shows nodes heard within the last 7 days by date.
-            </p>
-            <div className="w-full overflow-x-auto">
-              <table className="w-full text-sm border rounded">
-                <thead>
-                  <tr className="bg-gray-100 dark:bg-gray-800 font-semibold">
-                    <th className="border px-3 py-2 text-center min-w-[120px]">Day</th>
-                    <th className="border px-3 py-2 text-center">Total Nodes</th>
-                    <th className="border px-3 py-2 text-center">With Location</th>
-                    <th className="border px-3 py-2 text-center">Without Location</th>
-                    <th className="border px-3 py-2 text-center">Repeaters</th>
-                    <th className="border px-3 py-2 text-center">Room Servers</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {nodesOverTime.map((row, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="border px-3 py-2 text-center min-w-[120px]">{row.day}</td>
-                      <td className="border px-3 py-2 text-center">{row.cumulative_unique_nodes}</td>
-                      <td className="border px-3 py-2 text-center">{row.nodes_with_location}</td>
-                      <td className="border px-3 py-2 text-center">{row.nodes_without_location}</td>
-                      <td className="border px-3 py-2 text-center">{row.repeaters}</td>
-                      <td className="border px-3 py-2 text-center">{row.room_servers}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <div className="group flex items-center">
-              <h2 id="popular-channels" className="text-lg font-semibold mb-2">Most Popular Channels</h2>
-              <AnchorLink id="popular-channels" />
-            </div>
-            <table className="w-full text-sm border">
-              <thead>
-                <tr>
-                  <th className="border px-2 py-1">Channel Hash</th>
-                  <th className="border px-2 py-1">Message Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {popularChannels.map((row, i) => (
-                  <tr key={i}>
-                    <td className="border px-2 py-1">{row.channel_hash}</td>
-                    <td className="border px-2 py-1">{row.message_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
 
           <div className="mb-6">
